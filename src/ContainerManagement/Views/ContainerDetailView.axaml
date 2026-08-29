@@ -59,14 +59,8 @@
             <NumericUpDown Value="{Binding EditWeight}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <TextBlock Classes="label" Text="Still owe supplier" Margin="0,8,0,4" />
-        <TextBlock Text="{Binding SupplierOwed}" />
-        <Grid ColumnDefinitions="160,160,Auto,Auto" Margin="0,8,0,0">
-          <NumericUpDown Value="{Binding SupplierPay}" Minimum="0" Margin="0,0,8,12" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding SupplierMethods}" SelectedItem="{Binding SupplierPayMethod}" Margin="0,0,8,12" />
-          <Button Grid.Column="2" Content="Pay supplier" Command="{Binding PaySupplierCommand}" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Content="Save" Command="{Binding SaveDetailsCommand}" Margin="0,0,0,12" />
-        </Grid>
+        <Button Classes="primary" Content="Save" Command="{Binding SaveDetailsCommand}"
+                HorizontalAlignment="Left" Margin="0,4,0,0" />
       </StackPanel>
     </Border>
 
@@ -77,8 +71,8 @@
         <TextBox Text="{Binding GoodsName}" />
         <Grid ColumnDefinitions="*,*,*">
           <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="SKU / quality" />
-            <TextBox Text="{Binding GoodsSku}" />
+            <TextBlock Classes="label" Text="SKU / quality (optional)" />
+            <TextBox Text="{Binding GoodsSku}" Watermark="optional" />
           </StackPanel>
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Qty" />
@@ -89,18 +83,16 @@
             <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="*,*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="In stock (when editing)" />
             <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" />
           </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Cartons" />
-            <NumericUpDown Value="{Binding GoodsCartons}" Minimum="0" />
-          </StackPanel>
-          <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}"
+          <Button Grid.Column="1" Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Content="Save item" Command="{Binding SaveGoodsCommand}"
+          <Button Grid.Column="2" Content="Save item" Command="{Binding SaveGoodsCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="3" Content="Photo" Command="{Binding PickPhotoCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
         <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item." Margin="0,0,0,8" />
@@ -113,20 +105,6 @@
             <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
           </DataGrid.Columns>
         </DataGrid>
-        <Grid ColumnDefinitions="160,*,Auto,Auto" Margin="0,12,0,0">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Physical count" />
-            <NumericUpDown Value="{Binding CountIs}" Minimum="0" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Reason" />
-            <TextBox Text="{Binding AdjustReason}" Watermark="e.g. warehouse count" />
-          </StackPanel>
-          <Button Grid.Column="2" Content="Adjust stock" Command="{Binding AdjustCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Content="Photo" Command="{Binding PickPhotoCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
-        </Grid>
       </StackPanel>
     </Border>
 

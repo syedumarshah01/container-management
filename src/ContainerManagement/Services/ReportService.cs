@@ -220,7 +220,7 @@ public class ReportService
                 Revenue = revenue,
                 Cogs = cogs,
                 Expenses = expenses,
-                Profit = revenue - cogs - expenses,
+                Profit = revenue - cogs,
                 RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.UnitCost),
                 RemainingQty = c.Items.Sum(i => i.QuantityRemaining),
                 QtySold = s?.QtySold ?? 0,

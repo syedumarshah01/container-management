@@ -32,7 +32,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string subtitle = "";
     [ObservableProperty] private string stockValue = "—";
     [ObservableProperty] private string stockSold = "—";
-    [ObservableProperty] private string supplierOwed = "—";
 
     [ObservableProperty] private string goodsName = "";
     [ObservableProperty] private string goodsSku = "";
@@ -40,9 +39,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private decimal? goodsQty = 1;
     [ObservableProperty] private decimal? goodsInStock;
     [ObservableProperty] private decimal? goodsCost;
-    [ObservableProperty] private decimal? goodsCartons;
-    [ObservableProperty] private decimal? countIs;
-    [ObservableProperty] private string adjustReason = "";
     [ObservableProperty] private ContainerItemRow? selectedItem;
 
     [ObservableProperty] private string expenseCategory = "Sea Freight";
@@ -59,14 +55,10 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
 
-    [ObservableProperty] private decimal? supplierPay;
-    [ObservableProperty] private string supplierPayMethod = "TT";
-
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
     public IReadOnlyList<string> CategoryOptions { get; } = ExpenseCategories.All;
-    public IReadOnlyList<string> SupplierMethods { get; } = SupplierPayMethods.All;
 
     public override async Task LoadAsync()
     {
@@ -122,7 +114,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
             StockValue = Money.Pkr(p.RemainingValue);
             StockSold = p.SoldAmountText;
         }
-        SupplierOwed = Money.Pkr(await _inventory.SupplierBalanceAsync(_id));
     }
 
     partial void OnSelectedItemChanged(ContainerItemRow? value)
@@ -134,8 +125,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsQty = value.Purchased;
         GoodsInStock = value.InStock;
         GoodsCost = value.ForeignCost;
-        GoodsCartons = value.Cartons;
-        CountIs = value.InStock;
     }
 
     partial void OnSelectedExpenseChanged(ContainerExpense? value)
@@ -153,7 +142,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddGoodsAsync(_id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, GoodsCost ?? 0,
-                null, GoodsCartons, null, null, null);
+                null, null, null, null, null);
             _shell.Notify("Item added.");
             ClearGoodsForm();
             await LoadAsync();
@@ -179,26 +168,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
             var remaining = GoodsInStock ?? SelectedItem.InStock;
             await _inventory.UpdateGoodsAsync(
                 SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, remaining, GoodsCost ?? 0,
-                GoodsCartons, null, null, SelectedItem.PhotoPath);
+                null, null, null, SelectedItem.PhotoPath);
             _shell.Notify("Item updated.");
-            await LoadAsync();
-        }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
-    }
-
-    [RelayCommand]
-    private async Task AdjustAsync()
-    {
-        if (SelectedItem is null)
-        {
-            _shell.Notify("Select an item, then type the physical count.", true);
-            return;
-        }
-        try
-        {
-            await _inventory.AdjustStockAsync(SelectedItem.Id, CountIs ?? 0, AdjustReason);
-            _shell.Notify("Stock count saved.");
-            AdjustReason = "";
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -230,7 +201,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
             await _inventory.UpdateGoodsAsync(
                 SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? SelectedItem.Purchased,
                 GoodsInStock ?? SelectedItem.InStock, GoodsCost ?? SelectedItem.ForeignCost,
-                GoodsCartons, null, null, dest);
+                null, null, null, dest);
             _shell.Notify("Photo saved.");
             await LoadAsync();
         }
@@ -312,22 +283,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
-    [RelayCommand]
-    private async Task PaySupplierAsync()
-    {
-        if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to record supplier payment.", true); return; }
-        try
-        {
-            await _inventory.UpdateImportDetailsAsync(
-                _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
-            await _inventory.PaySupplierAsync(_id, DateTime.Today, SupplierPay ?? 0, SupplierPayMethod, null);
-            _shell.Notify("Supplier payment saved.");
-            SupplierPay = 0;
-            await LoadAsync();
-        }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
-    }
-
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.GoContainers();
 
@@ -338,7 +293,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsQty = 1;
         GoodsInStock = null;
         GoodsCost = 0;
-        GoodsCartons = null;
         SelectedItem = null;
     }
 }

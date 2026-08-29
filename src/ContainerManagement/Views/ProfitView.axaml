@@ -36,7 +36,7 @@
       </Border>
       <Border Classes="statcard">
         <StackPanel>
-          <TextBlock Classes="label" Text="Cost + expenses" />
+          <TextBlock Classes="label" Text="Cost" />
           <TextBlock Classes="stat" Text="{Binding Cogs}" />
         </StackPanel>
       </Border>
