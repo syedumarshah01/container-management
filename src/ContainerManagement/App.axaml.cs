@@ -77,12 +77,16 @@ public partial class App : Application
         services.AddDbContextFactory<AppDbContext>(options =>
             options.UseSqlite(DbPaths.ConnectionString));
 
+        services.AddSingleton<AccessService>();
         services.AddSingleton<GoogleDriveService>();
         services.AddSingleton<BackupService>();
         services.AddTransient<InventoryService>();
         services.AddTransient<SalesService>();
         services.AddTransient<LedgerService>();
         services.AddTransient<ReportService>();
+        services.AddTransient<CashService>();
+        services.AddTransient<PrintService>();
+        services.AddTransient<ExportService>();
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<IAppShell>(sp => sp.GetRequiredService<MainViewModel>());
