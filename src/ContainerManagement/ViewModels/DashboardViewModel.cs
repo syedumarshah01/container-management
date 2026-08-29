@@ -18,46 +18,44 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [ObservableProperty] private string inventoryValue = "—";
-    [ObservableProperty] private string moneyInMarket = "—";
+    [ObservableProperty] private string totalSale = "—";
     [ObservableProperty] private string totalProfit = "—";
-    [ObservableProperty] private string containersSummary = "—";
+    [ObservableProperty] private string profitLabel = "Profit this month";
     [ObservableProperty] private string hint = "";
+    [ObservableProperty] private DateTimeOffset? fromDate;
+    [ObservableProperty] private DateTimeOffset? toDate;
 
-    public ObservableCollection<ReceivableRow> TopReceivables { get; } = new();
-    public ObservableCollection<Sale> RecentSales { get; } = new();
     public ObservableCollection<ContainerProfitRow> ContainerProfits { get; } = new();
 
-    [ObservableProperty] private ReceivableRow? selectedReceivable;
-    [ObservableProperty] private Sale? selectedSale;
     [ObservableProperty] private ContainerProfitRow? selectedContainer;
 
     public override async Task LoadAsync()
     {
-        var vm = await _reports.GetDashboardAsync();
-        InventoryValue = Money.Pkr(vm.InventoryValue);
-        MoneyInMarket = Money.Pkr(vm.MoneyInMarket);
-        TotalProfit = Money.Pkr(vm.TotalProfit);
-        ContainersSummary = $"{vm.OpenContainers} / {vm.TotalContainers}";
-        Hint = $"{vm.SalesThisMonth} sales this month · {vm.CustomerCount} customers"
-               + (string.IsNullOrWhiteSpace(vm.LowStockHint) ? "" : " · " + vm.LowStockHint);
+        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        FromDate ??= new DateTimeOffset(start);
+        ToDate ??= new DateTimeOffset(DateTime.Today);
 
-        Replace(TopReceivables, vm.TopReceivables);
-        Replace(RecentSales, vm.RecentSales);
-        Replace(ContainerProfits, vm.ContainerProfits);
+        var dash = await _reports.GetDashboardAsync();
+        InventoryValue = Money.Pkr(dash.InventoryValue);
+        Hint = $"{dash.SalesThisMonth} sales this month · {dash.CustomerCount} customers"
+               + (string.IsNullOrWhiteSpace(dash.LowStockHint) ? "" : " · " + dash.LowStockHint);
+
+        await ApplyAsync();
     }
 
     [RelayCommand]
-    private void OpenReceivable()
+    private async Task ApplyAsync()
     {
-        if (SelectedReceivable is not null)
-            _shell.OpenCustomer(SelectedReceivable.CustomerId);
-    }
+        var from = FromDate?.DateTime;
+        var to = ToDate?.DateTime;
+        var list = await _reports.GetContainerProfitsAsync(from, to);
+        ContainerProfits.Clear();
+        foreach (var r in list)
+            ContainerProfits.Add(r);
 
-    [RelayCommand]
-    private void OpenSale()
-    {
-        if (SelectedSale is not null)
-            _shell.OpenSale(SelectedSale.Id);
+        TotalSale = Money.Pkr(list.Sum(r => r.Revenue));
+        TotalProfit = Money.Pkr(list.Sum(r => r.Profit));
+        ProfitLabel = IsThisMonth(from, to) ? "Profit this month" : "Profit";
     }
 
     [RelayCommand]
@@ -67,13 +65,11 @@ public partial class DashboardViewModel : ViewModelBase
             _shell.OpenContainer(SelectedContainer.ContainerId);
     }
 
-    [RelayCommand] private void GoNewContainer() => _shell.GoContainers();
     [RelayCommand] private void GoNewSale() => _shell.GoNewSale();
 
-    private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source)
+    private static bool IsThisMonth(DateTime? from, DateTime? to)
     {
-        target.Clear();
-        foreach (var item in source)
-            target.Add(item);
+        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        return from?.Date == start && (to is null || to.Value.Date >= DateTime.Today);
     }
 }

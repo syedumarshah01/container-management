@@ -12,22 +12,37 @@
       <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}" />
     </Grid>
 
+    <Border Classes="card">
+      <Grid ColumnDefinitions="*,*,Auto">
+        <StackPanel Margin="0,0,8,0">
+          <TextBlock Classes="label" Text="From" />
+          <DatePicker SelectedDate="{Binding FromDate}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+          <TextBlock Classes="label" Text="To" />
+          <DatePicker SelectedDate="{Binding ToDate}" />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}"
+                VerticalAlignment="Bottom" Margin="0,0,0,12" />
+      </Grid>
+    </Border>
+
     <Grid ColumnDefinitions="*,*,*">
       <Border Classes="statcard">
         <StackPanel>
-          <TextBlock Classes="label" Text="Stock value" />
+          <TextBlock Classes="label" Text="Total valuation" />
           <TextBlock Classes="stat" Text="{Binding InventoryValue}" />
         </StackPanel>
       </Border>
       <Border Classes="statcard">
         <StackPanel>
-          <TextBlock Classes="label" Text="Still to collect" />
-          <TextBlock Classes="stat bad" Text="{Binding MoneyInMarket}" />
+          <TextBlock Classes="label" Text="Total sale" />
+          <TextBlock Classes="stat" Text="{Binding TotalSale}" />
         </StackPanel>
       </Border>
       <Border Classes="statcard" Margin="0,0,0,16">
         <StackPanel>
-          <TextBlock Classes="label" Text="Profit" />
+          <TextBlock Classes="label" Text="{Binding ProfitLabel}" />
           <TextBlock Classes="stat ok" Text="{Binding TotalProfit}" />
         </StackPanel>
       </Border>
@@ -41,6 +56,7 @@
           <DataGrid.Columns>
             <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="*" />
             <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="140" />
             <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
             <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="90" />
           </DataGrid.Columns>
