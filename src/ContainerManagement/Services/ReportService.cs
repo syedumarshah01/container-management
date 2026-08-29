@@ -128,6 +128,69 @@ public class ReportService
             .ToList();
     }
 
+    public async Task<List<SoldProductOption>> ListSoldProductsAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var lines = await db.SaleLines.AsNoTracking()
+            .Include(l => l.Product)
+            .Include(l => l.Sale)
+            .Where(l => l.Sale.Status == SaleStatus.Active)
+            .ToListAsync();
+
+        return lines
+            .GroupBy(l => new { l.ProductId, l.Product.Name, l.Product.Sku, l.Product.Unit })
+            .Select(g => new SoldProductOption
+            {
+                ProductId = g.Key.ProductId,
+                Name = g.Key.Name,
+                Sku = g.Key.Sku,
+                Unit = g.Key.Unit,
+                QtySold = g.Sum(x => x.Quantity)
+            })
+            .OrderBy(p => p.Name)
+            .ToList();
+    }
+
+    public async Task<(decimal TotalQty, decimal TotalAmount, decimal AvgCost, decimal AvgPrice, List<ItemCustomerSaleRow> Customers)>
+        GetItemSalesByCustomerAsync(int productId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var lines = await db.SaleLines.AsNoTracking()
+            .Include(l => l.Sale).ThenInclude(s => s.Customer)
+            .Where(l => l.ProductId == productId && l.Sale.Status == SaleStatus.Active)
+            .ToListAsync();
+
+        var totalQty = lines.Sum(x => x.Quantity);
+        var totalAmount = lines.Sum(x => x.Quantity * x.UnitPrice);
+        var totalCost = lines.Sum(x => x.Quantity * x.UnitCost);
+
+        var customers = lines
+            .GroupBy(l => new { l.Sale.CustomerId, l.Sale.Customer.Name })
+            .Select(g =>
+            {
+                var qty = g.Sum(x => x.Quantity);
+                return new ItemCustomerSaleRow
+                {
+                    CustomerId = g.Key.CustomerId,
+                    CustomerName = g.Key.Name,
+                    Qty = qty,
+                    AvgCost = qty == 0 ? 0 : Math.Round(g.Sum(x => x.Quantity * x.UnitCost) / qty, 2),
+                    AvgPrice = qty == 0 ? 0 : Math.Round(g.Sum(x => x.Quantity * x.UnitPrice) / qty, 2),
+                    Amount = g.Sum(x => x.Quantity * x.UnitPrice)
+                };
+            })
+            .OrderByDescending(r => r.Qty)
+            .ThenBy(r => r.CustomerName)
+            .ToList();
+
+        return (
+            totalQty,
+            totalAmount,
+            totalQty == 0 ? 0 : Math.Round(totalCost / totalQty, 2),
+            totalQty == 0 ? 0 : Math.Round(totalAmount / totalQty, 2),
+            customers);
+    }
+
     public async Task<List<BestSellerRow>> GetBestSellersAsync(DateTime? from, DateTime? to)
     {
         var items = await GetItemProfitsAsync(from, to, null);

@@ -88,6 +88,7 @@ public partial class App : Application
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ContainersViewModel>();
         services.AddTransient<InventoryViewModel>();
+        services.AddTransient<ItemSalesViewModel>();
         services.AddTransient<NewSaleViewModel>();
         services.AddTransient<SalesViewModel>();
         services.AddTransient<CustomersViewModel>();

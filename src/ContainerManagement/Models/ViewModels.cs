@@ -184,6 +184,40 @@ public class ItemProfitRow
     public string ProfitText => Money.Pkr(Profit);
 }
 
+public class SoldProductOption
+{
+    public int ProductId { get; set; }
+    public string Name { get; set; } = "";
+    public string? Sku { get; set; }
+    public string Unit { get; set; } = "pcs";
+    public decimal QtySold { get; set; }
+
+    public string SearchLabel
+    {
+        get
+        {
+            var sku = string.IsNullOrWhiteSpace(Sku) ? "" : $" [{Sku}]";
+            return $"{Name}{sku}  ·  sold {Money.Qty(QtySold)} {Unit}";
+        }
+    }
+
+    public override string ToString() => Name;
+}
+
+public class ItemCustomerSaleRow
+{
+    public int CustomerId { get; set; }
+    public string CustomerName { get; set; } = "";
+    public decimal Qty { get; set; }
+    public decimal AvgCost { get; set; }
+    public decimal AvgPrice { get; set; }
+    public decimal Amount { get; set; }
+    public string QtyText => Money.Qty(Qty);
+    public string CostText => Money.Pkr(AvgCost);
+    public string PriceText => Money.Pkr(AvgPrice);
+    public string AmountText => Money.Pkr(Amount);
+}
+
 public class BestSellerRow
 {
     public string ProductName { get; set; } = "";
