@@ -60,6 +60,8 @@ public class ContainerProfitRow
     public string RevenueText => Money.Pkr(Revenue);
     public string ExpensesText => Money.Pkr(Expenses);
     public string CogsText => Money.Pkr(Cogs);
+    public string QtySoldText => Money.Qty(QtySold);
+    public string SoldAmountText => Money.Pkr(Revenue);
     public override string ToString() => string.IsNullOrWhiteSpace(Title) ? "Container" : Title;
 }
 
@@ -90,7 +92,7 @@ public class InventoryLot
     public decimal UnitCost { get; set; }
     public decimal LandedCost { get; set; }
     public bool NeverSold { get; set; }
-    public decimal Value => Remaining * (LandedCost > 0 ? LandedCost : UnitCost);
+    public decimal Value => Remaining * UnitCost;
 }
 
 public class ReceivableRow
@@ -140,7 +142,7 @@ public class StockOption
     public decimal LandedCost { get; set; }
     public decimal? LastSalePrice { get; set; }
 
-    public decimal SellCost => LandedCost > 0 ? LandedCost : UnitCost;
+    public decimal SellCost => UnitCost;
 
     public override string ToString()
     {

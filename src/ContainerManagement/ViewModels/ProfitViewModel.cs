@@ -84,7 +84,7 @@ public partial class ProfitViewModel : ViewModelBase
         Cogs = Money.Pkr(cost);
         Expenses = Money.Pkr(exp);
         Profit = Money.Pkr(p);
-        ProfitHint = $"Unsold stock still worth {Money.Pkr(stock)} (landed).";
+        ProfitHint = $"Unsold stock still worth {Money.Pkr(stock)}.";
     }
 
     [RelayCommand]

@@ -31,8 +31,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string title = "Container";
     [ObservableProperty] private string subtitle = "";
     [ObservableProperty] private string stockValue = "—";
-    [ObservableProperty] private string profit = "—";
-    [ObservableProperty] private string landedHint = "";
+    [ObservableProperty] private string stockSold = "—";
     [ObservableProperty] private string supplierOwed = "—";
 
     [ObservableProperty] private string goodsName = "";
@@ -52,19 +51,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string expenseNotes = "";
     [ObservableProperty] private ContainerExpense? selectedExpense;
 
-    [ObservableProperty] private string editTitle = "";
-    [ObservableProperty] private string editNumber = "";
-    [ObservableProperty] private string editOrigin = "China";
-    [ObservableProperty] private DateTimeOffset? editArrival;
-    [ObservableProperty] private string editBl = "";
-    [ObservableProperty] private string editCurrency = "PKR";
-    [ObservableProperty] private decimal? editRate = 1;
     [ObservableProperty] private decimal? editCartons;
     [ObservableProperty] private decimal? editCbm;
     [ObservableProperty] private decimal? editWeight;
     [ObservableProperty] private string editSupplier = "";
     [ObservableProperty] private decimal? editSupplierAmount;
-    [ObservableProperty] private string editNotes = "";
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
 
@@ -75,7 +66,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
     public IReadOnlyList<string> CategoryOptions { get; } = ExpenseCategories.All;
-    public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.All;
     public IReadOnlyList<string> SupplierMethods { get; } = SupplierPayMethods.All;
 
     public override async Task LoadAsync()
@@ -92,21 +82,12 @@ public partial class ContainerDetailViewModel : ViewModelBase
         }
 
         Title = c.Title;
-        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival {c.ArrivalDate:dd MMM yyyy}" +
-                   (string.IsNullOrWhiteSpace(c.BlNumber) ? "" : " · BL " + c.BlNumber);
-        EditTitle = c.Title;
-        EditNumber = c.ContainerNumber ?? "";
-        EditOrigin = c.Origin;
-        EditArrival = c.ArrivalDate is DateTime a ? new DateTimeOffset(a) : null;
-        EditBl = c.BlNumber ?? "";
-        EditCurrency = string.IsNullOrWhiteSpace(c.Currency) ? "PKR" : c.Currency;
-        EditRate = c.ExchangeRate <= 0 ? 1 : c.ExchangeRate;
+        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival {c.ArrivalDate:dd MMM yyyy}";
         EditCartons = c.Cartons;
         EditCbm = c.Cbm;
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
         EditSupplierAmount = c.SupplierAmount;
-        EditNotes = c.Notes ?? "";
         IsClosed = c.Status == ContainerStatus.Closed;
 
         _loadingSelection = true;
@@ -122,8 +103,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 Purchased = i.QuantityReceived,
                 InStock = i.QuantityRemaining,
                 UnitCost = i.UnitCost,
-                LandedCost = i.EffectiveCost,
-                ForeignCost = i.ForeignCost > 0 ? i.ForeignCost : i.UnitCost,
+                ForeignCost = i.UnitCost,
                 Cartons = i.Cartons,
                 PhotoPath = i.PhotoPath ?? i.Product.PhotoPath
             });
@@ -140,13 +120,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
         if (p is not null)
         {
             StockValue = Money.Pkr(p.RemainingValue);
-            Profit = Money.Pkr(p.Profit);
+            StockSold = p.SoldAmountText;
         }
-        var goods = Items.Sum(i => i.Purchased * i.UnitCost);
-        var exp = Expenses.Sum(e => e.Amount);
-        LandedHint = goods <= 0
-            ? "Add goods to spread freight onto cost each."
-            : $"Freight & duty {Money.Pkr(exp)} spread onto goods {Money.Pkr(goods)}.";
         SupplierOwed = Money.Pkr(await _inventory.SupplierBalanceAsync(_id));
     }
 
@@ -179,7 +154,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             await _inventory.AddGoodsAsync(_id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, GoodsCost ?? 0,
                 null, GoodsCartons, null, null, null);
-            _shell.Notify("Item added. Landed cost updated.");
+            _shell.Notify("Item added.");
             ClearGoodsForm();
             await LoadAsync();
         }
@@ -269,7 +244,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddExpenseAsync(_id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0, ExpenseNotes);
-            _shell.Notify("Expense added. Landed cost updated.");
+            _shell.Notify("Expense added.");
             ExpenseAmount = 0;
             ExpenseNotes = "";
             await LoadAsync();
@@ -316,12 +291,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to change container details.", true); return; }
         try
         {
-            await _inventory.UpdateContainerAsync(
-                _id, EditTitle, EditNumber, EditOrigin, EditArrival?.DateTime, EditNotes,
-                IsClosed ? ContainerStatus.Closed : ContainerStatus.Open,
-                EditCurrency, EditRate ?? 1, EditBl, EditCartons, EditCbm, EditWeight,
-                EditSupplier, EditSupplierAmount ?? 0);
-            _shell.Notify("Container saved. Landed cost refreshed.");
+            await _inventory.UpdateImportDetailsAsync(
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
+            _shell.Notify("Import details saved.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -346,6 +318,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
         if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to record supplier payment.", true); return; }
         try
         {
+            await _inventory.UpdateImportDetailsAsync(
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
             await _inventory.PaySupplierAsync(_id, DateTime.Today, SupplierPay ?? 0, SupplierPayMethod, null);
             _shell.Notify("Supplier payment saved.");
             SupplierPay = 0;
@@ -378,10 +352,8 @@ public class ContainerItemRow
     public decimal Purchased { get; set; }
     public decimal InStock { get; set; }
     public decimal UnitCost { get; set; }
-    public decimal LandedCost { get; set; }
     public decimal ForeignCost { get; set; }
     public decimal? Cartons { get; set; }
     public string? PhotoPath { get; set; }
     public string UnitCostText => Money.Pkr(UnitCost);
-    public string LandedText => Money.Pkr(LandedCost);
 }

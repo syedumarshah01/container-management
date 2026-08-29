@@ -82,7 +82,7 @@ public class ReportService
                     Sku = g.Key.Sku,
                     Unit = g.Key.Unit,
                     TotalRemaining = remaining,
-                    TotalValue = g.Sum(x => x.QuantityRemaining * x.EffectiveCost),
+                    TotalValue = g.Sum(x => x.QuantityRemaining * x.UnitCost),
                     IsLow = remaining > 0 && remaining <= threshold,
                     Lots = g.Select(x => new InventoryLot
                     {
@@ -92,7 +92,7 @@ public class ReportService
                         Remaining = x.QuantityRemaining,
                         Received = x.QuantityReceived,
                         UnitCost = x.UnitCost,
-                        LandedCost = x.LandedUnitCost,
+                        LandedCost = x.UnitCost,
                         NeverSold = x.QuantityRemaining == x.QuantityReceived && x.SaleLines.Count == 0
                     }).OrderBy(l => l.ContainerTitle).ToList()
                 };
@@ -221,7 +221,7 @@ public class ReportService
                 Cogs = cogs,
                 Expenses = expenses,
                 Profit = revenue - cogs - expenses,
-                RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.EffectiveCost),
+                RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.UnitCost),
                 RemainingQty = c.Items.Sum(i => i.QuantityRemaining),
                 QtySold = s?.QtySold ?? 0,
                 QtyReceived = c.Items.Sum(i => i.QuantityReceived)

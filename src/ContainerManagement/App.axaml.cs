@@ -40,12 +40,6 @@ public partial class App : Application
             }
 
             backups.HardenDatabase();
-            try
-            {
-                var inv = Services.GetRequiredService<InventoryService>();
-                Task.Run(() => inv.RecalcAllLandedAsync()).GetAwaiter().GetResult();
-            }
-            catch (Exception ex) { Console.WriteLine("Landed-cost refresh skipped: " + ex.Message); }
             try { backups.AutoBackupOnStart(); }
             catch (Exception ex) { Console.WriteLine("Auto-backup skipped: " + ex.Message); }
 

@@ -242,7 +242,7 @@ public class SalesService
                 ProductId = item.ProductId,
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
-                UnitCost = item.EffectiveCost
+                UnitCost = item.UnitCost
             });
         }
 

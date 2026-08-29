@@ -83,7 +83,7 @@ public class ContainerItem
 
     public List<SaleLine> SaleLines { get; set; } = new();
 
-    public decimal EffectiveCost => LandedUnitCost > 0 ? LandedUnitCost : UnitCost;
+    public decimal EffectiveCost => UnitCost;
 }
 
 public class Customer

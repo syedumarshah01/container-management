@@ -91,7 +91,22 @@ public class InventoryService
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
         await db.SaveChangesAsync();
-        await RecalcLandedCostAsync(db, id);
+    }
+
+    public async Task UpdateImportDetailsAsync(
+        int id, string? supplierName, decimal supplierAmount,
+        decimal? cartons, decimal? cbm, decimal? weight)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var c = await db.Containers.FindAsync(id)
+            ?? throw new InvalidOperationException("Container not found.");
+        c.Cartons = cartons;
+        c.Cbm = cbm;
+        c.WeightKg = weight;
+        c.SupplierAmount = supplierAmount;
+        c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
+            ? null
+            : await FindOrCreateSupplierId(db, supplierName, null);
         await db.SaveChangesAsync();
     }
 
@@ -125,9 +140,6 @@ public class InventoryService
         if (!string.IsNullOrWhiteSpace(photoPath))
             product.PhotoPath = photoPath;
 
-        var rate = container.ExchangeRate > 0 ? container.ExchangeRate : 1m;
-        var pkr = container.Currency == "PKR" ? costEntered : Math.Round(costEntered * rate, 2);
-
         var item = new ContainerItem
         {
             ContainerId = containerId,
@@ -135,8 +147,8 @@ public class InventoryService
             QuantityReceived = qty,
             QuantityRemaining = qty,
             ForeignCost = costEntered,
-            UnitCost = pkr,
-            LandedUnitCost = pkr,
+            UnitCost = costEntered,
+            LandedUnitCost = costEntered,
             Notes = notes?.Trim(),
             Cartons = cartons,
             Cbm = cbm,
@@ -144,8 +156,6 @@ public class InventoryService
             PhotoPath = photoPath
         };
         db.ContainerItems.Add(item);
-        await db.SaveChangesAsync();
-        await RecalcLandedCostAsync(db, containerId);
         await db.SaveChangesAsync();
         return item;
     }
@@ -170,14 +180,13 @@ public class InventoryService
             ?? throw new InvalidOperationException("Item not found.");
 
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
-        var rate = item.Container.ExchangeRate > 0 ? item.Container.ExchangeRate : 1m;
-        var pkr = item.Container.Currency == "PKR" ? costEntered : Math.Round(costEntered * rate, 2);
 
         item.ProductId = product.Id;
         item.QuantityReceived = received;
         item.QuantityRemaining = remaining;
         item.ForeignCost = costEntered;
-        item.UnitCost = pkr;
+        item.UnitCost = costEntered;
+        item.LandedUnitCost = costEntered;
         item.Cartons = cartons;
         item.Cbm = cbm;
         item.WeightKg = weight;
@@ -186,7 +195,6 @@ public class InventoryService
             item.PhotoPath = photoPath;
             product.PhotoPath = photoPath;
         }
-        await RecalcLandedCostAsync(db, item.ContainerId);
         await db.SaveChangesAsync();
     }
 
@@ -231,8 +239,6 @@ public class InventoryService
         };
         db.Expenses.Add(exp);
         await db.SaveChangesAsync();
-        await RecalcLandedCostAsync(db, containerId);
-        await db.SaveChangesAsync();
         return exp;
     }
 
@@ -248,7 +254,6 @@ public class InventoryService
         exp.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
         exp.Amount = amount;
         exp.Notes = notes?.Trim();
-        await RecalcLandedCostAsync(db, exp.ContainerId);
         await db.SaveChangesAsync();
     }
 
@@ -257,10 +262,7 @@ public class InventoryService
         await using var db = await _factory.CreateDbContextAsync();
         var exp = await db.Expenses.FindAsync(expenseId)
             ?? throw new InvalidOperationException("Expense not found.");
-        var cid = exp.ContainerId;
         db.Expenses.Remove(exp);
-        await db.SaveChangesAsync();
-        await RecalcLandedCostAsync(db, cid);
         await db.SaveChangesAsync();
     }
 
@@ -322,7 +324,7 @@ public class InventoryService
                 Unit = i.Product.Unit,
                 Remaining = i.QuantityRemaining,
                 UnitCost = i.UnitCost,
-                LandedCost = i.LandedUnitCost,
+                LandedCost = i.UnitCost,
                 LastSalePrice = i.Product.LastSalePrice
             })
             .ToListAsync();
@@ -336,29 +338,6 @@ public class InventoryService
             .Where(c => c.Status == ContainerStatus.Open && c.Items.Any(i => i.QuantityRemaining > 0))
             .OrderBy(c => c.Title)
             .ToListAsync();
-    }
-
-    public async Task RecalcAllLandedAsync()
-    {
-        await using var db = await _factory.CreateDbContextAsync();
-        var ids = await db.Containers.Select(c => c.Id).ToListAsync();
-        foreach (var id in ids)
-            await RecalcLandedCostAsync(db, id);
-        await db.SaveChangesAsync();
-    }
-
-    public static async Task RecalcLandedCostAsync(AppDbContext db, int containerId)
-    {
-        var items = await db.ContainerItems.Where(i => i.ContainerId == containerId).ToListAsync();
-        var expenses = await db.Expenses.Where(e => e.ContainerId == containerId).ToListAsync();
-        var goods = items.Sum(i => i.QuantityReceived * i.UnitCost);
-        var exp = expenses.Sum(e => e.Amount);
-        foreach (var item in items)
-        {
-            item.LandedUnitCost = goods <= 0
-                ? item.UnitCost
-                : Math.Round(item.UnitCost * (1 + exp / goods), 4);
-        }
     }
 
     private static async Task<Product> FindOrCreateProductAsync(AppDbContext db, string name, string unit, string? sku)

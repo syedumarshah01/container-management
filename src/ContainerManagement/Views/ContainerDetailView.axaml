@@ -17,67 +17,24 @@
       </StackPanel>
     </DockPanel>
 
-    <Grid ColumnDefinitions="*,*">
-      <Border Classes="statcard">
+    <Grid ColumnDefinitions="*,*" Margin="0,0,0,16">
+      <Border Classes="statcard" Margin="0,0,8,0">
         <StackPanel>
-          <TextBlock Classes="label" Text="Stock still in this container" />
+          <TextBlock Classes="label" Text="Valuation" />
           <TextBlock Classes="stat" Text="{Binding StockValue}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,0">
         <StackPanel>
-          <TextBlock Classes="label" Text="Profit (after landed cost)" />
-          <TextBlock Classes="stat" Text="{Binding Profit}" />
+          <TextBlock Classes="label" Text="Stock sold" />
+          <TextBlock Classes="stat" Text="{Binding StockSold}" />
         </StackPanel>
       </Border>
     </Grid>
-    <TextBlock Classes="muted" Text="{Binding LandedHint}" Margin="0,0,0,16" TextWrapping="Wrap" />
 
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Import details" />
-        <Grid ColumnDefinitions="*,*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Title" />
-            <TextBox Text="{Binding EditTitle}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Container no." />
-            <TextBox Text="{Binding EditNumber}" />
-          </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock Classes="label" Text="BL number" />
-            <TextBox Text="{Binding EditBl}" />
-          </StackPanel>
-        </Grid>
-        <Grid ColumnDefinitions="*,*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Currency" />
-            <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding EditCurrency}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Rate to PKR (1 foreign = ? Rs)" />
-            <NumericUpDown Value="{Binding EditRate}" Minimum="0" />
-          </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock Classes="label" Text="Origin" />
-            <TextBox Text="{Binding EditOrigin}" />
-          </StackPanel>
-        </Grid>
-        <Grid ColumnDefinitions="*,*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Cartons" />
-            <NumericUpDown Value="{Binding EditCartons}" Minimum="0" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="CBM" />
-            <NumericUpDown Value="{Binding EditCbm}" Minimum="0" />
-          </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock Classes="label" Text="Weight kg" />
-            <NumericUpDown Value="{Binding EditWeight}" Minimum="0" />
-          </StackPanel>
-        </Grid>
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Supplier in China" />
@@ -88,13 +45,27 @@
             <NumericUpDown Value="{Binding EditSupplierAmount}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <Button Classes="primary" Content="Save details" Command="{Binding SaveDetailsCommand}" HorizontalAlignment="Left" />
-        <TextBlock Classes="label" Text="Still owe supplier" Margin="0,12,0,4" />
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Cartons (optional)" />
+            <NumericUpDown Value="{Binding EditCartons}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="CBM (optional)" />
+            <NumericUpDown Value="{Binding EditCbm}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Weight kg (optional)" />
+            <NumericUpDown Value="{Binding EditWeight}" Minimum="0" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="label" Text="Still owe supplier" Margin="0,8,0,4" />
         <TextBlock Text="{Binding SupplierOwed}" />
-        <Grid ColumnDefinitions="160,160,Auto" Margin="0,8,0,0">
+        <Grid ColumnDefinitions="160,160,Auto,Auto" Margin="0,8,0,0">
           <NumericUpDown Value="{Binding SupplierPay}" Minimum="0" Margin="0,0,8,12" />
           <ComboBox Grid.Column="1" ItemsSource="{Binding SupplierMethods}" SelectedItem="{Binding SupplierPayMethod}" Margin="0,0,8,12" />
-          <Button Grid.Column="2" Content="Pay supplier" Command="{Binding PaySupplierCommand}" Margin="0,0,0,12" />
+          <Button Grid.Column="2" Content="Pay supplier" Command="{Binding PaySupplierCommand}" Margin="0,0,8,12" />
+          <Button Grid.Column="3" Content="Save" Command="{Binding SaveDetailsCommand}" Margin="0,0,0,12" />
         </Grid>
       </StackPanel>
     </Border>
@@ -114,7 +85,7 @@
             <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" />
           </StackPanel>
           <StackPanel Grid.Column="2">
-            <TextBlock Classes="label" Text="Cost (in container currency)" />
+            <TextBlock Classes="label" Text="Price" />
             <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" />
           </StackPanel>
         </Grid>
@@ -132,15 +103,14 @@
           <Button Grid.Column="3" Content="Save item" Command="{Binding SaveGoodsCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
-        <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item. Cost is converted to Rs using the rate above." Margin="0,0,0,8" />
+        <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item." Margin="0,0,0,8" />
         <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
             <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
             <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
             <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
-            <DataGridTextColumn Header="China cost" Binding="{Binding UnitCostText}" Width="110" />
-            <DataGridTextColumn Header="Landed each" Binding="{Binding LandedText}" Width="120" />
+            <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
           </DataGrid.Columns>
         </DataGrid>
         <Grid ColumnDefinitions="160,*,Auto,Auto" Margin="0,12,0,0">
@@ -162,7 +132,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Expenses (spread onto landed cost)" />
+        <TextBlock Classes="h2" Text="Expenses" />
         <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Category" />
