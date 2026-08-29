@@ -98,7 +98,7 @@
       <Setter Property="MinHeight" Value="120" />
     </Style>
 
-    <Style Selector="TextBox, ComboBox, NumericUpDown, DatePicker">
+    <Style Selector="TextBox, ComboBox, NumericUpDown, DatePicker, AutoCompleteBox">
       <Setter Property="MinHeight" Value="36" />
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>

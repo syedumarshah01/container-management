@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ContainerManagement.ViewModels"
+             xmlns:m="using:ContainerManagement.Models"
              x:Class="ContainerManagement.Views.NewSaleView"
              x:DataType="vm:NewSaleViewModel">
   <StackPanel>
@@ -23,9 +24,38 @@
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding SelectedContainer}" />
 
         <TextBlock Classes="label" Text="Search goods" />
-        <TextBox Text="{Binding StockSearch}" Watermark="Name or SKU" />
+        <AutoCompleteBox Watermark="Type a name or SKU"
+                         MinimumPrefixLength="1"
+                         FilterMode="None"
+                         MaxDropDownHeight="280"
+                         AsyncPopulator="{Binding SearchGoods}"
+                         Text="{Binding StockSearch}"
+                         SelectedItem="{Binding SelectedStock}">
+          <AutoCompleteBox.ItemTemplate>
+            <DataTemplate x:DataType="m:StockOption">
+              <TextBlock Text="{Binding SearchLabel}" />
+            </DataTemplate>
+          </AutoCompleteBox.ItemTemplate>
+        </AutoCompleteBox>
+
         <TextBlock Classes="label" Text="Goods in that container" />
-        <ComboBox ItemsSource="{Binding StockInContainer}" SelectedItem="{Binding SelectedStock}" />
+        <Grid ColumnDefinitions="*,160,160">
+          <ComboBox ItemsSource="{Binding StockInContainer}" SelectedItem="{Binding SelectedStock}" Margin="0,0,8,12">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="m:StockOption">
+                <TextBlock Text="{Binding ProductName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="In stock" />
+            <TextBlock Text="{Binding SelectedStockQty}" Margin="0,0,0,12" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Cost" />
+            <TextBlock Text="{Binding SelectedStockCost}" Margin="0,0,0,12" />
+          </StackPanel>
+        </Grid>
 
         <Grid ColumnDefinitions="*,*,Auto">
           <StackPanel Margin="0,0,12,0">

@@ -13,7 +13,6 @@ public partial class InventoryViewModel : ViewModelBase
     public InventoryViewModel(ReportService reports) => _reports = reports;
 
     public ObservableCollection<InventoryRow> Rows { get; } = new();
-    public ObservableCollection<InventoryLot> NeverSold { get; } = new();
 
     [ObservableProperty] private string query = "";
     [ObservableProperty] private string totalValue = "—";
@@ -45,19 +44,6 @@ public partial class InventoryViewModel : ViewModelBase
         Rows.Clear();
         foreach (var r in list.Where(r => r.TotalRemaining > 0))
             Rows.Add(r);
-
-        NeverSold.Clear();
-        foreach (var r in list)
-        {
-            foreach (var l in r.Lots.Where(x => x.NeverSold))
-            {
-                NeverSold.Add(new InventoryLot
-                {
-                    ContainerTitle = r.ProductName + " · " + l.ContainerTitle,
-                    Remaining = l.Remaining
-                });
-            }
-        }
 
         TotalValue = Money.Pkr(list.Sum(r => r.TotalValue));
         ProductCount = list.Count.ToString();

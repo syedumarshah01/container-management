@@ -14,6 +14,7 @@ public partial class NewSaleViewModel : ViewModelBase
     private readonly LedgerService _ledger;
     private readonly IAppShell _shell;
     private List<StockOption> _stock = new();
+    private bool _syncingStock;
 
     public NewSaleViewModel(InventoryService inventory, SalesService sales, LedgerService ledger, IAppShell shell)
     {
@@ -21,7 +22,10 @@ public partial class NewSaleViewModel : ViewModelBase
         _sales = sales;
         _ledger = ledger;
         _shell = shell;
+        SearchGoods = PopulateSearchAsync;
     }
+
+    public Func<string?, CancellationToken, Task<IEnumerable<object>>> SearchGoods { get; }
 
     public int? EditingSaleId { get; set; }
 
@@ -38,6 +42,8 @@ public partial class NewSaleViewModel : ViewModelBase
     [ObservableProperty] private CargoContainer? selectedContainer;
     [ObservableProperty] private StockOption? selectedStock;
     [ObservableProperty] private string stockSearch = "";
+    [ObservableProperty] private string selectedStockQty = "—";
+    [ObservableProperty] private string selectedStockCost = "—";
     [ObservableProperty] private decimal? pickQty = 1;
     [ObservableProperty] private decimal? pickPrice;
     [ObservableProperty] private decimal? paidNow;
@@ -103,15 +109,34 @@ public partial class NewSaleViewModel : ViewModelBase
 
     partial void OnSelectedContainerChanged(CargoContainer? value)
     {
+        if (_syncingStock)
+        {
+            RefreshStock();
+            return;
+        }
         SelectedStock = null;
         RefreshStock();
     }
 
-    partial void OnStockSearchChanged(string value) => RefreshStock();
-
     partial void OnSelectedStockChanged(StockOption? value)
     {
-        if (value is null) return;
+        if (value is null)
+        {
+            SelectedStockQty = "—";
+            SelectedStockCost = "—";
+            return;
+        }
+
+        if (SelectedContainer is null || SelectedContainer.Id != value.ContainerId)
+        {
+            _syncingStock = true;
+            SelectedContainer = Containers.FirstOrDefault(c => c.Id == value.ContainerId);
+            _syncingStock = false;
+            RefreshStock();
+        }
+
+        SelectedStockQty = Money.Qty(value.Remaining) + " " + value.Unit;
+        SelectedStockCost = Money.Pkr(value.UnitCost);
         PickQty = 1;
         PickPrice = value.LastSalePrice is > 0
             ? value.LastSalePrice
@@ -226,18 +251,26 @@ public partial class NewSaleViewModel : ViewModelBase
         }
     }
 
+    private async Task<IEnumerable<object>> PopulateSearchAsync(string? search, CancellationToken ct)
+    {
+        await Task.Delay(300, ct);
+        if (string.IsNullOrWhiteSpace(search))
+            return Array.Empty<object>();
+
+        return _stock
+            .Where(s =>
+                s.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || (s.Sku ?? "").Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Take(40)
+            .Cast<object>()
+            .ToList();
+    }
+
     private void RefreshStock()
     {
         StockInContainer.Clear();
         if (SelectedContainer is null) return;
-        IEnumerable<StockOption> src = _stock.Where(s => s.ContainerId == SelectedContainer.Id);
-        if (!string.IsNullOrWhiteSpace(StockSearch))
-        {
-            src = src.Where(s =>
-                s.ProductName.Contains(StockSearch, StringComparison.OrdinalIgnoreCase)
-                || (s.Sku ?? "").Contains(StockSearch, StringComparison.OrdinalIgnoreCase));
-        }
-        foreach (var s in src)
+        foreach (var s in _stock.Where(s => s.ContainerId == SelectedContainer.Id))
             StockInContainer.Add(s);
     }
 

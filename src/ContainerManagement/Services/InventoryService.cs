@@ -198,6 +198,24 @@ public class InventoryService
         await db.SaveChangesAsync();
     }
 
+    public async Task DeleteGoodsAsync(int itemId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var item = await db.ContainerItems.FindAsync(itemId)
+            ?? throw new InvalidOperationException("Item not found.");
+
+        var onASale = await db.SaleLines.AnyAsync(l => l.ContainerItemId == itemId);
+        if (onASale)
+            throw new InvalidOperationException("Cannot delete this item — it is already on a sale.");
+        if (item.QuantityRemaining != item.QuantityReceived)
+            throw new InvalidOperationException("Cannot delete this item — stock has already moved.");
+
+        var adjustments = await db.StockAdjustments.Where(a => a.ContainerItemId == itemId).ToListAsync();
+        db.StockAdjustments.RemoveRange(adjustments);
+        db.ContainerItems.Remove(item);
+        await db.SaveChangesAsync();
+    }
+
     public async Task AdjustStockAsync(int itemId, decimal counted, string reason)
     {
         await using var db = await _factory.CreateDbContextAsync();

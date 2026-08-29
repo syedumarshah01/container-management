@@ -7,10 +7,9 @@ namespace ContainerManagement.Services;
 
 public class PrintService
 {
-    public string InvoiceHtml(Sale sale, ShopSettings shop)
+    public string InvoiceHtml(Sale sale, ShopSettings shop, decimal previousBalance, decimal invoiceBalance, decimal totalDue)
     {
         var sb = new StringBuilder();
-        var remaining = Math.Max(0, sale.TotalAmount - sale.PaidNow);
         Start(sb, shop, $"Invoice #{sale.Id}");
         sb.Append($"<p class='muted'>{H(sale.Date.ToString("dd MMM yyyy"))}");
         if (sale.DueDate is DateTime due)
@@ -25,11 +24,10 @@ public class PrintService
             sb.Append($"<br/>{H(sale.Customer.Address)}");
         sb.Append("</p>");
 
-        sb.Append("<table><tr><th>Container</th><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>");
+        sb.Append("<table><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>");
         foreach (var l in sale.Lines)
         {
             sb.Append("<tr>");
-            sb.Append($"<td>{H(l.Container.Title)}</td>");
             sb.Append($"<td>{H(l.Product.Name)}</td>");
             sb.Append($"<td>{H(Money.Qty(l.Quantity))}</td>");
             sb.Append($"<td>{H(Money.Pkr(l.UnitPrice))}</td>");
@@ -43,8 +41,12 @@ public class PrintService
         if (sale.DiscountAmount > 0)
             sb.Append($"Discount: {H(Money.Pkr(sale.DiscountAmount))}<br/>");
         sb.Append($"<b>Total: {H(Money.Pkr(sale.TotalAmount))}</b><br/>");
-        sb.Append($"Received: {H(Money.Pkr(sale.PaidNow))}<br/>");
-        sb.Append($"Balance: {H(Money.Pkr(remaining))}</p>");
+        sb.Append($"Received: {H(Money.Pkr(sale.PaidNow))}</p>");
+        sb.Append("<p>");
+        sb.Append($"Previous ledger balance: {H(Money.Pkr(previousBalance))}<br/>");
+        sb.Append($"This invoice balance: {H(Money.Pkr(invoiceBalance))}<br/>");
+        sb.Append($"<b>Total balance due: {H(Money.Pkr(totalDue))}</b>");
+        sb.Append("</p>");
         if (!string.IsNullOrWhiteSpace(sale.Notes))
             sb.Append($"<p class='muted'>{H(sale.Notes)}</p>");
         End(sb);

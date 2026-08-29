@@ -144,11 +144,16 @@ public class StockOption
 
     public decimal SellCost => UnitCost;
 
-    public override string ToString()
+    public string SearchLabel
     {
-        var sku = string.IsNullOrWhiteSpace(Sku) ? "" : $" [{Sku}]";
-        return $"{ProductName}{sku} — {Money.Qty(Remaining)} {Unit} left";
+        get
+        {
+            var sku = string.IsNullOrWhiteSpace(Sku) ? "" : $" [{Sku}]";
+            return $"{ProductName}{sku}  ·  {ContainerTitle}  ·  {Money.Qty(Remaining)} {Unit}";
+        }
     }
+
+    public override string ToString() => ProductName;
 }
 
 public class NewSaleLineInput

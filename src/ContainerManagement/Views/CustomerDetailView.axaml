@@ -28,6 +28,8 @@
         <StackPanel>
           <TextBlock Classes="label" Text="Collected so far" />
           <TextBlock Classes="stat ok" Text="{Binding ReceivedText}" />
+          <TextBlock Classes="label" Text="Remaining" Margin="0,8,0,0" />
+          <TextBlock Classes="stat" Text="{Binding BalanceText}" />
         </StackPanel>
       </Border>
     </Grid>

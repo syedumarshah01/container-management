@@ -27,6 +27,11 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private string newOrigin = "China";
     [ObservableProperty] private DateTimeOffset? newArrival = DateTimeOffset.Now;
     [ObservableProperty] private string newNotes = "";
+    [ObservableProperty] private string newSupplier = "";
+    [ObservableProperty] private decimal? newSupplierAmount;
+    [ObservableProperty] private decimal? newCartons;
+    [ObservableProperty] private decimal? newCbm;
+    [ObservableProperty] private decimal? newWeight;
 
     public override async Task LoadAsync()
     {
@@ -53,11 +58,24 @@ public partial class ContainersViewModel : ViewModelBase
                 NewNumber,
                 NewOrigin,
                 NewArrival?.DateTime,
-                NewNotes);
+                NewNotes,
+                "PKR",
+                1,
+                null,
+                NewCartons,
+                NewCbm,
+                NewWeight,
+                NewSupplier,
+                NewSupplierAmount ?? 0);
             _shell.Notify($"Container '{c.Title}' created. Add goods on the next screen.");
             NewTitle = "";
             NewNumber = "";
             NewNotes = "";
+            NewSupplier = "";
+            NewSupplierAmount = 0;
+            NewCartons = null;
+            NewCbm = null;
+            NewWeight = null;
             _shell.OpenContainer(c.Id);
         }
         catch (Exception ex)

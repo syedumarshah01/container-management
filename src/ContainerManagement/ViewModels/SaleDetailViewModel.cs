@@ -10,16 +10,18 @@ namespace ContainerManagement.ViewModels;
 public partial class SaleDetailViewModel : ViewModelBase
 {
     private readonly SalesService _sales;
+    private readonly LedgerService _ledger;
     private readonly PrintService _print;
     private readonly AccessService _access;
     private readonly IAppShell _shell;
     private readonly int _id;
     private Sale? _sale;
 
-    public SaleDetailViewModel(int id, SalesService sales, PrintService print, AccessService access, IAppShell shell)
+    public SaleDetailViewModel(int id, SalesService sales, LedgerService ledger, PrintService print, AccessService access, IAppShell shell)
     {
         _id = id;
         _sales = sales;
+        _ledger = ledger;
         _print = print;
         _access = access;
         _shell = shell;
@@ -76,10 +78,17 @@ public partial class SaleDetailViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Print()
+    private async Task PrintAsync()
     {
         if (_sale is null) return;
-        _print.OpenHtml(_print.InvoiceHtml(_sale, ShopSettings.Load()), $"invoice-{_sale.Id}.html");
+        var invoiceBalance = _sale.Status == SaleStatus.Cancelled
+            ? 0
+            : await _sales.RemainingOnInvoiceAsync(_id);
+        var totalDue = await _ledger.GetBalanceAsync(_sale.CustomerId);
+        var previous = totalDue - invoiceBalance;
+        _print.OpenHtml(
+            _print.InvoiceHtml(_sale, ShopSettings.Load(), previous, invoiceBalance, totalDue),
+            $"invoice-{_sale.Id}.html");
     }
 
     [RelayCommand]

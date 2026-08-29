@@ -28,17 +28,5 @@
         </DataGrid.Columns>
       </DataGrid>
     </Border>
-
-    <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="Never sold (still full lot)" />
-        <DataGrid ItemsSource="{Binding NeverSold}" x:CompileBindings="False">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Item / container" Binding="{Binding ContainerTitle}" Width="*" />
-            <DataGridTextColumn Header="Qty" Binding="{Binding Remaining}" Width="90" />
-          </DataGrid.Columns>
-        </DataGrid>
-      </StackPanel>
-    </Border>
   </StackPanel>
 </UserControl>

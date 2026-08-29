@@ -32,7 +32,9 @@
       </Border>
     </Grid>
 
-    <Border Classes="card">
+    <Button Content="Edit import details" Command="{Binding ToggleImportCommand}"
+            HorizontalAlignment="Left" Margin="0,0,0,16" />
+    <Border Classes="card" IsVisible="{Binding ShowImportEditor}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Import details" />
         <Grid ColumnDefinitions="*,*">
@@ -83,7 +85,7 @@
             <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="In stock (when editing)" />
             <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" />
@@ -93,6 +95,8 @@
           <Button Grid.Column="2" Content="Save item" Command="{Binding SaveGoodsCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,8,12" />
           <Button Grid.Column="3" Content="Photo" Command="{Binding PickPhotoCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="4" Classes="danger" Content="Delete" Command="{Binding DeleteGoodsCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
         <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item." Margin="0,0,0,8" />
@@ -127,7 +131,7 @@
           <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
                   VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
-        <TextBlock Classes="muted" FontSize="12" Text="Click a row to edit, then Save." Margin="0,0,0,8" />
+        <TextBlock Classes="muted" FontSize="12" Text="A record only — expenses do not change cost, stock, or profit. Click a row to edit, then Save." Margin="0,0,0,8" />
         <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
