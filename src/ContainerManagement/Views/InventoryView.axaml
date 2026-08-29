@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.InventoryView"
+             x:DataType="vm:InventoryViewModel">
+  <StackPanel>
+    <Grid ColumnDefinitions="*,240">
+      <TextBlock Classes="h1" Text="Stock" />
+      <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container" />
+    </Grid>
+
+    <Border Classes="statcard" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Total stock value (landed)" />
+        <TextBlock Classes="stat" Text="{Binding TotalValue}" />
+        <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <DataGrid ItemsSource="{Binding Rows}" x:CompileBindings="False">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="180" />
+          <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
+          <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
+          <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
+          <DataGridTextColumn Header="Which container" Binding="{Binding LotsText}" Width="*" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Never sold (still full lot)" />
+        <DataGrid ItemsSource="{Binding NeverSold}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Item / container" Binding="{Binding ContainerTitle}" Width="*" />
+            <DataGridTextColumn Header="Qty" Binding="{Binding Remaining}" Width="90" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

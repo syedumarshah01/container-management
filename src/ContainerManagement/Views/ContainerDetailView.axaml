@@ -1,0 +1,193 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ContainerDetailView"
+             x:DataType="vm:ContainerDetailViewModel">
+  <StackPanel>
+    <DockPanel LastChildFill="True" Margin="0,0,0,16">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                  VerticalAlignment="Top">
+        <Button Content="Back" Command="{Binding BackCommand}" />
+        <Button Content="Close / re-open" Command="{Binding ToggleCloseCommand}" />
+        <Button Classes="gold" Content="Sell" Command="{Binding SellFromHereCommand}" />
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
+      </StackPanel>
+    </DockPanel>
+
+    <Grid ColumnDefinitions="*,*">
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Stock still in this container" />
+          <TextBlock Classes="stat" Text="{Binding StockValue}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Margin="0,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Profit (after landed cost)" />
+          <TextBlock Classes="stat" Text="{Binding Profit}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+    <TextBlock Classes="muted" Text="{Binding LandedHint}" Margin="0,0,0,16" TextWrapping="Wrap" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Import details" />
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Title" />
+            <TextBox Text="{Binding EditTitle}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Container no." />
+            <TextBox Text="{Binding EditNumber}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="BL number" />
+            <TextBox Text="{Binding EditBl}" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Currency" />
+            <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding EditCurrency}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Rate to PKR (1 foreign = ? Rs)" />
+            <NumericUpDown Value="{Binding EditRate}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Origin" />
+            <TextBox Text="{Binding EditOrigin}" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Cartons" />
+            <NumericUpDown Value="{Binding EditCartons}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="CBM" />
+            <NumericUpDown Value="{Binding EditCbm}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Weight kg" />
+            <NumericUpDown Value="{Binding EditWeight}" Minimum="0" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Supplier in China" />
+            <TextBox Text="{Binding EditSupplier}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="We owe them (Rs)" />
+            <NumericUpDown Value="{Binding EditSupplierAmount}" Minimum="0" />
+          </StackPanel>
+        </Grid>
+        <Button Classes="primary" Content="Save details" Command="{Binding SaveDetailsCommand}" HorizontalAlignment="Left" />
+        <TextBlock Classes="label" Text="Still owe supplier" Margin="0,12,0,4" />
+        <TextBlock Text="{Binding SupplierOwed}" />
+        <Grid ColumnDefinitions="160,160,Auto" Margin="0,8,0,0">
+          <NumericUpDown Value="{Binding SupplierPay}" Minimum="0" Margin="0,0,8,12" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding SupplierMethods}" SelectedItem="{Binding SupplierPayMethod}" Margin="0,0,8,12" />
+          <Button Grid.Column="2" Content="Pay supplier" Command="{Binding PaySupplierCommand}" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Items" />
+        <TextBlock Classes="label" Text="Name" />
+        <TextBox Text="{Binding GoodsName}" />
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="SKU / quality" />
+            <TextBox Text="{Binding GoodsSku}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Qty" />
+            <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Cost (in container currency)" />
+            <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*,Auto,Auto">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="In stock (when editing)" />
+            <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Cartons" />
+            <NumericUpDown Value="{Binding GoodsCartons}" Minimum="0" />
+          </StackPanel>
+          <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="3" Content="Save item" Command="{Binding SaveGoodsCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+        <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item. Cost is converted to Rs using the rate above." Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
+            <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
+            <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
+            <DataGridTextColumn Header="China cost" Binding="{Binding UnitCostText}" Width="110" />
+            <DataGridTextColumn Header="Landed each" Binding="{Binding LandedText}" Width="120" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <Grid ColumnDefinitions="160,*,Auto,Auto" Margin="0,12,0,0">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Physical count" />
+            <NumericUpDown Value="{Binding CountIs}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Reason" />
+            <TextBox Text="{Binding AdjustReason}" Watermark="e.g. warehouse count" />
+          </StackPanel>
+          <Button Grid.Column="2" Content="Adjust stock" Command="{Binding AdjustCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="3" Content="Photo" Command="{Binding PickPhotoCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Expenses (spread onto landed cost)" />
+        <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Category" />
+            <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Amount" />
+            <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
+          </StackPanel>
+          <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="3" Content="Save" Command="{Binding SaveExpenseCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+        <TextBlock Classes="muted" FontSize="12" Text="Click a row to edit, then Save." Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
+            <DataGridTextColumn Header="What" Binding="{Binding Category}" Width="*" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

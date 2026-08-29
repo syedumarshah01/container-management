@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ReceivablesView"
+             x:DataType="vm:ReceivablesViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="To collect" />
+    <Border Classes="statcard" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Money still in the market" />
+        <TextBlock Classes="stat bad" Text="{Binding Outstanding}" />
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Double-click a name to receive money" />
+        <DataGrid ItemsSource="{Binding Due}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Customer" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="140" />
+            <DataGridTextColumn Header="Last sale" Binding="{Binding LastSaleText}" Width="120" />
+            <DataGridTextColumn Header="Last payment" Binding="{Binding LastPaymentText}" Width="130" />
+            <DataGridTextColumn Header="Aging" Binding="{Binding Aging}" Width="110" />
+            <DataGridTextColumn Header="Balance" Binding="{Binding BalanceText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

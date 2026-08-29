@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ContainersView"
+             x:DataType="vm:ContainersViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Containers" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Add a container" />
+        <TextBlock Classes="label" Text="Title" />
+        <TextBox Text="{Binding NewTitle}" Watermark="e.g. Yiwu electronics — March" />
+        <Grid ColumnDefinitions="*,*,Auto">
+          <StackPanel Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="Container number" />
+            <TextBox Text="{Binding NewNumber}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="Origin" />
+            <TextBox Text="{Binding NewOrigin}" />
+          </StackPanel>
+          <Button Grid.Column="2" Classes="primary" Content="Create" Command="{Binding CreateCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="All containers  —  double-click to open" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
+            <DataGridTextColumn Header="Origin" Binding="{Binding Origin}" Width="140" />
+            <DataGridTextColumn Header="Arrival" Binding="{Binding ArrivalText}" Width="120" />
+            <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

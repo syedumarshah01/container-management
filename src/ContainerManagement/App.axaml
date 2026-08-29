@@ -1,0 +1,106 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:ContainerManagement"
+             x:Class="ContainerManagement.App"
+             RequestedThemeVariant="Light">
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+
+  <Application.Resources>
+    <SolidColorBrush x:Key="NavyBrush">#1B2A4A</SolidColorBrush>
+    <SolidColorBrush x:Key="GoldBrush">#C9A227</SolidColorBrush>
+    <SolidColorBrush x:Key="PageBrush">#F7F7F5</SolidColorBrush>
+    <SolidColorBrush x:Key="MutedBrush">#6B7280</SolidColorBrush>
+    <SolidColorBrush x:Key="OkBrush">#157A3F</SolidColorBrush>
+    <SolidColorBrush x:Key="BadBrush">#B42318</SolidColorBrush>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="Segoe UI, San Francisco, sans-serif" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Background" Value="{StaticResource PageBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="26" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.stat">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.ok">
+      <Setter Property="Foreground" Value="{StaticResource OkBrush}" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="{StaticResource BadBrush}" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource NavyBrush}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.gold">
+      <Setter Property="Background" Value="{StaticResource GoldBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Foreground" Value="{StaticResource BadBrush}" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="20" />
+      <Setter Property="BorderBrush" Value="#E5E7EB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Margin" Value="0,0,0,16" />
+    </Style>
+    <Style Selector="Border.statcard">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="16,14" />
+      <Setter Property="BorderBrush" Value="#E5E7EB" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Margin" Value="0,0,12,16" />
+    </Style>
+
+    <Style Selector="DataGrid">
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="CanUserResizeColumns" Value="True" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="RowHeight" Value="40" />
+      <Setter Property="MinHeight" Value="120" />
+    </Style>
+
+    <Style Selector="TextBox, ComboBox, NumericUpDown, DatePicker">
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+  </Application.Styles>
+</Application>

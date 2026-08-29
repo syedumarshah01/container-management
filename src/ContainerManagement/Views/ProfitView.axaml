@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ProfitView"
+             x:DataType="vm:ProfitViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Profit" />
+    <Border Classes="card">
+      <StackPanel>
+        <Grid ColumnDefinitions="*,*,*,Auto">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="From" />
+            <DatePicker SelectedDate="{Binding FromDate}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="To" />
+            <DatePicker SelectedDate="{Binding ToDate}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Container" />
+            <ComboBox ItemsSource="{Binding ContainerFilter}" SelectedItem="{Binding FilterContainer}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom" Margin="0,0,0,12">
+            <Button Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" />
+            <Button Content="Excel / CSV" Command="{Binding ExportCommand}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+    <Grid ColumnDefinitions="*,*,*">
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Sales" />
+          <TextBlock Classes="stat" Text="{Binding Revenue}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Landed cost + expenses" />
+          <TextBlock Classes="stat" Text="{Binding Cogs}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Margin="0,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Profit" />
+          <TextBlock Classes="stat ok" Text="{Binding Profit}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+    <TextBlock Classes="muted" Text="{Binding ProfitHint}" Margin="0,0,0,16" />
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Per container  —  double-click to open" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Container" Binding="{Binding Title}" Width="*" />
+            <DataGridTextColumn Header="Stock left" Binding="{Binding RemainingValueText}" Width="130" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="120" />
+            <DataGridTextColumn Header="Expenses" Binding="{Binding ExpensesText}" Width="120" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Profit per item" />
+        <DataGrid ItemsSource="{Binding Items}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="Qty sold" Binding="{Binding QtyText}" Width="100" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="130" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Best sellers" />
+        <DataGrid ItemsSource="{Binding BestSellers}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="Qty" Binding="{Binding QtyText}" Width="100" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Daily summary" />
+        <DataGrid ItemsSource="{Binding Days}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="Bills" Binding="{Binding Bills}" Width="80" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding SalesText}" Width="130" />
+            <DataGridTextColumn Header="Cash in" Binding="{Binding CashInText}" Width="130" />
+            <DataGridTextColumn Header="Credit given" Binding="{Binding CreditText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+  <StackPanel>
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel>
+        <TextBlock Classes="h1" Text="Home" Margin="0,0,0,4" />
+        <TextBlock Classes="muted" Text="{Binding Hint}" Margin="0,0,0,16" />
+      </StackPanel>
+      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="*,*,*">
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Stock value" />
+          <TextBlock Classes="stat" Text="{Binding InventoryValue}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Still to collect" />
+          <TextBlock Classes="stat bad" Text="{Binding MoneyInMarket}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Margin="0,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Profit" />
+          <TextBlock Classes="stat ok" Text="{Binding TotalProfit}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Containers  —  double-click to open" />
+        <DataGrid ItemsSource="{Binding ContainerProfits}" SelectedItem="{Binding SelectedContainer}"
+                  DoubleTapped="OnContainerDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="*" />
+            <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
+            <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="90" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

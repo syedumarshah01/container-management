@@ -1,0 +1,43 @@
+## .NET
+bin/
+obj/
+*.DotSettings.user
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Visual Studio / Rider
+.vs/
+.idea/
+*.swp
+*.sln.docstates
+
+## SQLite (live data — keep schema in code)
+App_Data/*.db
+App_Data/*.db-shm
+App_Data/*.db-wal
+**/App_Data/*.db
+**/App_Data/*.db-shm
+**/App_Data/*.db-wal
+*.db
+*.db-shm
+*.db-wal
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Publish output
+publish/
+out/

@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.CashView"
+             x:DataType="vm:CashViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Cash book" />
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Day" />
+        <DatePicker SelectedDate="{Binding Day}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+    <Grid ColumnDefinitions="*,*,*">
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Cash in" />
+          <TextBlock Classes="stat ok" Text="{Binding CashIn}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Bank / JazzCash / EasyPaisa" />
+          <TextBlock Text="{Binding BankIn}" />
+          <TextBlock Text="{Binding JazzIn}" />
+          <TextBlock Text="{Binding EasyIn}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Margin="0,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Net in" />
+          <TextBlock Classes="stat" Text="{Binding Net}" />
+          <TextBlock Classes="muted" Text="{Binding OutTotal}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Add cash in / out (not a customer payment)" />
+        <Grid ColumnDefinitions="120,160,160,*,Auto">
+          <ComboBox ItemsSource="{Binding Directions}" SelectedItem="{Binding MoveDirection}" Margin="0,0,8,12" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Methods}" SelectedItem="{Binding MoveMethod}" Margin="0,0,8,12" />
+          <NumericUpDown Grid.Column="2" Value="{Binding MoveAmount}" Minimum="0" Margin="0,0,8,12" />
+          <TextBox Grid.Column="3" Text="{Binding MoveNotes}" Watermark="Note" Margin="0,0,8,12" />
+          <Button Grid.Column="4" Classes="primary" Content="Add" Command="{Binding AddMoveCommand}" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+    <Border Classes="card">
+      <DataGrid ItemsSource="{Binding Rows}" x:CompileBindings="False">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Time" Binding="{Binding When}" Width="80" />
+          <DataGridTextColumn Header="What" Binding="{Binding What}" Width="*" />
+          <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120" />
+          <DataGridTextColumn Header="In" Binding="{Binding InText}" Width="120" />
+          <DataGridTextColumn Header="Out" Binding="{Binding OutText}" Width="120" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+  </StackPanel>
+</UserControl>

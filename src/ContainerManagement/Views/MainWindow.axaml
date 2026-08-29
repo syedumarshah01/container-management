@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ContainerManagement.ViewModels"
+        x:Class="ContainerManagement.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="CargoKhata"
+        Width="1200" Height="780"
+        MinWidth="960" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+  <Grid>
+    <DockPanel>
+      <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="20,8">
+        <TextBlock Text="{Binding Status}" Classes.bad="{Binding IsError}" FontSize="13" />
+      </Border>
+
+      <Border Width="200" Background="{StaticResource NavyBrush}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="CargoKhata" FontSize="18" FontWeight="SemiBold"
+                     Foreground="White" Margin="20,24,20,16" />
+          <ListBox ItemsSource="{Binding NavItems}"
+                   SelectedItem="{Binding SelectedNav}"
+                   Background="Transparent"
+                   Margin="8,0,8,16"
+                   BorderThickness="0">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="Padding" Value="12,11" />
+                <Setter Property="Margin" Value="0,2" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Foreground" Value="#D6DEEA" />
+                <Setter Property="FontSize" Value="15" />
+              </Style>
+              <Style Selector="ListBoxItem:selected">
+                <Setter Property="Background" Value="#2C3F66" />
+                <Setter Property="Foreground" Value="White" />
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:NavItem">
+                <TextBlock Text="{Binding Title}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+
+      <ScrollViewer Background="{StaticResource PageBrush}">
+        <ContentControl Content="{Binding CurrentPage}" Margin="28,24,28,8" />
+      </ScrollViewer>
+    </DockPanel>
+
+    <Border Background="#F7F7F5" IsVisible="{Binding NeedsPin}">
+      <Border Classes="card" Width="360" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel>
+          <TextBlock Classes="h1" Text="CargoKhata" />
+          <TextBlock Classes="muted" Text="{Binding PinHint}" Margin="0,0,0,12" />
+          <TextBlock Classes="label" Text="PIN" />
+          <TextBox Text="{Binding PinInput}" PasswordChar="•" />
+          <Button Classes="gold" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+    </Border>
+  </Grid>
+</Window>

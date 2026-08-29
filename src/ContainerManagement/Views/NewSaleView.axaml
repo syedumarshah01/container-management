@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.NewSaleView"
+             x:DataType="vm:NewSaleViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="{Binding Heading}" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Customer" />
+            <ComboBox ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Date" />
+            <DatePicker SelectedDate="{Binding SaleDate}" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Classes="label" Text="Sold from which container?" />
+        <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding SelectedContainer}" />
+
+        <TextBlock Classes="label" Text="Search goods" />
+        <TextBox Text="{Binding StockSearch}" Watermark="Name or SKU" />
+        <TextBlock Classes="label" Text="Goods in that container" />
+        <ComboBox ItemsSource="{Binding StockInContainer}" SelectedItem="{Binding SelectedStock}" />
+
+        <Grid ColumnDefinitions="*,*,Auto">
+          <StackPanel Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="Quantity" />
+            <NumericUpDown Value="{Binding PickQty}" Minimum="0" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="Selling price (Rs)" />
+            <NumericUpDown Value="{Binding PickPrice}" Minimum="0" />
+          </StackPanel>
+          <Button Grid.Column="2" Classes="primary" Content="Add to bill" Command="{Binding AddLineCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Bill" />
+        <DataGrid ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
+            <DataGridTextColumn Header="Goods" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70" />
+            <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat='Rs {0:N0}'}" Width="110" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding LineTotal, StringFormat='Rs {0:N0}'}" Width="120" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <Button Content="Remove line" Command="{Binding RemoveLineCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+
+        <Grid ColumnDefinitions="*,*" Margin="0,16,0,0">
+          <StackPanel Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Discount (Rs)" />
+            <NumericUpDown Value="{Binding Discount}" Minimum="0" />
+            <TextBlock Classes="label" Text="Received now (0 = full credit)" />
+            <NumericUpDown Value="{Binding PaidNow}" Minimum="0" />
+            <TextBlock Classes="label" Text="How they paid" />
+            <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding Method}" />
+            <TextBlock Classes="label" Text="Due date (credit only)" />
+            <DatePicker SelectedDate="{Binding DueDate}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Bill total" />
+            <TextBlock Classes="stat" Text="{Binding BillTotal}" />
+            <TextBlock Classes="muted" Text="{Binding LedgerHint}" Margin="0,8,0,16" />
+            <Button Classes="gold" Content="Save sale" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>
