@@ -96,6 +96,5 @@ Then run `publish/mac/CargoKhata`.
 | Profit per container + total | **Profit** |
 | Local + Google Drive copies | **Backup** |
 | Invoice / khata print, PIN, wipe demo | **Settings** + sale / customer screens |
-| Cash / JazzCash / bank today | **Cash** |
 
 Profit = sales revenue − cost of sold goods − expenses on that container. Unsold stock is valuation, not profit.

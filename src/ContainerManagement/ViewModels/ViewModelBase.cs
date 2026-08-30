@@ -33,7 +33,6 @@ public interface IAppShell
     void GoReceivables();
     void GoProfit();
     void GoBackup();
-    void GoCash();
     void GoSettings();
 }
 

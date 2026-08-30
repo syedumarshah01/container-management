@@ -34,7 +34,6 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("Customers", "customers"),
             new NavItem("To collect", "market"),
             new NavItem("Item sales", "itemsales"),
-            new NavItem("Cash", "cash"),
             new NavItem("Profit", "profit"),
             new NavItem("Backup", "backup"),
             new NavItem("Settings", "settings")
@@ -231,7 +230,6 @@ public partial class MainViewModel : ObservableObject, IAppShell
     public void GoReceivables() => Select("market");
     public void GoProfit() => Select("profit");
     public void GoBackup() => Select("backup");
-    public void GoCash() => Select("cash");
     public void GoSettings() => Select("settings");
 
     public void OpenContainer(int id) =>
@@ -287,17 +285,17 @@ public partial class MainViewModel : ObservableObject, IAppShell
         return page;
     }
 
-    private void Present(ViewModelBase vm, bool forceLoad = false)
+    private void Present(ViewModelBase vm, bool forceLoad = false, bool allowReload = true)
     {
         CurrentPage = vm;
-        _ = LoadSafe(vm, forceLoad);
+        _ = LoadSafe(vm, forceLoad, allowReload);
     }
 
-    private async Task LoadSafe(ViewModelBase vm, bool forceLoad)
+    private async Task LoadSafe(ViewModelBase vm, bool forceLoad, bool allowReload)
     {
         try
         {
-            if (forceLoad || !vm.HasLoaded || vm.ReloadOnShow)
+            if (forceLoad || !vm.HasLoaded || (allowReload && vm.ReloadOnShow))
             {
                 await vm.LoadAsync();
                 vm.HasLoaded = true;
@@ -327,7 +325,6 @@ public partial class MainViewModel : ObservableObject, IAppShell
         "market" => _services.GetRequiredService<ReceivablesViewModel>(),
         "profit" => _services.GetRequiredService<ProfitViewModel>(),
         "backup" => _services.GetRequiredService<BackupViewModel>(),
-        "cash" => _services.GetRequiredService<CashViewModel>(),
         "settings" => _services.GetRequiredService<SettingsViewModel>(),
         _ => _services.GetRequiredService<DashboardViewModel>()
     };
