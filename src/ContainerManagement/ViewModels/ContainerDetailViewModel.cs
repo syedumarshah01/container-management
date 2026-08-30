@@ -309,7 +309,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
 
     [RelayCommand] private void ToggleImport() => ShowImportEditor = !ShowImportEditor;
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
-    [RelayCommand] private void Back() => _shell.GoContainers();
+    [RelayCommand] private void Back() => _shell.Back();
 
     private void ClearGoodsForm()
     {

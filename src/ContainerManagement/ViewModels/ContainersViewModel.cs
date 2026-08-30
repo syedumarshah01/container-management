@@ -76,6 +76,7 @@ public partial class ContainersViewModel : ViewModelBase
             NewCartons = null;
             NewCbm = null;
             NewWeight = null;
+            await LoadAsync();
             _shell.OpenContainer(c.Id);
         }
         catch (Exception ex)

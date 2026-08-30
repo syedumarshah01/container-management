@@ -27,6 +27,8 @@ public partial class NewSaleViewModel : ViewModelBase
 
     public Func<string?, CancellationToken, Task<IEnumerable<object>>> SearchGoods { get; }
 
+    public override bool ReloadOnShow => false;
+
     public int? EditingSaleId { get; set; }
 
     public ObservableCollection<Customer> Customers { get; } = new();
@@ -242,6 +244,7 @@ public partial class NewSaleViewModel : ViewModelBase
                     SelectedCustomer.Id, SaleDate?.DateTime ?? DateTime.Today,
                     Lines.ToList(), PaidNow ?? 0, Method, Notes, Discount ?? 0, due);
                 _shell.Notify($"Sale #{sale.Id} saved. Ledger updated.");
+                await ResetDraftAsync();
             }
             _shell.OpenSale(sale.Id);
         }
@@ -264,6 +267,24 @@ public partial class NewSaleViewModel : ViewModelBase
             .Take(40)
             .Cast<object>()
             .ToList();
+    }
+
+    private async Task ResetDraftAsync()
+    {
+        EditingSaleId = null;
+        Heading = "Sell";
+        Lines.Clear();
+        Notes = "";
+        Discount = null;
+        PaidNow = null;
+        DueDate = null;
+        SelectedStock = null;
+        StockSearch = "";
+        PickQty = 1;
+        PickPrice = null;
+        _stock = await _inventory.GetSellableStockAsync();
+        RefreshStock();
+        Recalc();
     }
 
     private void RefreshStock()

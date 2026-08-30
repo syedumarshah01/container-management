@@ -15,6 +15,8 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly IAppShell _shell;
 
+    public override bool ReloadOnShow => false;
+
     public SettingsViewModel(AccessService access, LicenseService license, BackupService backups, IDbContextFactory<AppDbContext> dbFactory, IAppShell shell)
     {
         _access = access;

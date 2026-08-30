@@ -209,5 +209,5 @@ public partial class CustomerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand] private void NewSale() => _shell.GoNewSale();
-    [RelayCommand] private void Back() => _shell.GoCustomers();
+    [RelayCommand] private void Back() => _shell.Back();
 }

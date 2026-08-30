@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:ContainerManagement.ViewModels"
+        xmlns:views="using:ContainerManagement.Views"
         x:Class="ContainerManagement.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="{Binding BrandName}"
@@ -44,9 +45,7 @@
         </DockPanel>
       </Border>
 
-      <ScrollViewer Background="{StaticResource PageBrush}">
-        <ContentControl Content="{Binding CurrentPage}" Margin="28,24,28,8" />
-      </ScrollViewer>
+      <views:PageHost Page="{Binding CurrentPage}" />
     </DockPanel>
 
     <Border Background="#F7F7F5" IsVisible="{Binding NeedsPin}">

@@ -13,6 +13,8 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private readonly AccessService _access;
     private readonly LicenseService _license;
     private bool _suppressNav;
+    private readonly Dictionary<string, ViewModelBase> _navPages = new();
+    private readonly Stack<ViewModelBase> _back = new();
     private bool _checkingLicense;
     private DispatcherTimer? _licenseTimer;
     private DateTime _lastLicenseCheckUtc = DateTime.MinValue;
@@ -27,11 +29,11 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("Home", "dash"),
             new NavItem("Containers", "containers"),
             new NavItem("Stock", "inventory"),
-            new NavItem("Item sales", "itemsales"),
             new NavItem("Sell", "newsale"),
             new NavItem("Sales", "sales"),
             new NavItem("Customers", "customers"),
             new NavItem("To collect", "market"),
+            new NavItem("Item sales", "itemsales"),
             new NavItem("Cash", "cash"),
             new NavItem("Profit", "profit"),
             new NavItem("Backup", "backup"),
@@ -200,13 +202,24 @@ public partial class MainViewModel : ObservableObject, IAppShell
     {
         if (_suppressNav || value is null || NeedsPin || NeedsActivation || NeedsLicenseLock)
             return;
-        Show(Create(value.Key));
+        ShowNav(value.Key);
     }
 
     public void Notify(string message, bool error = false)
     {
         Status = message;
         IsError = error;
+    }
+
+    public void Back()
+    {
+        if (_back.Count > 0)
+        {
+            Present(_back.Pop(), allowReload: false);
+            return;
+        }
+        if (SelectedNav is not null)
+            ShowNav(SelectedNav.Key);
     }
 
     public void GoDashboard() => Select("dash");
@@ -221,58 +234,74 @@ public partial class MainViewModel : ObservableObject, IAppShell
     public void GoCash() => Select("cash");
     public void GoSettings() => Select("settings");
 
-    public void OpenContainer(int id)
-    {
-        var vm = ActivatorUtilities.CreateInstance<ContainerDetailViewModel>(_services, id);
-        ShowWithoutNav(vm);
-    }
+    public void OpenContainer(int id) =>
+        Push(ActivatorUtilities.CreateInstance<ContainerDetailViewModel>(_services, id));
 
     public void OpenSale(int id)
     {
         var vm = ActivatorUtilities.CreateInstance<SaleDetailViewModel>(_services, id);
-        ShowWithoutNav(vm);
+        if (CurrentPage is NewSaleViewModel)
+            Present(vm, forceLoad: true);
+        else
+            Push(vm);
     }
 
     public void EditSale(int id)
     {
-        var vm = _services.GetRequiredService<NewSaleViewModel>();
+        var vm = ActivatorUtilities.CreateInstance<NewSaleViewModel>(_services);
         vm.EditingSaleId = id;
-        ShowWithoutNav(vm);
+        Push(vm);
     }
 
-    public void OpenCustomer(int id)
-    {
-        var vm = ActivatorUtilities.CreateInstance<CustomerDetailViewModel>(_services, id);
-        ShowWithoutNav(vm);
-    }
+    public void OpenCustomer(int id) =>
+        Push(ActivatorUtilities.CreateInstance<CustomerDetailViewModel>(_services, id));
 
     private void Select(string key)
     {
         var item = NavItems.First(n => n.Key == key);
         if (ReferenceEquals(SelectedNav, item))
-            Show(Create(key));
+            ShowNav(key);
         else
             SelectedNav = item;
     }
 
-    private void ShowWithoutNav(ViewModelBase vm)
+    private void ShowNav(string key)
     {
-        _suppressNav = true;
-        Show(vm);
-        _suppressNav = false;
+        _back.Clear();
+        Present(NavPage(key));
     }
 
-    private void Show(ViewModelBase vm)
+    private void Push(ViewModelBase vm)
+    {
+        if (CurrentPage is not null)
+            _back.Push(CurrentPage);
+        Present(vm, forceLoad: true);
+    }
+
+    private ViewModelBase NavPage(string key)
+    {
+        if (_navPages.TryGetValue(key, out var page))
+            return page;
+        page = Create(key);
+        _navPages[key] = page;
+        return page;
+    }
+
+    private void Present(ViewModelBase vm, bool forceLoad = false)
     {
         CurrentPage = vm;
-        _ = LoadSafe(vm);
+        _ = LoadSafe(vm, forceLoad);
     }
 
-    private async Task LoadSafe(ViewModelBase vm)
+    private async Task LoadSafe(ViewModelBase vm, bool forceLoad)
     {
         try
         {
-            await vm.LoadAsync();
+            if (forceLoad || !vm.HasLoaded || vm.ReloadOnShow)
+            {
+                await vm.LoadAsync();
+                vm.HasLoaded = true;
+            }
         }
         catch (Exception ex)
         {

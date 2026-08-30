@@ -139,7 +139,7 @@ public partial class SaleDetailViewModel : ViewModelBase
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
-    [RelayCommand] private void Back() => _shell.GoSales();
+    [RelayCommand] private void Back() => _shell.Back();
 }
 
 public partial class SaleLineRow : ObservableObject
