@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
+    public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
+    public DbSet<SaleReturnLine> SaleReturnLines => Set<SaleReturnLine>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<ContainerExpense> Expenses => Set<ContainerExpense>();
@@ -87,6 +89,24 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Sale).WithMany(s => s.Lines).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Container).WithMany(c => c.SaleLines).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ContainerItem).WithMany(i => i.SaleLines).HasForeignKey(x => x.ContainerItemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<SaleReturn>(e =>
+        {
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasOne(x => x.Sale).WithMany(s => s.Returns).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.SaleId);
+        });
+
+        model.Entity<SaleReturnLine>(e =>
+        {
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.Property(x => x.UnitCost).HasPrecision(18, 2);
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasOne(x => x.Return).WithMany(r => r.Lines).HasForeignKey(x => x.SaleReturnId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.SaleLine).WithMany().HasForeignKey(x => x.SaleLineId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
         });
 

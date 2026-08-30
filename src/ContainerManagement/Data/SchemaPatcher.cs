@@ -68,6 +68,33 @@ public static class SchemaPatcher
             """);
 
         Exec(con, """
+            CREATE TABLE IF NOT EXISTS SaleReturns (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SaleId INTEGER NOT NULL,
+                CustomerId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Amount REAL NOT NULL,
+                Notes TEXT
+            );
+            """);
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS SaleReturnLines (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SaleReturnId INTEGER NOT NULL,
+                SaleLineId INTEGER NOT NULL,
+                ContainerId INTEGER NOT NULL,
+                ContainerItemId INTEGER NOT NULL,
+                ProductId INTEGER NOT NULL,
+                Quantity REAL NOT NULL,
+                UnitPrice REAL NOT NULL,
+                UnitCost REAL NOT NULL,
+                Amount REAL NOT NULL,
+                FOREIGN KEY (SaleReturnId) REFERENCES SaleReturns(Id)
+            );
+            """);
+
+        Exec(con, """
             CREATE TABLE IF NOT EXISTS CashMovements (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 Date TEXT NOT NULL,

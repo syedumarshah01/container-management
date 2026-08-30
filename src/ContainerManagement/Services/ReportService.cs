@@ -113,17 +113,34 @@ public class ReportService
         if (to is DateTime t) q = q.Where(l => l.Sale.Date < t.Date.AddDays(1));
         if (containerId is > 0) q = q.Where(l => l.ContainerId == containerId);
         var list = await q.ToListAsync();
+        var retQ = db.SaleReturnLines.AsNoTracking()
+            .Include(l => l.Product)
+            .Include(l => l.Return)
+            .AsQueryable();
+        if (from is DateTime rf) retQ = retQ.Where(l => l.Return.Date >= rf.Date);
+        if (to is DateTime rt) retQ = retQ.Where(l => l.Return.Date < rt.Date.AddDays(1));
+        if (containerId is > 0) retQ = retQ.Where(l => l.ContainerId == containerId);
+        var returned = await retQ.ToListAsync();
+
         return list
             .GroupBy(l => new { l.ProductId, l.Product.Name, l.Product.Sku })
-            .Select(g => new ItemProfitRow
+            .Select(g =>
             {
-                ProductName = g.Key.Name,
-                Sku = g.Key.Sku,
-                QtySold = g.Sum(x => x.Quantity),
-                Revenue = g.Sum(x => x.Quantity * x.UnitPrice),
-                Cogs = g.Sum(x => x.Quantity * x.UnitCost),
-                Profit = g.Sum(x => x.Quantity * x.UnitPrice - x.Quantity * x.UnitCost)
+                var rets = returned.Where(x => x.ProductId == g.Key.ProductId).ToList();
+                var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
+                var revenue = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
+                var cogs = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
+                return new ItemProfitRow
+                {
+                    ProductName = g.Key.Name,
+                    Sku = g.Key.Sku,
+                    QtySold = qty,
+                    Revenue = revenue,
+                    Cogs = cogs,
+                    Profit = revenue - cogs
+                };
             })
+            .Where(r => r.QtySold > 0.0005m || r.Revenue > 0.009m)
             .OrderByDescending(r => r.Profit)
             .ToList();
     }
@@ -136,6 +153,7 @@ public class ReportService
             .Include(l => l.Sale)
             .Where(l => l.Sale.Status == SaleStatus.Active)
             .ToListAsync();
+        var returned = await db.SaleReturnLines.AsNoTracking().ToListAsync();
 
         return lines
             .GroupBy(l => new { l.ProductId, l.Product.Name, l.Product.Sku, l.Product.Unit })
@@ -145,8 +163,9 @@ public class ReportService
                 Name = g.Key.Name,
                 Sku = g.Key.Sku,
                 Unit = g.Key.Unit,
-                QtySold = g.Sum(x => x.Quantity)
+                QtySold = g.Sum(x => x.Quantity) - returned.Where(x => x.ProductId == g.Key.ProductId).Sum(x => x.Quantity)
             })
+            .Where(p => p.QtySold > 0.0005m)
             .OrderBy(p => p.Name)
             .ToList();
     }
@@ -159,26 +178,34 @@ public class ReportService
             .Include(l => l.Sale).ThenInclude(s => s.Customer)
             .Where(l => l.ProductId == productId && l.Sale.Status == SaleStatus.Active)
             .ToListAsync();
+        var returned = await db.SaleReturnLines.AsNoTracking()
+            .Include(l => l.Return)
+            .Where(l => l.ProductId == productId)
+            .ToListAsync();
 
-        var totalQty = lines.Sum(x => x.Quantity);
-        var totalAmount = lines.Sum(x => x.Quantity * x.UnitPrice);
-        var totalCost = lines.Sum(x => x.Quantity * x.UnitCost);
+        var totalQty = lines.Sum(x => x.Quantity) - returned.Sum(x => x.Quantity);
+        var totalAmount = lines.Sum(x => x.Quantity * x.UnitPrice) - returned.Sum(x => x.Amount);
+        var totalCost = lines.Sum(x => x.Quantity * x.UnitCost) - returned.Sum(x => x.Quantity * x.UnitCost);
 
         var customers = lines
             .GroupBy(l => new { l.Sale.CustomerId, l.Sale.Customer.Name })
             .Select(g =>
             {
-                var qty = g.Sum(x => x.Quantity);
+                var rets = returned.Where(x => x.Return.CustomerId == g.Key.CustomerId).ToList();
+                var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
+                var cost = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
+                var amount = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
                 return new ItemCustomerSaleRow
                 {
                     CustomerId = g.Key.CustomerId,
                     CustomerName = g.Key.Name,
                     Qty = qty,
-                    AvgCost = qty == 0 ? 0 : Math.Round(g.Sum(x => x.Quantity * x.UnitCost) / qty, 2),
-                    AvgPrice = qty == 0 ? 0 : Math.Round(g.Sum(x => x.Quantity * x.UnitPrice) / qty, 2),
-                    Amount = g.Sum(x => x.Quantity * x.UnitPrice)
+                    AvgCost = qty == 0 ? 0 : Math.Round(cost / qty, 2),
+                    AvgPrice = qty == 0 ? 0 : Math.Round(amount / qty, 2),
+                    Amount = amount
                 };
             })
+            .Where(r => r.Qty > 0.0005m)
             .OrderByDescending(r => r.Qty)
             .ThenBy(r => r.CustomerName)
             .ToList();
@@ -251,6 +278,10 @@ public class ReportService
         if (from is DateTime f) saleLines = saleLines.Where(l => l.Sale.Date >= f.Date).ToList();
         if (to is DateTime t) saleLines = saleLines.Where(l => l.Sale.Date < t.Date.AddDays(1)).ToList();
 
+        var returnLines = await db.SaleReturnLines.AsNoTracking().Include(l => l.Return).ToListAsync();
+        if (from is DateTime rf) returnLines = returnLines.Where(l => l.Return.Date >= rf.Date).ToList();
+        if (to is DateTime rt) returnLines = returnLines.Where(l => l.Return.Date < rt.Date.AddDays(1)).ToList();
+
         var lines = saleLines
             .GroupBy(l => l.ContainerId)
             .Select(g => new
@@ -265,8 +296,9 @@ public class ReportService
         return containers.Select(c =>
         {
             var s = lines.FirstOrDefault(x => x.ContainerId == c.Id);
-            var revenue = s?.Revenue ?? 0;
-            var cogs = s?.Cogs ?? 0;
+            var rets = returnLines.Where(x => x.ContainerId == c.Id).ToList();
+            var revenue = (s?.Revenue ?? 0) - rets.Sum(x => x.Amount);
+            var cogs = (s?.Cogs ?? 0) - rets.Sum(x => x.Quantity * x.UnitCost);
             var expenses = from is null && to is null
                 ? c.Expenses.Sum(e => e.Amount)
                 : c.Expenses.Where(e =>
@@ -286,7 +318,7 @@ public class ReportService
                 Profit = revenue - cogs,
                 RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.UnitCost),
                 RemainingQty = c.Items.Sum(i => i.QuantityRemaining),
-                QtySold = s?.QtySold ?? 0,
+                QtySold = (s?.QtySold ?? 0) - rets.Sum(x => x.Quantity),
                 QtyReceived = c.Items.Sum(i => i.QuantityReceived)
             };
         }).ToList();

@@ -119,6 +119,37 @@ public class Sale
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public List<SaleLine> Lines { get; set; } = new();
+    public List<SaleReturn> Returns { get; set; } = new();
+}
+
+public class SaleReturn
+{
+    public int Id { get; set; }
+    public int SaleId { get; set; }
+    public Sale Sale { get; set; } = null!;
+    public int CustomerId { get; set; }
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Amount { get; set; }
+    public string? Notes { get; set; }
+
+    public List<SaleReturnLine> Lines { get; set; } = new();
+}
+
+public class SaleReturnLine
+{
+    public int Id { get; set; }
+    public int SaleReturnId { get; set; }
+    public SaleReturn Return { get; set; } = null!;
+    public int SaleLineId { get; set; }
+    public SaleLine SaleLine { get; set; } = null!;
+    public int ContainerId { get; set; }
+    public int ContainerItemId { get; set; }
+    public int ProductId { get; set; }
+    public Product Product { get; set; } = null!;
+    public decimal Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public class SaleLine

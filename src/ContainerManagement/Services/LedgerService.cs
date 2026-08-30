@@ -119,7 +119,8 @@ public class LedgerService
             if (sale.Status != SaleStatus.Active)
                 throw new InvalidOperationException("That invoice is cancelled.");
             var already = await db.Payments.Where(p => p.SaleId == sid).ToListAsync();
-            var left = sale.TotalAmount - already.Sum(p => p.Amount);
+            var returned = await db.SaleReturns.Where(r => r.SaleId == sid).ToListAsync();
+            var left = sale.TotalAmount - already.Sum(p => p.Amount) - returned.Sum(r => r.Amount);
             if (amount - left > 0.009m)
                 throw new InvalidOperationException($"Only {Money.Pkr(left)} is left on invoice #{sid}.");
             against = $" against sale #{sid}";
@@ -232,6 +233,7 @@ public class LedgerService
         var invoicePays = await db.Payments.AsNoTracking()
             .Where(p => p.SaleId != null)
             .ToListAsync();
+        var invoiceReturns = await db.SaleReturns.AsNoTracking().ToListAsync();
 
         var rows = new List<ReceivableRow>();
         foreach (var c in customers)
@@ -240,7 +242,9 @@ public class LedgerService
             DateTime? oldest = null;
             foreach (var s in activeSales.Where(s => s.CustomerId == c.Id))
             {
-                var left = s.TotalAmount - invoicePays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount);
+                var left = s.TotalAmount
+                           - invoicePays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
+                           - invoiceReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount);
                 if (left <= 0.009m) continue;
                 var due = s.DueDate ?? s.Date;
                 if (oldest is null || due < oldest) oldest = due;

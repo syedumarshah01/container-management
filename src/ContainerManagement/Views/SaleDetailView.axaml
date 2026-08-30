@@ -19,20 +19,26 @@
                    IsVisible="{Binding IsCancelled}" Margin="0,8,0,0" />
       </StackPanel>
     </DockPanel>
-    <Grid ColumnDefinitions="*,*,*">
-      <Border Classes="statcard">
+    <Grid ColumnDefinitions="*,*,*,*">
+      <Border Classes="statcard" Grid.Column="0">
         <StackPanel>
           <TextBlock Classes="label" Text="Bill" />
           <TextBlock Classes="stat" Text="{Binding BillTotal}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard">
+      <Border Classes="statcard" Grid.Column="1">
         <StackPanel>
           <TextBlock Classes="label" Text="Received with bill" />
           <TextBlock Classes="stat ok" Text="{Binding Received}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="2">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Returned" />
+          <TextBlock Classes="stat" Text="{Binding ReturnedText}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="3" Margin="0,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Still on ledger" />
           <TextBlock Classes="stat bad" Text="{Binding OnLedger}" />
@@ -45,10 +51,41 @@
           <DataGridTextColumn Header="Which container" Binding="{Binding ContainerTitle}" Width="*" />
           <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
           <DataGridTextColumn Header="Qty" Binding="{Binding QtyText}" Width="70" />
+          <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedQtyText}" Width="90" />
           <DataGridTextColumn Header="Price" Binding="{Binding PriceText}" Width="110" />
           <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="120" />
         </DataGrid.Columns>
       </DataGrid>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding CanReturn}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Return goods" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Stock goes back into the same container. The amount comes off this customer’s khata." />
+        <ItemsControl ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SaleLineRow">
+              <Grid ColumnDefinitions="*,160,140" IsVisible="{Binding CanReturnLine}">
+                <StackPanel Margin="0,0,12,0">
+                  <TextBlock Classes="label" Text="{Binding ProductName}" />
+                  <TextBlock Classes="muted" Text="{Binding ContainerTitle}" Margin="0,0,0,12" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                  <TextBlock Classes="label" Text="Still with them" />
+                  <TextBlock Text="{Binding LeftText}" Margin="0,0,0,12" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Return qty" />
+                  <NumericUpDown Value="{Binding ReturnQty}" Minimum="0" Maximum="{Binding MaxReturn}" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button Classes="gold" Content="Return these items" Command="{Binding ReturnItemsCommand}"
+                HorizontalAlignment="Left" />
+      </StackPanel>
     </Border>
   </StackPanel>
 </UserControl>

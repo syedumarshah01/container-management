@@ -156,6 +156,12 @@ public class StockOption
     public override string ToString() => ProductName;
 }
 
+public class SaleReturnInput
+{
+    public int SaleLineId { get; set; }
+    public decimal Quantity { get; set; }
+}
+
 public class NewSaleLineInput
 {
     public int ContainerId { get; set; }
