@@ -15,6 +15,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private bool _suppressNav;
     private readonly Dictionary<string, ViewModelBase> _navPages = new();
     private readonly Stack<ViewModelBase> _back = new();
+    private static readonly TimeSpan LicenseCheckEvery = TimeSpan.FromHours(12);
     private bool _checkingLicense;
     private DispatcherTimer? _licenseTimer;
     private DateTime _lastLicenseCheckUtc = DateTime.MinValue;
@@ -150,17 +151,17 @@ public partial class MainViewModel : ObservableObject, IAppShell
     {
         if (_licenseTimer is not null)
             return;
-        _licenseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _licenseTimer = new DispatcherTimer { Interval = LicenseCheckEvery };
         _licenseTimer.Tick += (_, _) => _ = CheckLicenseOnlineAsync(false);
         _licenseTimer.Start();
-        _ = CheckLicenseOnlineAsync(true);
+        _ = CheckLicenseOnlineAsync(false);
     }
 
     private async Task CheckLicenseOnlineAsync(bool force)
     {
         if (!_license.IsActivated || _checkingLicense)
             return;
-        if (!force && DateTime.UtcNow - _lastLicenseCheckUtc < TimeSpan.FromSeconds(20))
+        if (!force && !LicenseCheckDue())
             return;
 
         _checkingLicense = true;
@@ -178,6 +179,14 @@ public partial class MainViewModel : ObservableObject, IAppShell
         {
             _checkingLicense = false;
         }
+    }
+
+    private bool LicenseCheckDue()
+    {
+        var last = _lastLicenseCheckUtc != DateTime.MinValue
+            ? _lastLicenseCheckUtc
+            : _license.LastOnlineUtc ?? DateTime.MinValue;
+        return last == DateTime.MinValue || DateTime.UtcNow - last >= LicenseCheckEvery;
     }
 
     private void ApplyLicenseState()

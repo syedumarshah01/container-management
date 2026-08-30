@@ -32,6 +32,7 @@ public class LicenseService
     public string BusinessName => string.IsNullOrWhiteSpace(_file?.BusinessName) ? AppInfo.ProductName : _file!.BusinessName;
     public string CustomerId => _file?.CustomerId ?? "";
     public string Key => _file?.Key ?? "";
+    public DateTime? LastOnlineUtc => _file?.LastOnlineUtc;
 
     public LicenseService()
     {

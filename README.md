@@ -40,7 +40,7 @@ To pause a copy that has not paid, edit `license-status.json` **in this GitHub r
 }
 ```
 
-The shop’s running app fetches that file from GitHub about once a minute. **They do not git pull and they do not need to relaunch.** Set `"active": true` (or delete the id) to unlock them the same way. The license id is on **Settings**.
+The shop’s running app fetches that file from GitHub about twice a day. **They do not git pull and they do not need to relaunch.** Set `"active": true` (or delete the id) to unlock them the same way. The license id is on **Settings**. The paused shop can also tap **Check again**.
 
 To print a key from a terminal:
 
