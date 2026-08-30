@@ -28,7 +28,7 @@ Or:
 dotnet run --project src/ContainerManagement
 ```
 
-A **desktop window** opens. No browser, no localhost.
+A **desktop window** opens. No browser, no localhost, no command-line window.
 
 First launch asks for a **license**. You (the seller) click **I am the seller**, type the seller PIN and the customer’s business name. That name is stamped on the shop for life.
 
