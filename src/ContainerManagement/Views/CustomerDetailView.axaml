@@ -18,17 +18,17 @@
     </DockPanel>
 
     <Grid ColumnDefinitions="*,*">
-      <Border Classes="statcard">
+      <Border Classes="statcard" Margin="0,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="They owe you" />
           <TextBlock Classes="stat" Text="{Binding BalanceText}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Collected so far" />
           <TextBlock Classes="stat ok" Text="{Binding ReceivedText}" />
-          <TextBlock Classes="label" Text="Remaining" Margin="0,8,0,0" />
+          <TextBlock Classes="label" Text="Remaining" Margin="0,10,0,6" />
           <TextBlock Classes="stat" Text="{Binding BalanceText}" />
         </StackPanel>
       </Border>

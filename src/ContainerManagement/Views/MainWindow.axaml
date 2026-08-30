@@ -10,30 +10,44 @@
         WindowStartupLocation="CenterScreen">
   <Grid>
     <DockPanel>
-      <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E5E7EB" BorderThickness="0,1,0,0" Padding="20,8">
-        <TextBlock Text="{Binding Status}" Classes.bad="{Binding IsError}" FontSize="13" />
+      <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E6E4DE" BorderThickness="0,1,0,0" Padding="24,10">
+        <TextBlock Text="{Binding Status}" Classes.bad="{Binding IsError}" FontSize="13" Foreground="#6B7280" />
       </Border>
 
-      <Border Width="200" Background="{StaticResource NavyBrush}">
+      <Border Width="216" Background="{StaticResource NavyBrush}">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="{Binding BrandName}" FontSize="18" FontWeight="SemiBold"
-                     Foreground="White" Margin="20,24,20,16" TextWrapping="Wrap" />
+          <StackPanel DockPanel.Dock="Top" Margin="20,28,20,8">
+            <TextBlock Text="{Binding BrandName}" FontSize="20" FontWeight="SemiBold"
+                       Foreground="White" TextWrapping="Wrap" />
+            <Border Background="{StaticResource GoldBrush}" Width="36" Height="3"
+                    HorizontalAlignment="Left" CornerRadius="2" Margin="0,12,0,8" />
+          </StackPanel>
           <ListBox ItemsSource="{Binding NavItems}"
                    SelectedItem="{Binding SelectedNav}"
                    Background="Transparent"
-                   Margin="8,0,8,16"
-                   BorderThickness="0">
+                   Margin="10,4,10,16"
+                   BorderThickness="0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.Styles>
               <Style Selector="ListBoxItem">
-                <Setter Property="Padding" Value="12,11" />
-                <Setter Property="Margin" Value="0,2" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="Foreground" Value="#D6DEEA" />
-                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="Margin" Value="0,1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Foreground" Value="#C9D3E4" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Background" Value="Transparent" />
+              </Style>
+              <Style Selector="ListBoxItem:pointerover">
+                <Setter Property="Background" Value="#2C3F66" />
               </Style>
               <Style Selector="ListBoxItem:selected">
                 <Setter Property="Background" Value="#2C3F66" />
                 <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </Style>
+              <Style Selector="ListBoxItem:selected TextBlock">
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="FontWeight" Value="SemiBold" />
               </Style>
             </ListBox.Styles>
             <ListBox.ItemTemplate>
@@ -48,11 +62,11 @@
       <views:PageHost Page="{Binding CurrentPage}" />
     </DockPanel>
 
-    <Border Background="#F7F7F5" IsVisible="{Binding NeedsPin}">
-      <Border Classes="card" Width="360" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Background="#991B2A4A" IsVisible="{Binding NeedsPin}">
+      <Border Classes="dialog" Width="380" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
           <TextBlock Classes="h1" Text="{Binding BrandName}" />
-          <TextBlock Classes="muted" Text="{Binding PinHint}" Margin="0,0,0,12" />
+          <TextBlock Classes="muted" Text="{Binding PinHint}" Margin="0,0,0,16" />
           <TextBlock Classes="label" Text="PIN" />
           <TextBox Text="{Binding PinInput}" PasswordChar="•" />
           <Button Classes="gold" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Left" />
@@ -60,18 +74,18 @@
       </Border>
     </Border>
 
-    <Border Background="#F7F7F5" IsVisible="{Binding NeedsActivation}">
-      <Border Classes="card" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Background="#991B2A4A" IsVisible="{Binding NeedsActivation}">
+      <Border Classes="dialog" Width="500" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
           <TextBlock Classes="h1" Text="Activate ProBooks" />
-          <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,12" />
+          <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,16" />
           <TextBlock Classes="label" Text="License key" />
           <TextBox Text="{Binding LicenseKeyInput}" Watermark="CK1...." TextWrapping="Wrap" />
           <Button Classes="gold" Content="Activate" Command="{Binding ActivateCommand}" HorizontalAlignment="Left" />
 
           <Button Content="I am the seller — issue a license" Command="{Binding ToggleSellerFormCommand}"
                   HorizontalAlignment="Left" Margin="0,16,0,0" />
-          <StackPanel IsVisible="{Binding ShowSellerForm}" Margin="0,12,0,0">
+          <StackPanel IsVisible="{Binding ShowSellerForm}" Margin="0,16,0,0">
             <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
                        Text="Type the seller PIN and the customer's business name. The window is renamed to that shop. This is a lifetime license. You can pause this copy later if they do not pay." />
             <TextBlock Classes="label" Text="Seller PIN" />
@@ -80,19 +94,19 @@
             <TextBox Text="{Binding IssueBusinessName}" Watermark="e.g. Ahmad Traders" />
             <Button Classes="primary" Content="Issue and activate" Command="{Binding IssueLicenseCommand}"
                     HorizontalAlignment="Left" />
-            <TextBlock Classes="label" Text="Key (copy for a second PC)" Margin="0,12,0,4" />
+            <TextBlock Classes="label" Text="Key (copy for a second PC)" Margin="0,12,0,6" />
             <TextBox Text="{Binding IssuedKey}" IsReadOnly="True" TextWrapping="Wrap" />
           </StackPanel>
         </StackPanel>
       </Border>
     </Border>
 
-    <Border Background="#F7F7F5" IsVisible="{Binding NeedsLicenseLock}">
-      <Border Classes="card" Width="440" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Background="#991B2A4A" IsVisible="{Binding NeedsLicenseLock}">
+      <Border Classes="dialog" Width="460" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
           <TextBlock Classes="h1" Text="This copy is paused" />
           <TextBlock Classes="muted" Text="{Binding LockReason}" TextWrapping="Wrap" Margin="0,0,0,12" />
-          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
                      Text="This screen updates by itself. You do not need to reinstall or pull new code." />
           <Button Classes="gold" Content="Check again" Command="{Binding CheckLicenseCommand}" HorizontalAlignment="Left" />
         </StackPanel>

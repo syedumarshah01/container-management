@@ -27,26 +27,26 @@
       </StackPanel>
     </Border>
 
-    <Grid ColumnDefinitions="*,*,*,*" IsVisible="{Binding HasResult}" Margin="0,0,0,0">
-      <Border Classes="statcard">
+    <Grid ColumnDefinitions="*,*,*,*" IsVisible="{Binding HasResult}">
+      <Border Classes="statcard" Margin="0,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Sold" />
           <TextBlock Classes="stat" Text="{Binding TotalQty}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="1">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Sale amount" />
           <TextBlock Classes="stat" Text="{Binding TotalAmount}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="2">
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Cost each" />
           <TextBlock Classes="stat" Text="{Binding AvgCost}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="3" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="3" Margin="8,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Sale price" />
           <TextBlock Classes="stat" Text="{Binding AvgPrice}" />

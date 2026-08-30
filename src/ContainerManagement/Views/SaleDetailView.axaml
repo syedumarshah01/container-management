@@ -20,25 +20,25 @@
       </StackPanel>
     </DockPanel>
     <Grid ColumnDefinitions="*,*,*,*">
-      <Border Classes="statcard" Grid.Column="0">
+      <Border Classes="statcard" Grid.Column="0" Margin="0,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Bill" />
           <TextBlock Classes="stat" Text="{Binding BillTotal}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="1">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Received with bill" />
           <TextBlock Classes="stat ok" Text="{Binding Received}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="2">
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Returned" />
           <TextBlock Classes="stat" Text="{Binding ReturnedText}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="3" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="3" Margin="8,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Still on ledger" />
           <TextBlock Classes="stat bad" Text="{Binding OnLedger}" />

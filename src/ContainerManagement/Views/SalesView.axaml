@@ -6,7 +6,8 @@
   <StackPanel>
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="h1" Text="Sales" />
-      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding NewSaleCommand}" />
+      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding NewSaleCommand}"
+              VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
     <Border Classes="card">
       <StackPanel>

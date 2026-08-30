@@ -4,9 +4,10 @@
              x:Class="ContainerManagement.Views.InventoryView"
              x:DataType="vm:InventoryViewModel">
   <StackPanel>
-    <Grid ColumnDefinitions="*,240">
+    <Grid ColumnDefinitions="*,280">
       <TextBlock Classes="h1" Text="Stock" />
-      <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container" />
+      <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
+               VerticalAlignment="Top" Margin="16,0,0,12" />
     </Grid>
 
     <Border Classes="statcard" Margin="0,0,0,16">

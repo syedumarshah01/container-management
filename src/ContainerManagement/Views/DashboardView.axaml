@@ -9,7 +9,8 @@
         <TextBlock Classes="h1" Text="Home" Margin="0,0,0,4" />
         <TextBlock Classes="muted" Text="{Binding Hint}" Margin="0,0,0,16" />
       </StackPanel>
-      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}" />
+      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}"
+              VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
     <Border Classes="card">

@@ -43,11 +43,11 @@ public class PageHost : UserControl
         {
             var inner = _locator.Build(vm) ?? new TextBlock { Text = "Missing page" };
             inner.DataContext = vm;
-            inner.Margin = new Thickness(28, 24, 28, 8);
+            inner.Margin = new Thickness(32, 28, 32, 16);
             view = new ScrollViewer
             {
                 Content = inner,
-                Background = new SolidColorBrush(Color.Parse("#F7F7F5")),
+                Background = new SolidColorBrush(Color.Parse("#F4F3EF")),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
             };
             _views.Add(vm, view);

@@ -28,19 +28,19 @@
       </StackPanel>
     </Border>
     <Grid ColumnDefinitions="*,*,*">
-      <Border Classes="statcard">
+      <Border Classes="statcard" Margin="0,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Sales" />
           <TextBlock Classes="stat" Text="{Binding Revenue}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Cost" />
           <TextBlock Classes="stat" Text="{Binding Cogs}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Margin="0,0,0,16">
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Profit" />
           <TextBlock Classes="stat ok" Text="{Binding Profit}" />
