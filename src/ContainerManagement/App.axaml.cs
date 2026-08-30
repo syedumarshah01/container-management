@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -56,7 +57,8 @@ public partial class App : Application
                     try { backups.BackupNow("close"); }
                     catch { /* never block exit */ }
                 };
-                WatchForSecondLaunch(desktop);
+                if (OperatingSystem.IsWindows())
+                    WatchForSecondLaunch(desktop);
             }
         }
         catch (Exception ex)

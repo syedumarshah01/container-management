@@ -8,9 +8,18 @@ echo Publishing a single Windows exe to publish\win
 echo First run downloads extra files. Wait.
 echo.
 
+tasklist /FI "IMAGENAME eq ProBooks.exe" 2>nul | find /I "ProBooks.exe" >nul
+if not errorlevel 1 (
+  echo ProBooks is open. Closing it so the new exe can be written...
+  taskkill /IM ProBooks.exe /F >nul 2>&1
+  timeout /t 2 /nobreak >nul
+)
+
 dotnet publish src\ContainerManagement -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish\win
 if errorlevel 1 (
-  echo Publish failed. Copy the error above.
+  echo.
+  echo Publish failed.
+  echo If it says ProBooks.exe is being used, close ProBooks and run publish.bat again.
   pause
   exit /b 1
 )

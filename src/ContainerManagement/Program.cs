@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Logging;
 using ContainerManagement.Data;
@@ -19,7 +20,8 @@ sealed class Program
         {
             if (args.Length >= 2 && string.Equals(args[0], "--issue", StringComparison.OrdinalIgnoreCase))
             {
-                AttachConsole(AttachParentProcess);
+                if (OperatingSystem.IsWindows())
+                    AttachConsole(AttachParentProcess);
                 var key = LicenseService.IssueKey(args[1]);
                 Console.WriteLine(key);
                 return;
@@ -37,7 +39,7 @@ sealed class Program
         catch (Exception ex)
         {
             TryWriteCrash(ex);
-            MessageBox(IntPtr.Zero, ex.Message, "ProBooks could not start", 0x00000010);
+            ShowCrash(ex.Message);
             Environment.Exit(1);
         }
     }
@@ -61,6 +63,15 @@ sealed class Program
             return true;
         }
 
+        if (OperatingSystem.IsWindows())
+            PulseRunningCopy();
+
+        return false;
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void PulseRunningCopy()
+    {
         try
         {
             EventWaitHandle.OpenExisting(@"Local\ProBooks.Desktop.Show").Set();
@@ -69,8 +80,6 @@ sealed class Program
         {
             /* first copy is still starting */
         }
-
-        return false;
     }
 
     private static void TryWriteCrash(Exception ex)
@@ -85,9 +94,22 @@ sealed class Program
         }
     }
 
+    private static void ShowCrash(string message)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            MessageBox(IntPtr.Zero, message, "ProBooks could not start", 0x00000010);
+            return;
+        }
+
+        Console.Error.WriteLine(message);
+    }
+
+    [SupportedOSPlatform("windows")]
     [DllImport("kernel32.dll")]
     private static extern bool AttachConsole(int dwProcessId);
 
+    [SupportedOSPlatform("windows")]
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
 }
