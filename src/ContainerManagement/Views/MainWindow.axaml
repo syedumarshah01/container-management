@@ -3,7 +3,7 @@
         xmlns:vm="using:ContainerManagement.ViewModels"
         x:Class="ContainerManagement.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="CargoKhata"
+        Title="{Binding BrandName}"
         Width="1200" Height="780"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen">
@@ -15,8 +15,8 @@
 
       <Border Width="200" Background="{StaticResource NavyBrush}">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="CargoKhata" FontSize="18" FontWeight="SemiBold"
-                     Foreground="White" Margin="20,24,20,16" />
+          <TextBlock DockPanel.Dock="Top" Text="{Binding BrandName}" FontSize="18" FontWeight="SemiBold"
+                     Foreground="White" Margin="20,24,20,16" TextWrapping="Wrap" />
           <ListBox ItemsSource="{Binding NavItems}"
                    SelectedItem="{Binding SelectedNav}"
                    Background="Transparent"
@@ -52,11 +52,52 @@
     <Border Background="#F7F7F5" IsVisible="{Binding NeedsPin}">
       <Border Classes="card" Width="360" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
-          <TextBlock Classes="h1" Text="CargoKhata" />
+          <TextBlock Classes="h1" Text="{Binding BrandName}" />
           <TextBlock Classes="muted" Text="{Binding PinHint}" Margin="0,0,0,12" />
           <TextBlock Classes="label" Text="PIN" />
           <TextBox Text="{Binding PinInput}" PasswordChar="•" />
           <Button Classes="gold" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#F7F7F5" IsVisible="{Binding NeedsActivation}">
+      <Border Classes="card" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel>
+          <TextBlock Classes="h1" Text="Activate this shop" />
+          <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,12" />
+          <TextBlock Classes="label" Text="License key" />
+          <TextBox Text="{Binding LicenseKeyInput}" Watermark="CK1...." TextWrapping="Wrap" />
+          <Button Classes="gold" Content="Activate" Command="{Binding ActivateCommand}" HorizontalAlignment="Left" />
+
+          <Button Content="I am the seller — issue a license" Command="{Binding ToggleSellerFormCommand}"
+                  HorizontalAlignment="Left" Margin="0,16,0,0" />
+          <StackPanel IsVisible="{Binding ShowSellerForm}" Margin="0,12,0,0">
+            <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Text="Type the seller PIN, the customer's business name, and how many months they paid. This stamps the name on this PC." />
+            <TextBlock Classes="label" Text="Seller PIN" />
+            <TextBox Text="{Binding VendorPin}" PasswordChar="•" />
+            <TextBlock Classes="label" Text="Business name" />
+            <TextBox Text="{Binding IssueBusinessName}" Watermark="e.g. Ahmad Traders" />
+            <TextBlock Classes="label" Text="Months paid" />
+            <NumericUpDown Value="{Binding IssueMonths}" Minimum="1" Maximum="60" />
+            <Button Classes="primary" Content="Issue and activate" Command="{Binding IssueLicenseCommand}"
+                    HorizontalAlignment="Left" />
+            <TextBlock Classes="label" Text="Key (copy for a second PC)" Margin="0,12,0,4" />
+            <TextBox Text="{Binding IssuedKey}" IsReadOnly="True" TextWrapping="Wrap" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Background="#F7F7F5" IsVisible="{Binding NeedsLicenseLock}">
+      <Border Classes="card" Width="440" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel>
+          <TextBlock Classes="h1" Text="This copy is paused" />
+          <TextBlock Classes="muted" Text="{Binding LockReason}" TextWrapping="Wrap" Margin="0,0,0,12" />
+          <TextBlock Classes="label" Text="New license key" />
+          <TextBox Text="{Binding LicenseKeyInput}" Watermark="CK1...." TextWrapping="Wrap" />
+          <Button Classes="gold" Content="Activate" Command="{Binding ActivateCommand}" HorizontalAlignment="Left" />
         </StackPanel>
       </Border>
     </Border>

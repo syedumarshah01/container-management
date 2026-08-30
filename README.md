@@ -30,6 +30,14 @@ dotnet run --project src/ContainerManagement
 
 A **desktop window** opens. No browser, no localhost.
 
+First launch asks for a **license**. You (the seller) click **I am the seller**, type the seller PIN, the customer’s business name, and months paid. That name is stamped on the shop. To pause a copy that has not paid, add their license id to `license-status.json` on GitHub (`shops` → `"CK-XXXXXX": { "active": false }`) and they will be locked the next time the app starts online.
+
+To print a key from a terminal:
+
+```bash
+dotnet run --project src/ContainerManagement -- --issue "Ahmad Traders" 12
+```
+
 Database file (backup this):
 
 - Windows: `Documents\CargoKhata\cargokhata.db`

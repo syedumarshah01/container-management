@@ -10,19 +10,25 @@ namespace ContainerManagement.ViewModels;
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly AccessService _access;
+    private readonly LicenseService _license;
     private readonly BackupService _backups;
     private readonly IDbContextFactory<AppDbContext> _dbFactory;
     private readonly IAppShell _shell;
 
-    public SettingsViewModel(AccessService access, BackupService backups, IDbContextFactory<AppDbContext> dbFactory, IAppShell shell)
+    public SettingsViewModel(AccessService access, LicenseService license, BackupService backups, IDbContextFactory<AppDbContext> dbFactory, IAppShell shell)
     {
         _access = access;
+        _license = license;
         _backups = backups;
         _dbFactory = dbFactory;
         _shell = shell;
     }
 
     [ObservableProperty] private string companyName = "";
+    [ObservableProperty] private bool companyNameLocked;
+    [ObservableProperty] private string licenseId = "";
+    [ObservableProperty] private string licenseExpiry = "";
+    [ObservableProperty] private string licenseKey = "";
     [ObservableProperty] private string phone = "";
     [ObservableProperty] private string address = "";
     [ObservableProperty] private decimal? lowStock = 10;
@@ -37,7 +43,11 @@ public partial class SettingsViewModel : ViewModelBase
     {
         IsOwner = _access.IsOwner;
         var s = ShopSettings.Load();
-        CompanyName = s.CompanyName;
+        CompanyNameLocked = _license.IsActivated;
+        CompanyName = _license.IsActivated ? _license.BusinessName : s.CompanyName;
+        LicenseId = string.IsNullOrWhiteSpace(_license.CustomerId) ? "Not activated" : _license.CustomerId;
+        LicenseExpiry = _license.ExpiryText;
+        LicenseKey = _license.Key;
         Phone = s.Phone;
         Address = s.Address;
         LowStock = s.LowStockQty;
@@ -57,7 +67,7 @@ public partial class SettingsViewModel : ViewModelBase
             return;
         }
         var s = ShopSettings.Load();
-        s.CompanyName = CompanyName.Trim();
+        s.CompanyName = _license.IsActivated ? _license.BusinessName : CompanyName.Trim();
         s.Phone = Phone.Trim();
         s.Address = Address.Trim();
         s.LowStockQty = LowStock ?? 10;

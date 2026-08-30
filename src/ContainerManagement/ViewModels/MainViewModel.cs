@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Data;
@@ -10,12 +11,14 @@ public partial class MainViewModel : ObservableObject, IAppShell
 {
     private readonly IServiceProvider _services;
     private readonly AccessService _access;
+    private readonly LicenseService _license;
     private bool _suppressNav;
 
-    public MainViewModel(IServiceProvider services, AccessService access)
+    public MainViewModel(IServiceProvider services, AccessService access, LicenseService license)
     {
         _services = services;
         _access = access;
+        _license = license;
         NavItems =
         [
             new NavItem("Home", "dash"),
@@ -32,7 +35,11 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("Settings", "settings")
         ];
         _access.UnlockOpen();
-        NeedsPin = _access.PinRequired && !_access.Unlocked;
+        BrandName = _license.BusinessName;
+        NeedsActivation = !_license.IsActivated;
+        NeedsLicenseLock = _license.IsActivated && _license.IsPaused;
+        LockReason = _license.LockReason;
+        NeedsPin = !NeedsActivation && !NeedsLicenseLock && _access.PinRequired && !_access.Unlocked;
     }
 
     public IReadOnlyList<NavItem> NavItems { get; }
@@ -46,13 +53,26 @@ public partial class MainViewModel : ObservableObject, IAppShell
     [ObservableProperty] private bool needsPin;
     [ObservableProperty] private string pinInput = "";
     [ObservableProperty] private string pinHint = "Enter PIN";
+    [ObservableProperty] private string brandName = "CargoKhata";
+    [ObservableProperty] private bool needsActivation;
+    [ObservableProperty] private bool needsLicenseLock;
+    [ObservableProperty] private string lockReason = "";
+    [ObservableProperty] private string licenseKeyInput = "";
+    [ObservableProperty] private string licenseHint = "Paste the license key for this shop.";
+    [ObservableProperty] private bool showSellerForm;
+    [ObservableProperty] private string vendorPin = "";
+    [ObservableProperty] private string issueBusinessName = "";
+    [ObservableProperty] private decimal? issueMonths = 12;
+    [ObservableProperty] private string issuedKey = "";
 
     public void Start()
     {
-        if (NeedsPin)
+        if (NeedsActivation || NeedsLicenseLock || NeedsPin)
             return;
+        BrandName = _license.BusinessName;
         SelectedNav = NavItems[0];
         RefreshRoleStatus();
+        _ = CheckLicenseOnlineAsync();
     }
 
     [RelayCommand]
@@ -71,9 +91,74 @@ public partial class MainViewModel : ObservableObject, IAppShell
         }
     }
 
+    [RelayCommand]
+    private void Activate()
+    {
+        if (_license.TryActivate(LicenseKeyInput, out var error))
+        {
+            LicenseKeyInput = "";
+            IssuedKey = "";
+            FinishLicense();
+        }
+        else
+        {
+            LicenseHint = error;
+        }
+    }
+
+    [RelayCommand] private void ToggleSellerForm() => ShowSellerForm = !ShowSellerForm;
+
+    [RelayCommand]
+    private void IssueLicense()
+    {
+        var months = (int)Math.Max(1, IssueMonths ?? 12);
+        if (_license.TryIssueAndActivate(VendorPin, IssueBusinessName, months, out var key, out var error))
+        {
+            IssuedKey = key;
+            VendorPin = "";
+            FinishLicense();
+            Status = "Licensed for " + _license.BusinessName + ". Copy the key if you need a second PC.";
+        }
+        else
+        {
+            LicenseHint = error;
+        }
+    }
+
+    private void FinishLicense()
+    {
+        BrandName = _license.BusinessName;
+        NeedsActivation = false;
+        NeedsLicenseLock = _license.IsPaused;
+        LockReason = _license.LockReason;
+        NeedsPin = _access.PinRequired && !_access.Unlocked;
+        if (!NeedsPin && !NeedsLicenseLock)
+            Start();
+    }
+
+    private async Task CheckLicenseOnlineAsync()
+    {
+        try
+        {
+            await _license.RefreshRemoteAsync();
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_license.IsPaused)
+                {
+                    LockReason = _license.LockReason;
+                    NeedsLicenseLock = true;
+                }
+            });
+        }
+        catch
+        {
+            /* stay open if the status file cannot be reached */
+        }
+    }
+
     partial void OnSelectedNavChanged(NavItem? value)
     {
-        if (_suppressNav || value is null || NeedsPin)
+        if (_suppressNav || value is null || NeedsPin || NeedsActivation || NeedsLicenseLock)
             return;
         Show(Create(value.Key));
     }

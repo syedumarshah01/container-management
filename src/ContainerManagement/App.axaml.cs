@@ -72,6 +72,7 @@ public partial class App : Application
             options.UseSqlite(DbPaths.ConnectionString));
 
         services.AddSingleton<AccessService>();
+        services.AddSingleton<LicenseService>();
         services.AddSingleton<GoogleDriveService>();
         services.AddSingleton<BackupService>();
         services.AddTransient<InventoryService>();

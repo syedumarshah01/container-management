@@ -1,6 +1,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Logging;
+using ContainerManagement.Services;
 
 namespace ContainerManagement;
 
@@ -11,6 +12,14 @@ sealed class Program
     {
         try
         {
+            if (args.Length >= 2 && string.Equals(args[0], "--issue", StringComparison.OrdinalIgnoreCase))
+            {
+                var months = args.Length >= 3 && int.TryParse(args[2], out var m) ? m : 12;
+                var key = LicenseService.IssueKey(args[1], months);
+                Console.WriteLine(key);
+                return;
+            }
+
             var culture = CultureInfo.CreateSpecificCulture("en-PK");
             CultureInfo.DefaultThreadCurrentCulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
