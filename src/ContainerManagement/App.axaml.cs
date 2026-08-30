@@ -16,6 +16,7 @@ namespace ContainerManagement;
 public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
+    private bool _opened;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -23,35 +24,17 @@ public partial class App : Application
     {
         try
         {
-            Console.WriteLine("Starting ProBooks…");
-            Console.WriteLine("Database: " + DbPaths.DatabaseFile);
-
             var services = new ServiceCollection();
             ConfigureServices(services);
             Services = services.BuildServiceProvider();
 
-            var backups = Services.GetRequiredService<BackupService>();
-
-            using (var db = Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext())
-            {
-                db.Database.EnsureCreated();
-                SchemaPatcher.Apply(DbPaths.ConnectionString);
-                if (ShopSettings.Load().DemoWiped)
-                    DbSeeder.SeedMinimal(db);
-                else
-                    DbSeeder.Seed(db);
-            }
-
-            backups.HardenDatabase();
-            try { backups.AutoBackupOnStart(); }
-            catch (Exception ex) { Console.WriteLine("Auto-backup skipped: " + ex.Message); }
-
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                var backups = Services.GetRequiredService<BackupService>();
                 var main = Services.GetRequiredService<MainViewModel>();
                 desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
                 desktop.MainWindow = new MainWindow { DataContext = main };
-                desktop.MainWindow.Opened += (_, _) => main.Start();
+                desktop.MainWindow.Opened += (_, _) => _ = OnMainOpened(main, backups);
                 desktop.Exit += (_, _) =>
                 {
                     try { backups.BackupNow("close"); }
@@ -69,6 +52,40 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task OnMainOpened(MainViewModel main, BackupService backups)
+    {
+        if (_opened)
+            return;
+        _opened = true;
+
+        try
+        {
+            await Task.Run(() => PrepareDatabase(backups));
+            main.Start();
+            _ = Task.Run(() =>
+            {
+                try { backups.AutoBackupOnStart(); }
+                catch (Exception ex) { Console.WriteLine("Auto-backup skipped: " + ex.Message); }
+            });
+        }
+        catch (Exception ex)
+        {
+            main.Notify(ex.Message, true);
+        }
+    }
+
+    private static void PrepareDatabase(BackupService backups)
+    {
+        using var db = Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
+        db.Database.EnsureCreated();
+        SchemaPatcher.Apply(DbPaths.ConnectionString);
+        if (ShopSettings.Load().DemoWiped)
+            DbSeeder.SeedMinimal(db);
+        else
+            DbSeeder.Seed(db);
+        backups.HardenDatabase();
     }
 
     private static void ConfigureServices(IServiceCollection services)
@@ -103,6 +120,7 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
     }
 
+    [SupportedOSPlatform("windows")]
     private static void WatchForSecondLaunch(IClassicDesktopStyleApplicationLifetime desktop)
     {
         EventWaitHandle pulse;

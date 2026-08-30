@@ -59,26 +59,22 @@ First launch seeds demo containers, customers, credit sales, and payments.
 
 If you already ran an older web build, this desktop app uses a **new** database path. Demo data will appear again. That is expected.
 
-## Publish an installer-style exe / Mac binary
+## Publish for a customer PC
 
-Windows x64:
+On your Windows PC, double-click `publish.bat`. Copy the **whole** `publish/win` folder to the shop (USB or Drive). Double-click `ProBooks.exe` there. The shop does not need Git or the .NET SDK.
 
-```bash
-dotnet publish src/ContainerManagement -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/win
-```
-
-Run `publish/win/ProBooks.exe`.
+Do not copy only the exe — the other files in that folder are the Windows runtime.
 
 Mac Apple Silicon:
 
 ```bash
-dotnet publish src/ContainerManagement -c Release -r osx-arm64 --self-contained true -o publish/mac
+dotnet publish src/ContainerManagement -c Release -r osx-arm64 --self-contained true -p:PublishReadyToRun=true -o publish/mac
 ```
 
 Mac Intel:
 
 ```bash
-dotnet publish src/ContainerManagement -c Release -r osx-x64 --self-contained true -o publish/mac
+dotnet publish src/ContainerManagement -c Release -r osx-x64 --self-contained true -p:PublishReadyToRun=true -o publish/mac
 ```
 
 Then run `publish/mac/ProBooks`.
