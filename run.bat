@@ -34,9 +34,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set "EXE=%~dp0src\ContainerManagement\bin\Debug\net8.0\ProBooks.exe"
+if not exist "%EXE%" (
+  echo Build succeeded but ProBooks.exe was not found at:
+  echo %EXE%
+  pause
+  exit /b 1
+)
+
 echo.
 echo [3/3] Opening the desktop window...
-dotnet run --project src\ContainerManagement -c Debug --no-build
-echo.
-echo App closed.
-pause
+start "" "%EXE%"
+exit /b 0

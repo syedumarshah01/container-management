@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using ContainerManagement.Data;
 using ContainerManagement.Services;
 using ContainerManagement.ViewModels;
@@ -46,6 +48,7 @@ public partial class App : Application
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 var main = Services.GetRequiredService<MainViewModel>();
+                desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
                 desktop.MainWindow = new MainWindow { DataContext = main };
                 desktop.MainWindow.Opened += (_, _) => main.Start();
                 desktop.Exit += (_, _) =>
@@ -53,7 +56,7 @@ public partial class App : Application
                     try { backups.BackupNow("close"); }
                     catch { /* never block exit */ }
                 };
-                Console.WriteLine("Window created. If you do not see it, check the taskbar.");
+                WatchForSecondLaunch(desktop);
             }
         }
         catch (Exception ex)
@@ -96,5 +99,36 @@ public partial class App : Application
         services.AddTransient<ProfitViewModel>();
         services.AddTransient<BackupViewModel>();
         services.AddTransient<SettingsViewModel>();
+    }
+
+    private static void WatchForSecondLaunch(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        EventWaitHandle pulse;
+        try
+        {
+            pulse = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\ProBooks.Desktop.Show");
+        }
+        catch
+        {
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            while (true)
+            {
+                pulse.WaitOne();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (desktop.MainWindow is not { } window)
+                        return;
+                    window.Show();
+                    window.WindowState = WindowState.Normal;
+                    window.Activate();
+                    window.Topmost = true;
+                    window.Topmost = false;
+                });
+            }
+        });
     }
 }
