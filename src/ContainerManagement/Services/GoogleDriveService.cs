@@ -612,7 +612,7 @@ public class GoogleDriveService
             var files = list.Execute().Files ?? new List<DriveFile>();
             var newest = files
                 .Where(f => f.Name is not null && f.Name.StartsWith("backups_from_", StringComparison.Ordinal))
-                .OrderByDescending(f => f.CreatedTime)
+                .OrderByDescending(f => f.CreatedTimeDateTimeOffset)
                 .FirstOrDefault();
 
             if (newest is null)
