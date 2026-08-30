@@ -157,12 +157,12 @@ public partial class NewSaleViewModel : ViewModelBase
     {
         if (SelectedContainer is null)
         {
-            _shell.Notify("Select which container these goods are being sold from.", true);
+            _shell.Notify("Select which container these items are being sold from.", true);
             return;
         }
         if (SelectedStock is null)
         {
-            _shell.Notify("Select goods from that container.", true);
+            _shell.Notify("Select items from that container.", true);
             return;
         }
         var qty = PickQty ?? 0;

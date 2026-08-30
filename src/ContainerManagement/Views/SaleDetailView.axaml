@@ -60,9 +60,9 @@
 
     <Border Classes="card" IsVisible="{Binding CanReturn}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Return goods" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Stock goes back into the same container. The amount comes off this customer’s khata." />
+          <TextBlock Classes="h2" Text="Return items" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                     Text="Stock goes back into the same container. The amount comes off this customer’s ledger." />
         <ItemsControl ItemsSource="{Binding Lines}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SaleLineRow">

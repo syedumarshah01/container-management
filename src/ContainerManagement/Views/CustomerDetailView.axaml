@@ -7,7 +7,7 @@
     <DockPanel LastChildFill="True" Margin="0,0,0,16">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
                   VerticalAlignment="Top">
-        <Button Content="Print khata" Command="{Binding PrintKhataCommand}" />
+        <Button Content="Print ledger" Command="{Binding PrintLedgerCommand}" />
         <Button Content="WhatsApp" Command="{Binding WhatsAppCommand}" />
         <Button Content="Back" Command="{Binding BackCommand}" />
       </StackPanel>
@@ -94,7 +94,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Khata" />
+        <TextBlock Classes="h2" Text="Ledger" />
         <DataGrid ItemsSource="{Binding Ledger}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />

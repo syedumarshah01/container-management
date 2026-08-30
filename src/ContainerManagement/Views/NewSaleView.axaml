@@ -23,7 +23,7 @@
         <TextBlock Classes="label" Text="Sold from which container?" />
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding SelectedContainer}" />
 
-        <TextBlock Classes="label" Text="Search goods" />
+        <TextBlock Classes="label" Text="Search items" />
         <AutoCompleteBox Watermark="Type a name or SKU"
                          MinimumPrefixLength="1"
                          FilterMode="None"
@@ -38,7 +38,7 @@
           </AutoCompleteBox.ItemTemplate>
         </AutoCompleteBox>
 
-        <TextBlock Classes="label" Text="Goods in that container" />
+        <TextBlock Classes="label" Text="Items in that container" />
         <Grid ColumnDefinitions="*,160,160">
           <ComboBox ItemsSource="{Binding StockInContainer}" SelectedItem="{Binding SelectedStock}" Margin="0,0,8,12">
             <ComboBox.ItemTemplate>
@@ -78,7 +78,7 @@
         <DataGrid ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
-            <DataGridTextColumn Header="Goods" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="Items" Binding="{Binding ProductName}" Width="*" />
             <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70" />
             <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat='Rs {0:N0}'}" Width="110" />
             <DataGridTextColumn Header="Amount" Binding="{Binding LineTotal, StringFormat='Rs {0:N0}'}" Width="120" />

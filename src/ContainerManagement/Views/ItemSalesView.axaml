@@ -57,7 +57,7 @@
     <Border Classes="card" IsVisible="{Binding HasResult}">
       <StackPanel>
         <TextBlock Classes="h2" Text="{Binding Heading}" />
-        <TextBlock Classes="muted" FontSize="12" Text="Double-click a customer to open their khata. Cost and sale price are averages if they bought at more than one rate." Margin="0,0,0,8" />
+        <TextBlock Classes="muted" FontSize="12" Text="Double-click a customer to open their ledger. Cost and sale price are averages if they bought at more than one rate." Margin="0,0,0,8" />
         <DataGrid ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}"
                   DoubleTapped="OnCustomerDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

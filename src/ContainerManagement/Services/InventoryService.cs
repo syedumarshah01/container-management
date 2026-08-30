@@ -124,7 +124,7 @@ public class InventoryService
         string? notes, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath)
     {
         if (string.IsNullOrWhiteSpace(productName))
-            throw new InvalidOperationException("Goods name is required.");
+            throw new InvalidOperationException("Item name is required.");
         if (qty <= 0)
             throw new InvalidOperationException("Quantity must be greater than zero.");
         if (costEntered < 0)
@@ -134,7 +134,7 @@ public class InventoryService
         var container = await db.Containers.FindAsync(containerId)
             ?? throw new InvalidOperationException("Container not found.");
         if (container.Status == ContainerStatus.Closed)
-            throw new InvalidOperationException("This container is closed. Re-open it to add goods.");
+            throw new InvalidOperationException("This container is closed. Re-open it to add items.");
 
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
         if (!string.IsNullOrWhiteSpace(photoPath))

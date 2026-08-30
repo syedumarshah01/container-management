@@ -67,7 +67,7 @@ public partial class ContainersViewModel : ViewModelBase
                 NewWeight,
                 NewSupplier,
                 NewSupplierAmount ?? 0);
-            _shell.Notify($"Container '{c.Title}' created. Add goods on the next screen.");
+            _shell.Notify($"Container '{c.Title}' created. Add items on the next screen.");
             NewTitle = "";
             NewNumber = "";
             NewNotes = "";

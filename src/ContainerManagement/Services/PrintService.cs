@@ -37,7 +37,7 @@ public class PrintService
         sb.Append("</table>");
 
         var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
-        sb.Append($"<p>Goods: {H(Money.Pkr(gross))}<br/>");
+        sb.Append($"<p>Items: {H(Money.Pkr(gross))}<br/>");
         if (sale.DiscountAmount > 0)
             sb.Append($"Discount: {H(Money.Pkr(sale.DiscountAmount))}<br/>");
         sb.Append($"<b>Total: {H(Money.Pkr(sale.TotalAmount))}</b><br/>");
@@ -56,7 +56,7 @@ public class PrintService
     public string StatementHtml(Customer customer, IReadOnlyList<LedgerRow> rows, decimal balance, ShopSettings shop)
     {
         var sb = new StringBuilder();
-        Start(sb, shop, "Khata — " + customer.Name);
+        Start(sb, shop, "Ledger — " + customer.Name);
         sb.Append($"<p>{H(customer.Phone)} {H(customer.Address)}</p>");
         sb.Append($"<p><b>Balance: {H(Money.Pkr(balance))}</b></p>");
         sb.Append("<table><tr><th>Date</th><th>Particulars</th><th>Sold</th><th>Received</th><th>Balance</th></tr>");

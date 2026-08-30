@@ -2,7 +2,7 @@
 
 Native **desktop** app (Windows and Mac) for importers who bring containers from China.
 
-Each container is its own stock store. Sales must name the container. Customers have a khata. SQLite lives in your Documents folder.
+Each container is its own stock store. Sales must name the container. Customers have a ledger. SQLite lives in your Documents folder.
 
 ## Stack
 
@@ -87,14 +87,14 @@ Then run `publish/mac/CargoKhata`.
 
 | Need | Where |
 | --- | --- |
-| New container + goods | **Containers** → fill title → Create → add goods / expenses |
+| New container + items | **Containers** → fill title → Create → add items / expenses |
 | Sell (must pick container) | **New Sale** |
 | Grand inventory | **Grand Inventory** |
-| Customer khata | **Customers** → double-click a name |
+| Customer ledger | **Customers** → double-click a name |
 | Collect money | Customer screen → **Record payment** |
 | Uncollected credit | **Money in Market** |
 | Profit per container + total | **Profit** |
 | Local + Google Drive copies | **Backup** |
-| Invoice / khata print, PIN, wipe demo | **Settings** + sale / customer screens |
+| Invoice / ledger print, PIN, wipe demo | **Settings** + sale / customer screens |
 
-Profit = sales revenue − cost of sold goods − expenses on that container. Unsold stock is valuation, not profit.
+Profit = sales revenue − cost of sold items − expenses on that container. Unsold stock is valuation, not profit.

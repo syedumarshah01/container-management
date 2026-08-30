@@ -68,7 +68,7 @@ public static class DbSeeder
             ContainerNumber = "MSKU-4419821",
             Origin = "Yiwu, China",
             ArrivalDate = new DateTime(2026, 7, 15),
-            Notes = "Cleared at Karachi port. Goods moved to warehouse."
+            Notes = "Cleared at Karachi port. Items moved to warehouse."
         };
 
         var c2 = new CargoContainer

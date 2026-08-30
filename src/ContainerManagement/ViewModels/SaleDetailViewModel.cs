@@ -119,7 +119,7 @@ public partial class SaleDetailViewModel : ViewModelBase
                 .Select(l => new SaleReturnInput { SaleLineId = l.SaleLineId, Quantity = l.ReturnQty ?? 0 })
                 .ToList();
             await _sales.ReturnItemsAsync(_id, inputs);
-            _shell.Notify("Returned to the same container. Amount taken off their khata.");
+            _shell.Notify("Returned to the same container. Amount taken off their ledger.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }

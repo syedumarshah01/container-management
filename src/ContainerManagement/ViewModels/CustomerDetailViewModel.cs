@@ -143,7 +143,7 @@ public partial class CustomerDetailViewModel : ViewModelBase
         try
         {
             await _ledger.DeletePaymentAsync(SelectedPayment.Id);
-            _shell.Notify("Payment removed from the khata.");
+            _shell.Notify("Payment removed from the ledger.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -175,13 +175,13 @@ public partial class CustomerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task PrintKhataAsync()
+    private async Task PrintLedgerAsync()
     {
         var c = await _ledger.GetCustomerAsync(_id);
         if (c is null) return;
         var rows = await _ledger.GetLedgerAsync(_id);
         var bal = await _ledger.GetBalanceAsync(_id);
-        _print.OpenHtml(_print.StatementHtml(c, rows, bal, ShopSettings.Load()), $"khata-{_id}.html");
+        _print.OpenHtml(_print.StatementHtml(c, rows, bal, ShopSettings.Load()), $"ledger-{_id}.html");
     }
 
     [RelayCommand]
@@ -195,7 +195,7 @@ public partial class CustomerDetailViewModel : ViewModelBase
             var shop = ShopSettings.Load().CompanyName;
             var text = bal > 0
                 ? $"Assalamualaikum {c.Name}, {shop}: your balance is {Money.Pkr(bal)}. Please send when convenient."
-                : $"Assalamualaikum {c.Name}, {shop}: your khata is settled. Thank you.";
+                : $"Assalamualaikum {c.Name}, {shop}: your ledger is settled. Thank you.";
             PrintService.WhatsApp(c.Phone, text);
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
