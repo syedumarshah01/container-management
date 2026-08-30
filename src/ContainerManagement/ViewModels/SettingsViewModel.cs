@@ -27,7 +27,6 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string companyName = "";
     [ObservableProperty] private bool companyNameLocked;
     [ObservableProperty] private string licenseId = "";
-    [ObservableProperty] private string licenseExpiry = "";
     [ObservableProperty] private string licenseKey = "";
     [ObservableProperty] private string phone = "";
     [ObservableProperty] private string address = "";
@@ -46,7 +45,6 @@ public partial class SettingsViewModel : ViewModelBase
         CompanyNameLocked = _license.IsActivated;
         CompanyName = _license.IsActivated ? _license.BusinessName : s.CompanyName;
         LicenseId = string.IsNullOrWhiteSpace(_license.CustomerId) ? "Not activated" : _license.CustomerId;
-        LicenseExpiry = _license.ExpiryText;
         LicenseKey = _license.Key;
         Phone = s.Phone;
         Address = s.Address;

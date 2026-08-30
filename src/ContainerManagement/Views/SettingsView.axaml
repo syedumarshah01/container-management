@@ -12,8 +12,6 @@
         <TextBox Text="{Binding CompanyName}" IsReadOnly="{Binding CompanyNameLocked}" />
         <TextBlock Classes="label" Text="License id" />
         <TextBox Text="{Binding LicenseId}" IsReadOnly="True" />
-        <TextBlock Classes="label" Text="License expiry" />
-        <TextBox Text="{Binding LicenseExpiry}" IsReadOnly="True" />
         <TextBlock Classes="label" Text="License key (for a second PC)" />
         <TextBox Text="{Binding LicenseKey}" IsReadOnly="True" TextWrapping="Wrap" />
         <TextBlock Classes="label" Text="Phone" />

@@ -62,7 +62,6 @@ public partial class MainViewModel : ObservableObject, IAppShell
     [ObservableProperty] private bool showSellerForm;
     [ObservableProperty] private string vendorPin = "";
     [ObservableProperty] private string issueBusinessName = "";
-    [ObservableProperty] private decimal? issueMonths = 12;
     [ObservableProperty] private string issuedKey = "";
 
     public void Start()
@@ -111,8 +110,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
     [RelayCommand]
     private void IssueLicense()
     {
-        var months = (int)Math.Max(1, IssueMonths ?? 12);
-        if (_license.TryIssueAndActivate(VendorPin, IssueBusinessName, months, out var key, out var error))
+        if (_license.TryIssueAndActivate(VendorPin, IssueBusinessName, out var key, out var error))
         {
             IssuedKey = key;
             VendorPin = "";

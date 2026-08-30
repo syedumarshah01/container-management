@@ -14,8 +14,7 @@ sealed class Program
         {
             if (args.Length >= 2 && string.Equals(args[0], "--issue", StringComparison.OrdinalIgnoreCase))
             {
-                var months = args.Length >= 3 && int.TryParse(args[2], out var m) ? m : 12;
-                var key = LicenseService.IssueKey(args[1], months);
+                var key = LicenseService.IssueKey(args[1]);
                 Console.WriteLine(key);
                 return;
             }

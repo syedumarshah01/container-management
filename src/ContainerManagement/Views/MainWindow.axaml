@@ -74,13 +74,11 @@
                   HorizontalAlignment="Left" Margin="0,16,0,0" />
           <StackPanel IsVisible="{Binding ShowSellerForm}" Margin="0,12,0,0">
             <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                       Text="Type the seller PIN, the customer's business name, and how many months they paid. This stamps the name on this PC." />
+                       Text="Type the seller PIN and the customer's business name. This is a lifetime license. You can pause this copy later if they do not pay." />
             <TextBlock Classes="label" Text="Seller PIN" />
             <TextBox Text="{Binding VendorPin}" PasswordChar="•" />
             <TextBlock Classes="label" Text="Business name" />
             <TextBox Text="{Binding IssueBusinessName}" Watermark="e.g. Ahmad Traders" />
-            <TextBlock Classes="label" Text="Months paid" />
-            <NumericUpDown Value="{Binding IssueMonths}" Minimum="1" Maximum="60" />
             <Button Classes="primary" Content="Issue and activate" Command="{Binding IssueLicenseCommand}"
                     HorizontalAlignment="Left" />
             <TextBlock Classes="label" Text="Key (copy for a second PC)" Margin="0,12,0,4" />

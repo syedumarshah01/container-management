@@ -11,7 +11,8 @@ public class ShopLicenseFile
     public string BusinessName { get; set; } = "";
     public string Key { get; set; } = "";
     public DateTime IssuedUtc { get; set; }
-    public DateTime ExpiresUtc { get; set; }
+    public bool RemotelyPaused { get; set; }
+    public string PauseMessage { get; set; } = "";
     public DateTime? LastOnlineUtc { get; set; }
 }
 
@@ -29,13 +30,12 @@ public class LicenseService
     public string LockReason { get; private set; } = "";
     public string BusinessName => string.IsNullOrWhiteSpace(_file?.BusinessName) ? "CargoKhata" : _file!.BusinessName;
     public string CustomerId => _file?.CustomerId ?? "";
-    public string ExpiryText => _file is null ? "—" : _file.ExpiresUtc.ToLocalTime().ToString("dd MMM yyyy");
     public string Key => _file?.Key ?? "";
 
     public LicenseService()
     {
         Load();
-        ApplyLocalLock();
+        ApplyStoredPause();
     }
 
     public void Load()
@@ -55,20 +55,16 @@ public class LicenseService
         }
     }
 
-    public static string IssueKey(string businessName, int months)
+    public static string IssueKey(string businessName)
     {
         if (string.IsNullOrWhiteSpace(businessName))
             throw new InvalidOperationException("Business name is required.");
-        if (months < 1)
-            throw new InvalidOperationException("Months must be at least 1.");
 
         var id = "CK-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
-        var exp = DateTime.UtcNow.Date.AddMonths(months);
         var payload = JsonSerializer.Serialize(new LicensePayload
         {
             Id = id,
-            Name = businessName.Trim(),
-            Exp = exp.ToString("yyyy-MM-dd")
+            Name = businessName.Trim()
         }, Compact);
         return "CK1." + B64(Encoding.UTF8.GetBytes(payload)) + "." + Sign(payload);
     }
@@ -78,34 +74,22 @@ public class LicenseService
         error = "";
         if (!TryParse(key, out var payload, out error))
             return false;
-        if (!DateTime.TryParse(payload.Exp, out var exp))
-        {
-            error = "License has a bad expiry date.";
-            return false;
-        }
-        if (exp.Date < DateTime.UtcNow.Date)
-        {
-            error = "This license has expired. Ask for a new one.";
-            return false;
-        }
 
         _file = new ShopLicenseFile
         {
             CustomerId = payload.Id,
             BusinessName = payload.Name,
             Key = key.Trim(),
-            IssuedUtc = DateTime.UtcNow,
-            ExpiresUtc = DateTime.SpecifyKind(exp, DateTimeKind.Utc)
+            IssuedUtc = DateTime.UtcNow
         };
         Save();
         ApplyShopName();
         IsPaused = false;
         LockReason = "";
-        ApplyLocalLock();
-        return !IsPaused;
+        return true;
     }
 
-    public bool TryIssueAndActivate(string vendorPin, string businessName, int months, out string key, out string error)
+    public bool TryIssueAndActivate(string vendorPin, string businessName, out string key, out string error)
     {
         key = "";
         error = "";
@@ -116,7 +100,7 @@ public class LicenseService
         }
         try
         {
-            key = IssueKey(businessName, months);
+            key = IssueKey(businessName);
             return TryActivate(key, out error);
         }
         catch (Exception ex)
@@ -131,48 +115,49 @@ public class LicenseService
         if (!IsActivated || _file is null)
             return;
 
-        ApplyLocalLock();
-        if (IsPaused)
-            return;
-
         try
         {
             var json = await _http.GetStringAsync(LicenseSecrets.StatusUrl);
             using var doc = JsonDocument.Parse(json);
+            var paused = false;
+            var message = "";
             if (doc.RootElement.TryGetProperty("shops", out var shops) &&
                 shops.TryGetProperty(_file.CustomerId, out var shop))
             {
                 var active = !shop.TryGetProperty("active", out var a) || a.GetBoolean();
                 if (!active)
                 {
-                    IsPaused = true;
-                    LockReason = shop.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String
+                    paused = true;
+                    message = shop.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String
                         ? m.GetString() ?? "This copy is paused. Contact CargoKhata."
                         : "This copy is paused. Contact CargoKhata.";
-                    return;
                 }
             }
+
+            _file.RemotelyPaused = paused;
+            _file.PauseMessage = message;
             _file.LastOnlineUtc = DateTime.UtcNow;
             Save();
+            ApplyStoredPause();
         }
         catch
         {
-            // Stay on local expiry if the status file cannot be reached.
+            ApplyStoredPause();
         }
     }
 
-    private void ApplyLocalLock()
+    private void ApplyStoredPause()
     {
-        IsPaused = false;
-        LockReason = "";
-        if (_file is null)
-            return;
-        if (_file.ExpiresUtc.Date < DateTime.UtcNow.Date)
+        if (_file is { RemotelyPaused: true })
         {
             IsPaused = true;
-            LockReason = "This license expired on " + _file.ExpiresUtc.ToLocalTime().ToString("dd MMM yyyy") +
-                         ". Ask CargoKhata for a new key.";
+            LockReason = string.IsNullOrWhiteSpace(_file.PauseMessage)
+                ? "This copy is paused. Contact CargoKhata."
+                : _file.PauseMessage;
+            return;
         }
+        IsPaused = false;
+        LockReason = "";
     }
 
     private void ApplyShopName()
@@ -247,6 +232,6 @@ public class LicenseService
     {
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
-        public string Exp { get; set; } = "";
+        public string? Exp { get; set; }
     }
 }
