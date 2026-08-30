@@ -1,5 +1,6 @@
 {
   "comment": "To pause a shop that has not paid, add its id (CK-XXXXXX) with active: false. The app checks this file when it starts.",
   "shops": {
+     "CK-F1BBFF": { "active": false, "message": "Payment overdue. Contact CargoKhata." }
   }
 }
