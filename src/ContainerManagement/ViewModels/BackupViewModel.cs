@@ -140,7 +140,7 @@ public partial class BackupViewModel : ViewModelBase
             IsBusy = true;
             _drive.SaveCredentials(ClientId, ClientSecret);
             DriveStatus = "Waiting for Google in your browser…";
-            _shell.Notify("A browser window will open. Sign in and allow CargoKhata to create files.");
+            _shell.Notify("A browser window will open. Sign in and allow ProBooks to create files.");
             await _drive.SignInAsync(ClientId, ClientSecret);
             ShowGoogleSetup = false;
             RefreshDrive();

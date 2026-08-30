@@ -6,7 +6,7 @@ namespace ContainerManagement.Data;
 
 public class ShopSettings
 {
-    public string CompanyName { get; set; } = "CargoKhata";
+    public string CompanyName { get; set; } = AppInfo.ProductName;
     public string Phone { get; set; } = "";
     public string Address { get; set; } = "";
     public string OwnerPinHash { get; set; } = "";

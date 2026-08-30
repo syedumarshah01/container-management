@@ -31,7 +31,8 @@ public class GoogleDriveSettings
 public class GoogleDriveService
 {
     public const int FilesPerFolder = 30;
-    private const string AppFolderName = "CargoKhata";
+    private const string AppFolderName = "ProBooks";
+    private const string LegacyAppFolderName = "CargoKhata";
     private const string UserKey = "user";
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -119,7 +120,9 @@ public class GoogleDriveService
 
         lock (_gate)
         {
-            var app = Path.Combine(myDrivePath, AppFolderName);
+            var modern = Path.Combine(myDrivePath, AppFolderName);
+            var legacy = Path.Combine(myDrivePath, LegacyAppFolderName);
+            var app = Directory.Exists(legacy) && !Directory.Exists(modern) ? legacy : modern;
             Directory.CreateDirectory(app);
             _settings.Mode = "folder";
             _settings.LocalDriveRoot = myDrivePath;
@@ -353,7 +356,7 @@ public class GoogleDriveService
         var root = AppFolderOnDisk();
         if (!Directory.Exists(root))
             return new List<CloudBackupInfo>();
-        return Directory.GetFiles(root, "cargokhata-*.db", SearchOption.AllDirectories)
+        return BackupFilesUnder(root)
             .Select(p => new FileInfo(p))
             .OrderByDescending(f => f.LastWriteTime)
             .Select(f => new CloudBackupInfo
@@ -387,7 +390,7 @@ public class GoogleDriveService
             filesReq.Fields = "files(id, name, createdTime, size)";
             filesReq.PageSize = 100;
             var files = filesReq.Execute().Files ?? new List<DriveFile>();
-            foreach (var f in files.Where(x => x.Name != null && x.Name.StartsWith("cargokhata-", StringComparison.Ordinal)))
+            foreach (var f in files.Where(x => x.Name != null && IsBackupFileName(x.Name)))
             {
                 list.Add(new CloudBackupInfo
                 {
@@ -584,7 +587,7 @@ public class GoogleDriveService
             return;
         }
 
-        var count = newest.GetFiles("cargokhata-*.db").Length;
+        var count = newest.GetFiles("probooks-*.db").Length + newest.GetFiles("cargokhata-*.db").Length;
         if (count >= FilesPerFolder)
         {
             _settings.CurrentFolderName = "";
@@ -678,11 +681,29 @@ public class GoogleDriveService
         new(new BaseClientService.Initializer
         {
             HttpClientInitializer = credential,
-            ApplicationName = "CargoKhata"
+            ApplicationName = "ProBooks"
         });
 
-    private string AppFolderOnDisk() =>
-        Path.Combine(_settings.LocalDriveRoot, AppFolderName);
+    private string AppFolderOnDisk()
+    {
+        var modern = Path.Combine(_settings.LocalDriveRoot, AppFolderName);
+        var legacy = Path.Combine(_settings.LocalDriveRoot, LegacyAppFolderName);
+        if (Directory.Exists(legacy) && !Directory.Exists(modern))
+            return legacy;
+        return modern;
+    }
+
+    private static bool IsBackupFileName(string name) =>
+        name.StartsWith("probooks-", StringComparison.Ordinal) ||
+        name.StartsWith("cargokhata-", StringComparison.Ordinal);
+
+    private static IEnumerable<string> BackupFilesUnder(string root)
+    {
+        if (!Directory.Exists(root))
+            return [];
+        return Directory.GetFiles(root, "probooks-*.db", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(root, "cargokhata-*.db", SearchOption.AllDirectories));
+    }
 
     private DateTime? ParseRangeStart()
     {

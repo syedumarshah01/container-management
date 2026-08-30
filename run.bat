@@ -1,10 +1,10 @@
 @echo off
 setlocal
-title CargoKhata
+title ProBooks
 cd /d "%~dp0"
 
 echo.
-echo === CargoKhata ===
+echo === ProBooks ===
 echo First run downloads packages. That can take 1-3 minutes. Wait for a WINDOW, not a website.
 echo.
 

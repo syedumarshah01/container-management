@@ -58,7 +58,7 @@ public class BackupService
             throw new InvalidOperationException("There is no database to back up yet.");
 
         var stamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
-        var dest = Path.Combine(BackupFolder, $"cargokhata-{reason}-{stamp}.db");
+        var dest = Path.Combine(BackupFolder, $"probooks-{reason}-{stamp}.db");
         CopySqlite(LiveFile, dest);
         _drive.UploadAfterBackup(dest);
         Prune();
@@ -67,7 +67,7 @@ public class BackupService
 
     public IReadOnlyList<BackupInfo> ListBackups()
     {
-        return Directory.GetFiles(BackupFolder, "cargokhata-*.db")
+        return BackupFiles(BackupFolder)
             .Select(p => new FileInfo(p))
             .OrderByDescending(f => f.LastWriteTime)
             .Select(ToInfo)
@@ -115,7 +115,7 @@ public class BackupService
 
     private void Prune()
     {
-        var extras = Directory.GetFiles(BackupFolder, "cargokhata-*.db")
+        var extras = BackupFiles(BackupFolder)
             .Select(p => new FileInfo(p))
             .OrderByDescending(f => f.LastWriteTime)
             .Skip(KeepCount)
@@ -125,6 +125,12 @@ public class BackupService
             try { f.Delete(); } catch { /* ignore locked old copies */ }
         }
     }
+
+    private static IEnumerable<string> BackupFiles(string folder) =>
+        Directory.Exists(folder)
+            ? Directory.GetFiles(folder, "probooks-*.db")
+                .Concat(Directory.GetFiles(folder, "cargokhata-*.db"))
+            : [];
 
     private static BackupInfo ToInfo(FileInfo f) => new()
     {

@@ -1,4 +1,4 @@
-# CargoKhata
+# ProBooks
 
 Native **desktop** app (Windows and Mac) for importers who bring containers from China.
 
@@ -36,7 +36,7 @@ To pause a copy that has not paid, edit `license-status.json` **in this GitHub r
 
 ```json
 "shops": {
-  "CK-XXXXXX": { "active": false, "message": "Payment overdue. Contact CargoKhata." }
+  "CK-XXXXXX": { "active": false, "message": "Payment overdue. Contact ProBooks." }
 }
 ```
 
@@ -50,10 +50,10 @@ dotnet run --project src/ContainerManagement -- --issue "Ahmad Traders"
 
 Database file (backup this):
 
-- Windows: `Documents\CargoKhata\cargokhata.db`
-- Mac: `~/Documents/CargoKhata/cargokhata.db`
+- Windows: `Documents\ProBooks\probooks.db` (existing shops keep using `Documents\CargoKhata` if that folder is already there)
+- Mac: `~/Documents/ProBooks/probooks.db`
 
-Google Drive (optional): on **Backup**, link your Drive folder or sign in. Copies go to `CargoKhata/backups_from_31Aug_to_10Sep` (30 files per folder, then a new dated folder).
+Google Drive (optional): on **Backup**, link your Drive folder or sign in. Copies go to `ProBooks/backups_from_31Aug_to_10Sep` (30 files per folder, then a new dated folder).
 
 First launch seeds demo containers, customers, credit sales, and payments.
 
@@ -67,7 +67,7 @@ Windows x64:
 dotnet publish src/ContainerManagement -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/win
 ```
 
-Run `publish/win/CargoKhata.exe`.
+Run `publish/win/ProBooks.exe`.
 
 Mac Apple Silicon:
 
@@ -81,7 +81,7 @@ Mac Intel:
 dotnet publish src/ContainerManagement -c Release -r osx-x64 --self-contained true -o publish/mac
 ```
 
-Then run `publish/mac/CargoKhata`.
+Then run `publish/mac/ProBooks`.
 
 ## What to click
 

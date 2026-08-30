@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ContainerManagement</RootNamespace>
-    <AssemblyName>CargoKhata</AssemblyName>
-    <Product>CargoKhata</Product>
+    <AssemblyName>ProBooks</AssemblyName>
+    <Product>ProBooks</Product>
     <Description>Desktop container inventory, customer ledger, and profit tracker for importers.</Description>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>

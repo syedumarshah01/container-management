@@ -63,7 +63,7 @@
     <Border Background="#F7F7F5" IsVisible="{Binding NeedsActivation}">
       <Border Classes="card" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
-          <TextBlock Classes="h1" Text="Activate this shop" />
+          <TextBlock Classes="h1" Text="Activate ProBooks" />
           <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,12" />
           <TextBlock Classes="label" Text="License key" />
           <TextBox Text="{Binding LicenseKeyInput}" Watermark="CK1...." TextWrapping="Wrap" />
@@ -73,7 +73,7 @@
                   HorizontalAlignment="Left" Margin="0,16,0,0" />
           <StackPanel IsVisible="{Binding ShowSellerForm}" Margin="0,12,0,0">
             <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                       Text="Type the seller PIN and the customer's business name. This is a lifetime license. You can pause this copy later if they do not pay." />
+                       Text="Type the seller PIN and the customer's business name. The window is renamed to that shop. This is a lifetime license. You can pause this copy later if they do not pay." />
             <TextBlock Classes="label" Text="Seller PIN" />
             <TextBox Text="{Binding VendorPin}" PasswordChar="•" />
             <TextBlock Classes="label" Text="Business name" />

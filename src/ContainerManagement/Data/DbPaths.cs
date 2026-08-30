@@ -6,15 +6,26 @@ public static class DbPaths
     {
         get
         {
-            var dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "CargoKhata");
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var modern = Path.Combine(docs, AppInfo.ProductName);
+            var legacy = Path.Combine(docs, AppInfo.LegacyProductName);
+            var dir = Directory.Exists(legacy) && !Directory.Exists(modern) ? legacy : modern;
             Directory.CreateDirectory(dir);
             return dir;
         }
     }
 
-    public static string DatabaseFile => Path.Combine(DirectoryPath, "cargokhata.db");
+    public static string DatabaseFile
+    {
+        get
+        {
+            var modern = Path.Combine(DirectoryPath, "probooks.db");
+            var legacy = Path.Combine(DirectoryPath, "cargokhata.db");
+            if (File.Exists(legacy) && !File.Exists(modern))
+                return legacy;
+            return modern;
+        }
+    }
 
     public static string BackupDirectory
     {

@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title CargoKhata publish
+title ProBooks publish
 cd /d "%~dp0"
 
 echo.
@@ -16,6 +16,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo Done. Run publish\win\CargoKhata.exe
-echo You can copy that folder to another PC. The shop data still lives in Documents\CargoKhata.
+echo Done. Run publish\win\ProBooks.exe
+echo You can copy that folder to another PC. The shop data still lives in Documents\ProBooks.
 pause

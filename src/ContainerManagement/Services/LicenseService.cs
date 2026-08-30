@@ -29,14 +29,14 @@ public class LicenseService
     public bool IsActivated => _file is not null && !string.IsNullOrWhiteSpace(_file.Key);
     public bool IsPaused { get; private set; }
     public string LockReason { get; private set; } = "";
-    public string BusinessName => string.IsNullOrWhiteSpace(_file?.BusinessName) ? "CargoKhata" : _file!.BusinessName;
+    public string BusinessName => string.IsNullOrWhiteSpace(_file?.BusinessName) ? AppInfo.ProductName : _file!.BusinessName;
     public string CustomerId => _file?.CustomerId ?? "";
     public string Key => _file?.Key ?? "";
 
     public LicenseService()
     {
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("CargoKhata/1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("ProBooks/1.0");
         _http.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true };
         Load();
         ApplyStoredPause();
@@ -146,8 +146,8 @@ public class LicenseService
                 {
                     paused = true;
                     message = shop.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String
-                        ? m.GetString() ?? "This copy is paused. Contact CargoKhata."
-                        : "This copy is paused. Contact CargoKhata.";
+                        ? m.GetString() ?? "This copy is paused. Contact ProBooks."
+                        : "This copy is paused. Contact ProBooks.";
                 }
             }
 
@@ -175,7 +175,7 @@ public class LicenseService
             {
                 var sep = baseUrl.Contains('?', StringComparison.Ordinal) ? "&" : "?";
                 using var req = new HttpRequestMessage(HttpMethod.Get, baseUrl + sep + "t=" + DateTime.UtcNow.Ticks);
-                req.Headers.TryAddWithoutValidation("User-Agent", "CargoKhata/1.0");
+                req.Headers.TryAddWithoutValidation("User-Agent", "ProBooks/1.0");
                 req.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true };
                 req.Headers.Pragma.ParseAdd("no-cache");
                 if (baseUrl.Contains("api.github.com", StringComparison.OrdinalIgnoreCase))
@@ -256,7 +256,7 @@ public class LicenseService
         {
             IsPaused = true;
             LockReason = string.IsNullOrWhiteSpace(_file.PauseMessage)
-                ? "This copy is paused. Contact CargoKhata."
+                ? "This copy is paused. Contact ProBooks."
                 : _file.PauseMessage;
             return;
         }
@@ -286,7 +286,7 @@ public class LicenseService
         var parts = raw.Split('.');
         if (parts.Length != 3 || parts[0] != "CK1")
         {
-            error = "That is not a CargoKhata license key.";
+            error = "That is not a ProBooks license key.";
             return false;
         }
         string json;

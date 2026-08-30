@@ -57,12 +57,12 @@ public partial class MainViewModel : ObservableObject, IAppShell
     [ObservableProperty] private bool needsPin;
     [ObservableProperty] private string pinInput = "";
     [ObservableProperty] private string pinHint = "Enter PIN";
-    [ObservableProperty] private string brandName = "CargoKhata";
+    [ObservableProperty] private string brandName = AppInfo.ProductName;
     [ObservableProperty] private bool needsActivation;
     [ObservableProperty] private bool needsLicenseLock;
     [ObservableProperty] private string lockReason = "";
     [ObservableProperty] private string licenseKeyInput = "";
-    [ObservableProperty] private string licenseHint = "Paste the license key for this shop.";
+    [ObservableProperty] private string licenseHint = "This copy of ProBooks will take the shop name you stamp at install.";
     [ObservableProperty] private bool showSellerForm;
     [ObservableProperty] private string vendorPin = "";
     [ObservableProperty] private string issueBusinessName = "";

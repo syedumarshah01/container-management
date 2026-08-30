@@ -123,7 +123,7 @@ public class PrintService
             @media print{button{display:none}}
             </style></head><body>
             """);
-        sb.Append($"<h1>{H(string.IsNullOrWhiteSpace(shop.CompanyName) ? "CargoKhata" : shop.CompanyName)}</h1>");
+        sb.Append($"<h1>{H(string.IsNullOrWhiteSpace(shop.CompanyName) ? AppInfo.ProductName : shop.CompanyName)}</h1>");
         sb.Append($"<p class='muted'>{H(shop.Phone)} {H(shop.Address)}</p>");
         sb.Append($"<h2>{H(title)}</h2>");
         sb.Append("<button onclick='window.print()'>Print</button>");

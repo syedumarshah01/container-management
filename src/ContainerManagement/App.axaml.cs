@@ -20,7 +20,7 @@ public partial class App : Application
     {
         try
         {
-            Console.WriteLine("Starting CargoKhata…");
+            Console.WriteLine("Starting ProBooks…");
             Console.WriteLine("Database: " + DbPaths.DatabaseFile);
 
             var services = new ServiceCollection();
