@@ -397,7 +397,7 @@ public class GoogleDriveService
                     Id = f.Id,
                     Name = f.Name,
                     Folder = folder.Name ?? "",
-                    WhenText = f.CreatedTime?.ToString("dd MMM yyyy  HH:mm") ?? "",
+                    WhenText = f.CreatedTimeDateTimeOffset?.LocalDateTime.ToString("dd MMM yyyy  HH:mm") ?? "",
                     SizeText = f.Size is long sz
                         ? (sz < 1024 * 1024 ? $"{sz / 1024.0:0} KB" : $"{sz / (1024.0 * 1024):0.0} MB")
                         : "",

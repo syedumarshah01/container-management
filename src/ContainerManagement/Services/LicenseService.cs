@@ -80,10 +80,15 @@ public class LicenseService
         if (!TryParse(key, out var payload, out error))
             return false;
 
-        var sameId = _file is not null &&
-                     string.Equals(_file.CustomerId, payload.Id, StringComparison.OrdinalIgnoreCase);
-        var keepPause = sameId && _file!.RemotelyPaused;
-        var keepMessage = keepPause ? _file.PauseMessage : "";
+        var previous = _file;
+        var keepPause = false;
+        var keepMessage = "";
+        if (previous is not null &&
+            string.Equals(previous.CustomerId, payload.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            keepPause = previous.RemotelyPaused;
+            keepMessage = previous.PauseMessage;
+        }
 
         _file = new ShopLicenseFile
         {

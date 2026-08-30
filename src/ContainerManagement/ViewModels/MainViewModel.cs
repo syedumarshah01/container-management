@@ -12,7 +12,6 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private readonly IServiceProvider _services;
     private readonly AccessService _access;
     private readonly LicenseService _license;
-    private bool _suppressNav;
     private readonly Dictionary<string, ViewModelBase> _navPages = new();
     private readonly Stack<ViewModelBase> _back = new();
     private static readonly TimeSpan LicenseCheckEvery = TimeSpan.FromHours(12);
@@ -208,7 +207,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
 
     partial void OnSelectedNavChanged(NavItem? value)
     {
-        if (_suppressNav || value is null || NeedsPin || NeedsActivation || NeedsLicenseLock)
+        if (value is null || NeedsPin || NeedsActivation || NeedsLicenseLock)
             return;
         ShowNav(value.Key);
     }
