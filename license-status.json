@@ -1,5 +1,5 @@
 {
-  "comment": "To pause a shop that has not paid, add its id (CK-XXXXXX) with active: false. The app checks this file when it starts.",
+  "comment": "Edit this file and push. Running copies fetch it from GitHub about once a minute. The shop does not git pull. Pause: shops.CK-XXXXXX.active = false.",
   "shops": {
      "CK-F1BBFF": { "active": false, "message": "Payment overdue. Contact CargoKhata." }
   }

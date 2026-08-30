@@ -13,6 +13,9 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private readonly AccessService _access;
     private readonly LicenseService _license;
     private bool _suppressNav;
+    private bool _checkingLicense;
+    private DispatcherTimer? _licenseTimer;
+    private DateTime _lastLicenseCheckUtc = DateTime.MinValue;
 
     public MainViewModel(IServiceProvider services, AccessService access, LicenseService license)
     {
@@ -66,13 +69,17 @@ public partial class MainViewModel : ObservableObject, IAppShell
 
     public void Start()
     {
+        if (_license.IsActivated)
+            EnsureLicenseWatch();
         if (NeedsActivation || NeedsLicenseLock || NeedsPin)
             return;
         BrandName = _license.BusinessName;
-        SelectedNav = NavItems[0];
+        if (SelectedNav is null)
+            SelectedNav = NavItems[0];
         RefreshRoleStatus();
-        _ = CheckLicenseOnlineAsync();
     }
+
+    public void RequestLicenseCheck() => _ = CheckLicenseOnlineAsync(false);
 
     [RelayCommand]
     private void Unlock()
@@ -91,19 +98,21 @@ public partial class MainViewModel : ObservableObject, IAppShell
     }
 
     [RelayCommand]
-    private void Activate()
+    private async Task Activate()
     {
-        if (_license.TryActivate(LicenseKeyInput, out var error))
-        {
-            LicenseKeyInput = "";
-            IssuedKey = "";
-            FinishLicense();
-        }
-        else
+        if (!_license.TryActivate(LicenseKeyInput, out var error))
         {
             LicenseHint = error;
+            return;
         }
+        LicenseKeyInput = "";
+        IssuedKey = "";
+        await _license.RefreshRemoteAsync();
+        FinishLicense();
     }
+
+    [RelayCommand]
+    private Task CheckLicense() => CheckLicenseOnlineAsync(true);
 
     [RelayCommand] private void ToggleSellerForm() => ShowSellerForm = !ShowSellerForm;
 
@@ -130,28 +139,61 @@ public partial class MainViewModel : ObservableObject, IAppShell
         NeedsLicenseLock = _license.IsPaused;
         LockReason = _license.LockReason;
         NeedsPin = _access.PinRequired && !_access.Unlocked;
+        if (_license.IsActivated)
+            EnsureLicenseWatch();
         if (!NeedsPin && !NeedsLicenseLock)
             Start();
     }
 
-    private async Task CheckLicenseOnlineAsync()
+    private void EnsureLicenseWatch()
     {
+        if (_licenseTimer is not null)
+            return;
+        _licenseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _licenseTimer.Tick += (_, _) => _ = CheckLicenseOnlineAsync(false);
+        _licenseTimer.Start();
+        _ = CheckLicenseOnlineAsync(true);
+    }
+
+    private async Task CheckLicenseOnlineAsync(bool force)
+    {
+        if (!_license.IsActivated || _checkingLicense)
+            return;
+        if (!force && DateTime.UtcNow - _lastLicenseCheckUtc < TimeSpan.FromSeconds(20))
+            return;
+
+        _checkingLicense = true;
+        _lastLicenseCheckUtc = DateTime.UtcNow;
         try
         {
             await _license.RefreshRemoteAsync();
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (_license.IsPaused)
-                {
-                    LockReason = _license.LockReason;
-                    NeedsLicenseLock = true;
-                }
-            });
+            await Dispatcher.UIThread.InvokeAsync(ApplyLicenseState);
         }
         catch
         {
-            /* stay open if the status file cannot be reached */
+            /* keep last known pause state */
         }
+        finally
+        {
+            _checkingLicense = false;
+        }
+    }
+
+    private void ApplyLicenseState()
+    {
+        LockReason = _license.LockReason;
+        if (_license.IsPaused)
+        {
+            NeedsLicenseLock = true;
+            return;
+        }
+
+        if (!NeedsLicenseLock)
+            return;
+
+        NeedsLicenseLock = false;
+        if (CurrentPage is null && !NeedsPin && !NeedsActivation)
+            Start();
     }
 
     partial void OnSelectedNavChanged(NavItem? value)

@@ -93,9 +93,9 @@
         <StackPanel>
           <TextBlock Classes="h1" Text="This copy is paused" />
           <TextBlock Classes="muted" Text="{Binding LockReason}" TextWrapping="Wrap" Margin="0,0,0,12" />
-          <TextBlock Classes="label" Text="New license key" />
-          <TextBox Text="{Binding LicenseKeyInput}" Watermark="CK1...." TextWrapping="Wrap" />
-          <Button Classes="gold" Content="Activate" Command="{Binding ActivateCommand}" HorizontalAlignment="Left" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                     Text="This screen updates by itself. You do not need to reinstall or pull new code." />
+          <Button Classes="gold" Content="Check again" Command="{Binding CheckLicenseCommand}" HorizontalAlignment="Left" />
         </StackPanel>
       </Border>
     </Border>

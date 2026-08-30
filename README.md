@@ -30,7 +30,17 @@ dotnet run --project src/ContainerManagement
 
 A **desktop window** opens. No browser, no localhost.
 
-First launch asks for a **license**. You (the seller) click **I am the seller**, type the seller PIN and the customer’s business name. That name is stamped on the shop for life. To pause a copy that has not paid, add their license id to `license-status.json` on GitHub (`shops` → `"CK-XXXXXX": { "active": false }`) and they will be locked the next time the app starts online.
+First launch asks for a **license**. You (the seller) click **I am the seller**, type the seller PIN and the customer’s business name. That name is stamped on the shop for life.
+
+To pause a copy that has not paid, edit `license-status.json` **in this GitHub repo** and push:
+
+```json
+"shops": {
+  "CK-XXXXXX": { "active": false, "message": "Payment overdue. Contact CargoKhata." }
+}
+```
+
+The shop’s running app fetches that file from GitHub about once a minute. **They do not git pull and they do not need to relaunch.** Set `"active": true` (or delete the id) to unlock them the same way. The license id is on **Settings**.
 
 To print a key from a terminal:
 

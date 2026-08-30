@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -20,7 +21,7 @@ public class LicenseService
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
     private static readonly JsonSerializerOptions Compact = new() { WriteIndented = false };
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(8) };
+    private readonly HttpClient _http;
     private ShopLicenseFile? _file;
 
     public static string FilePath => Path.Combine(DbPaths.DirectoryPath, "license.json");
@@ -34,6 +35,9 @@ public class LicenseService
 
     public LicenseService()
     {
+        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("CargoKhata/1.0");
+        _http.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true };
         Load();
         ApplyStoredPause();
     }
@@ -75,17 +79,23 @@ public class LicenseService
         if (!TryParse(key, out var payload, out error))
             return false;
 
+        var sameId = _file is not null &&
+                     string.Equals(_file.CustomerId, payload.Id, StringComparison.OrdinalIgnoreCase);
+        var keepPause = sameId && _file!.RemotelyPaused;
+        var keepMessage = keepPause ? _file.PauseMessage : "";
+
         _file = new ShopLicenseFile
         {
             CustomerId = payload.Id,
             BusinessName = payload.Name,
             Key = key.Trim(),
-            IssuedUtc = DateTime.UtcNow
+            IssuedUtc = DateTime.UtcNow,
+            RemotelyPaused = keepPause,
+            PauseMessage = keepMessage
         };
         Save();
         ApplyShopName();
-        IsPaused = false;
-        LockReason = "";
+        ApplyStoredPause();
         return true;
     }
 
@@ -117,14 +127,21 @@ public class LicenseService
 
         try
         {
-            var json = await _http.GetStringAsync(LicenseSecrets.StatusUrl);
+            var json = await DownloadStatusJsonAsync();
+            if (json is null)
+            {
+                Console.WriteLine("License check: could not reach GitHub, keeping last state.");
+                ApplyStoredPause();
+                return;
+            }
+
             using var doc = JsonDocument.Parse(json);
             var paused = false;
             var message = "";
             if (doc.RootElement.TryGetProperty("shops", out var shops) &&
-                shops.TryGetProperty(_file.CustomerId, out var shop))
+                TryGetShop(shops, _file.CustomerId, out var shop))
             {
-                var active = !shop.TryGetProperty("active", out var a) || a.GetBoolean();
+                var active = !shop.TryGetProperty("active", out var a) || a.ValueKind != JsonValueKind.False;
                 if (!active)
                 {
                     paused = true;
@@ -139,11 +156,98 @@ public class LicenseService
             _file.LastOnlineUtc = DateTime.UtcNow;
             Save();
             ApplyStoredPause();
+            Console.WriteLine(paused
+                ? "License check: paused (" + _file.CustomerId + ")"
+                : "License check: active (" + _file.CustomerId + ")");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("License check failed: " + ex.Message);
+            ApplyStoredPause();
+        }
+    }
+
+    private async Task<string?> DownloadStatusJsonAsync()
+    {
+        foreach (var baseUrl in LicenseSecrets.StatusUrls)
+        {
+            try
+            {
+                var sep = baseUrl.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+                using var req = new HttpRequestMessage(HttpMethod.Get, baseUrl + sep + "t=" + DateTime.UtcNow.Ticks);
+                req.Headers.TryAddWithoutValidation("User-Agent", "CargoKhata/1.0");
+                req.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true, NoStore = true };
+                req.Headers.Pragma.ParseAdd("no-cache");
+                if (baseUrl.Contains("api.github.com", StringComparison.OrdinalIgnoreCase))
+                    req.Headers.Accept.ParseAdd("application/vnd.github.raw");
+
+                using var resp = await _http.SendAsync(req);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("License check HTTP " + (int)resp.StatusCode + " from " + ShortUrl(baseUrl));
+                    continue;
+                }
+
+                var body = await resp.Content.ReadAsStringAsync();
+                var json = NormalizeStatusBody(body);
+                if (json is not null)
+                    return json;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("License check skip " + ShortUrl(baseUrl) + ": " + ex.Message);
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeStatusBody(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("shops", out _))
+                return body;
+            if (root.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+            {
+                var b64 = (c.GetString() ?? "").Replace("\n", "", StringComparison.Ordinal);
+                var inner = Encoding.UTF8.GetString(Convert.FromBase64String(b64));
+                using var innerDoc = JsonDocument.Parse(inner);
+                if (innerDoc.RootElement.TryGetProperty("shops", out _))
+                    return inner;
+            }
         }
         catch
         {
-            ApplyStoredPause();
+            /* not the status file */
         }
+        return null;
+    }
+
+    private static bool TryGetShop(JsonElement shops, string id, out JsonElement shop)
+    {
+        shop = default;
+        if (shops.ValueKind != JsonValueKind.Object || string.IsNullOrWhiteSpace(id))
+            return false;
+        foreach (var p in shops.EnumerateObject())
+        {
+            if (string.Equals(p.Name, id, StringComparison.OrdinalIgnoreCase))
+            {
+                shop = p.Value;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string ShortUrl(string url)
+    {
+        try { return new Uri(url).Host + new Uri(url).AbsolutePath; }
+        catch { return url; }
     }
 
     private void ApplyStoredPause()
