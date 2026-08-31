@@ -39,6 +39,7 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string pinNote = "";
     [ObservableProperty] private bool confirmWipe;
     [ObservableProperty] private bool isOwner;
+    [ObservableProperty] private bool showWipeDemo = true;
 
     public override Task LoadAsync()
     {
@@ -55,6 +56,7 @@ public partial class SettingsViewModel : ViewModelBase
         PinNote = s.PinRequired
             ? "A PIN is set. Leave the boxes empty to keep it. Type a new PIN to change it."
             : "No PIN yet. Anyone at this PC has full access.";
+        ShowWipeDemo = !s.DemoWiped;
         return Task.CompletedTask;
     }
 
@@ -133,6 +135,7 @@ public partial class SettingsViewModel : ViewModelBase
             s.DemoWiped = true;
             s.Save();
             ConfirmWipe = false;
+            ShowWipeDemo = false;
             _shell.Notify("Demo data wiped. Add your own containers and customers.");
             _shell.GoDashboard();
         }

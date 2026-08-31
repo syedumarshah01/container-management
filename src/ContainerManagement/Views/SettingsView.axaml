@@ -45,7 +45,7 @@
         </StackPanel>
       </StackPanel>
     </Border>
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowWipeDemo}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Go live" />
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"

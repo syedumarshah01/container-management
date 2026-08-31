@@ -27,14 +27,10 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? fromDate;
     [ObservableProperty] private DateTimeOffset? toDate;
     [ObservableProperty] private string lowStockCount = "0";
-    [ObservableProperty] private string unpaidCount = "0";
-    [ObservableProperty] private string unpaidTotal = "—";
     [ObservableProperty] private string lastBackup = "None yet";
     [ObservableProperty] private InventoryRow? selectedLowStock;
-    [ObservableProperty] private AttentionInvoiceRow? selectedUnpaid;
 
     public ObservableCollection<InventoryRow> LowStock { get; } = new();
-    public ObservableCollection<AttentionInvoiceRow> Unpaid { get; } = new();
 
     public override async Task LoadAsync()
     {
@@ -50,12 +46,6 @@ public partial class DashboardViewModel : ViewModelBase
         foreach (var row in dash.LowStockItems)
             LowStock.Add(row);
         LowStockCount = dash.LowStockCount.ToString();
-
-        Unpaid.Clear();
-        foreach (var row in dash.UnpaidInvoices)
-            Unpaid.Add(row);
-        UnpaidCount = dash.UnpaidCount.ToString();
-        UnpaidTotal = Money.Pkr(dash.UnpaidTotal);
 
         LastBackup = _backups.ListBackups().FirstOrDefault()?.WhenText ?? "None yet";
 
@@ -75,15 +65,7 @@ public partial class DashboardViewModel : ViewModelBase
 
     [RelayCommand] private void GoNewSale() => _shell.GoNewSale();
     [RelayCommand] private void GoStock() => _shell.GoInventory();
-    [RelayCommand] private void GoCollect() => _shell.GoReceivables();
     [RelayCommand] private void GoBackup() => _shell.GoBackup();
-
-    [RelayCommand]
-    private void OpenUnpaid()
-    {
-        if (SelectedUnpaid is not null)
-            _shell.OpenSale(SelectedUnpaid.SaleId);
-    }
 
     private static bool IsThisMonth(DateTime? from, DateTime? to)
     {

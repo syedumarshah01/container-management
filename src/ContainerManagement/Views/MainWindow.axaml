@@ -5,6 +5,7 @@
         x:Class="ContainerManagement.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="{Binding BrandName}"
+        Icon="/Assets/logo.png"
         Width="1200" Height="780"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -17,7 +18,11 @@
 
       <Border Width="216" Background="{StaticResource NavyBrush}">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Top" Margin="20,28,20,8">
+          <StackPanel DockPanel.Dock="Top" Margin="20,24,20,8">
+            <Border CornerRadius="12" ClipToBounds="True" Width="56" Height="56"
+                    HorizontalAlignment="Left" Margin="0,0,0,12">
+              <Image Source="/Assets/logo.png" Stretch="UniformToFill" />
+            </Border>
             <TextBlock Text="{Binding BrandName}" FontSize="20" FontWeight="SemiBold"
                        Foreground="White" TextWrapping="Wrap" />
             <Border Background="{StaticResource GoldBrush}" Width="36" Height="3"

@@ -32,4 +32,8 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.2.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
 </Project>
