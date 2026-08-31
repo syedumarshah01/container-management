@@ -24,8 +24,7 @@ public class ExportService
 
     public void ProfitWorkbook(
         IReadOnlyList<ContainerProfitRow> containers,
-        IReadOnlyList<ItemProfitRow> items,
-        IReadOnlyList<DailySummaryRow> days)
+        IReadOnlyList<ItemProfitRow> items)
     {
         WriteCsv("probooks-containers.csv",
             ["Container", "Status", "Sales", "COGS", "Expenses", "Profit", "Stock left"],
@@ -40,13 +39,6 @@ public class ExportService
             {
                 i.ProductName, i.Sku ?? "", i.QtySold.ToString("0.###"), i.Revenue.ToString("0.00"),
                 i.Cogs.ToString("0.00"), i.Profit.ToString("0.00")
-            }));
-        WriteCsv("probooks-daily.csv",
-            ["Date", "Bills", "Sales", "Cash in", "Credit given"],
-            days.Select(d => new[]
-            {
-                d.Date.ToString("yyyy-MM-dd"), d.Bills.ToString(), d.Sales.ToString("0.00"),
-                d.CashIn.ToString("0.00"), d.Credit.ToString("0.00")
             }));
     }
 

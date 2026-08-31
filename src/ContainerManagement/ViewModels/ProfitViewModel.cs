@@ -21,8 +21,6 @@ public partial class ProfitViewModel : ViewModelBase
 
     public ObservableCollection<ContainerProfitRow> Rows { get; } = new();
     public ObservableCollection<ItemProfitRow> Items { get; } = new();
-    public ObservableCollection<BestSellerRow> BestSellers { get; } = new();
-    public ObservableCollection<DailySummaryRow> Days { get; } = new();
     public ObservableCollection<ContainerProfitRow> ContainerFilter { get; } = new();
 
     [ObservableProperty] private ContainerProfitRow? selected;
@@ -65,16 +63,6 @@ public partial class ProfitViewModel : ViewModelBase
         foreach (var i in items)
             Items.Add(i);
 
-        var best = await _reports.GetBestSellersAsync(from, to);
-        BestSellers.Clear();
-        foreach (var b in best)
-            BestSellers.Add(b);
-
-        var days = await _reports.GetDailyAsync(from, to);
-        Days.Clear();
-        foreach (var d in days)
-            Days.Add(d);
-
         var rev = list.Sum(r => r.Revenue);
         var cost = list.Sum(r => r.Cogs);
         var exp = list.Sum(r => r.Expenses);
@@ -92,7 +80,7 @@ public partial class ProfitViewModel : ViewModelBase
     {
         try
         {
-            _export.ProfitWorkbook(Rows.ToList(), Items.ToList(), Days.ToList());
+            _export.ProfitWorkbook(Rows.ToList(), Items.ToList());
             _shell.Notify("CSV files opened. Excel can open them.");
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
