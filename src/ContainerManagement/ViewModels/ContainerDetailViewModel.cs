@@ -120,6 +120,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     partial void OnSelectedItemChanged(ContainerItemRow? value)
     {
         if (_loadingSelection || value is null) return;
+        ShowItemForm = true;
         GoodsName = value.Name;
         GoodsSku = value.Sku;
         GoodsUnit = value.Unit;
@@ -276,6 +277,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
             await _inventory.DeleteGoodsAsync(SelectedItem.Id);
             _shell.Notify("Item deleted.");
             ClearGoodsForm();
+            ShowItemForm = false;
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
