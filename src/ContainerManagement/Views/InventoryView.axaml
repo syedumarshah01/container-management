@@ -19,7 +19,8 @@
     </Border>
 
     <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
-      <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
+      <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
           <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
@@ -35,7 +36,7 @@
         <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
         <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
                   IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
-                  x:CompileBindings="False">
+                  VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
             <DataGridTextColumn Header="In Stock" Binding="{Binding RemainingText}" Width="110" />

@@ -53,12 +53,7 @@ public class PageHost : UserControl
             }
             else
             {
-                view = new ScrollViewer
-                {
-                    Content = inner,
-                    Background = pageBrush,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-                };
+                view = PageScrollBar.Wrap(inner, pageBrush);
             }
             _views.Add(vm, view);
         }

@@ -130,6 +130,9 @@
       <Setter Property="RowHeight" Value="44" />
       <Setter Property="MinHeight" Value="140" />
     </Style>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
     <Style Selector="DataGridColumnHeader">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
