@@ -120,33 +120,33 @@
     </Border>
 
     <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="Expenses" />
-        <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Category" />
-            <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Amount" />
-            <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
-          </StackPanel>
-          <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Content="Save" Command="{Binding SaveExpenseCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
-        </Grid>
-        <TextBlock Classes="muted" FontSize="12" Text="A record only — expenses do not change cost, stock, or profit. Click a row to edit, then Save." Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
-            <DataGridTextColumn Header="What" Binding="{Binding Category}" Width="*" />
-            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
-          </DataGrid.Columns>
-        </DataGrid>
-      </StackPanel>
+      <Expander Header="Expenses" HorizontalAlignment="Stretch">
+        <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
+          <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
+            <StackPanel Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Category" />
+              <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Amount" />
+              <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
+            </StackPanel>
+            <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,8,12" />
+            <Button Grid.Column="3" Content="Save" Command="{Binding SaveExpenseCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,8,12" />
+            <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,0,12" />
+          </Grid>
+          <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
+              <DataGridTextColumn Header="What" Binding="{Binding Category}" Width="*" />
+              <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </Expander>
     </Border>
   </StackPanel>
 </UserControl>
