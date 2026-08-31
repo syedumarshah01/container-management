@@ -14,7 +14,7 @@
         <TextBlock Classes="label" Text="Show invoices for" />
         <ComboBox ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" MaxWidth="360"
                   HorizontalAlignment="Left" />
-        <TextBlock Classes="h2" Text="Double-click a bill to open" />
+        <TextBlock Classes="h2" Text="Invoices" />
         <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

@@ -60,7 +60,7 @@ public partial class InventoryViewModel : ViewModelBase
         HasSelectedLots = SelectedLots.Count > 0;
         LotsHeading = SelectedLots.Count == 1
             ? value.ProductName + " is in 1 container."
-            : value.ProductName + " is in " + SelectedLots.Count + " containers. Double-click a row to open it.";
+            : value.ProductName + " is in " + SelectedLots.Count + " containers.";
     }
 
     [RelayCommand]

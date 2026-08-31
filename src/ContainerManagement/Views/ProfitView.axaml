@@ -50,7 +50,7 @@
     <TextBlock Classes="muted" Text="{Binding ProfitHint}" Margin="0,0,0,16" />
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Per container  —  double-click to open" />
+        <TextBlock Classes="h2" Text="Per container" />
         <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

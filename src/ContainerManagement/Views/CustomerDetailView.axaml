@@ -78,7 +78,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Invoices  —  double-click to see items and containers" />
+        <TextBlock Classes="h2" Text="Invoices" />
         <DataGrid ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}"
                   DoubleTapped="OnInvoiceDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

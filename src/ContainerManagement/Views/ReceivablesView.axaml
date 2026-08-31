@@ -13,7 +13,7 @@
     </Border>
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Double-click a name to receive money" />
+        <TextBlock Classes="h2" Text="Customers" />
         <DataGrid ItemsSource="{Binding Due}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

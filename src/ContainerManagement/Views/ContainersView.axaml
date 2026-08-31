@@ -12,7 +12,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="All containers  —  double-click to open" />
+        <TextBlock Classes="h2" Text="All containers" />
         <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

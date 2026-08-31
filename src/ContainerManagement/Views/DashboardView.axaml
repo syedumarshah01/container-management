@@ -51,7 +51,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Containers  —  double-click to open" />
+        <TextBlock Classes="h2" Text="Containers" />
         <DataGrid ItemsSource="{Binding ContainerProfits}" SelectedItem="{Binding SelectedContainer}"
                   DoubleTapped="OnContainerDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>
