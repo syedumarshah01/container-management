@@ -55,6 +55,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
+    [ObservableProperty] private bool showItemForm;
 
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
