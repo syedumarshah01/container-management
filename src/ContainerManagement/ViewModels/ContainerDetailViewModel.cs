@@ -146,6 +146,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 null, null, null, null, null);
             _shell.Notify("Item added.");
             ClearGoodsForm();
+            ShowItemForm = false;
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -308,6 +309,16 @@ public partial class ContainerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand] private void ToggleImport() => ShowImportEditor = !ShowImportEditor;
+    [RelayCommand] private void BeginAddItem()
+    {
+        ClearGoodsForm();
+        ShowItemForm = true;
+    }
+    [RelayCommand] private void CancelItemForm()
+    {
+        ClearGoodsForm();
+        ShowItemForm = false;
+    }
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.Back();
 

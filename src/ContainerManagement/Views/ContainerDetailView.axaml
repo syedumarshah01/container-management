@@ -68,7 +68,27 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Items" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="h2" Text="Items" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Classes="gold" Content="Add item" Command="{Binding BeginAddItemCommand}"
+                  IsVisible="{Binding !ShowItemForm}" Margin="16,0,0,12" />
+        </Grid>
+        <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
+            <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
+            <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
+            <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" FontSize="12" Text="Click a row to edit." Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowItemForm}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Add or edit item" />
         <TextBlock Classes="label" Text="Name" />
         <TextBox Text="{Binding GoodsName}" />
         <Grid ColumnDefinitions="*,*,*">
@@ -85,30 +105,17 @@
             <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="In stock (when editing)" />
-            <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" />
-          </StackPanel>
-          <Button Grid.Column="1" Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="2" Content="Save item" Command="{Binding SaveGoodsCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Content="Photo" Command="{Binding PickPhotoCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,8,12" />
-          <Button Grid.Column="4" Classes="danger" Content="Delete" Command="{Binding DeleteGoodsCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
-        </Grid>
-        <TextBlock Classes="muted" FontSize="12" Text="Click a row, change the fields, then Save item." Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" x:CompileBindings="False">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
-            <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
-            <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
-            <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
-            <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
-          </DataGrid.Columns>
-        </DataGrid>
+        <StackPanel Margin="0,0,0,0">
+          <TextBlock Classes="label" Text="In stock (when editing)" />
+          <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+          <Button Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}" />
+          <Button Content="Save item" Command="{Binding SaveGoodsCommand}" />
+          <Button Content="Photo" Command="{Binding PickPhotoCommand}" />
+          <Button Classes="danger" Content="Delete" Command="{Binding DeleteGoodsCommand}" />
+          <Button Content="Cancel" Command="{Binding CancelItemFormCommand}" />
+        </StackPanel>
       </StackPanel>
     </Border>
 
