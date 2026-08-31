@@ -11,8 +11,26 @@
     <Style Selector="Expander /template/ ToggleButton">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+    <Style Selector="ScrollViewer.page">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+    <Style Selector="ScrollViewer.page /template/ ScrollBar#PART_VerticalScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Height" Value="220" />
+      <Setter Property="Width" Value="12" />
+      <Setter Property="MinWidth" Value="12" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
   </UserControl.Styles>
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <ScrollViewer x:Name="PageScroll" Classes="page"
+                AllowAutoHide="False"
+                VerticalScrollBarVisibility="Visible"
+                HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
       <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,Auto,*">
         <DockPanel LastChildFill="True" Margin="0,0,0,16">
@@ -82,7 +100,8 @@
         <Border Classes="card" Grid.Row="3" Margin="0,0,0,16">
           <DockPanel>
             <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Items" />
-            <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" x:CompileBindings="False">
+            <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                      VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
                 <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
