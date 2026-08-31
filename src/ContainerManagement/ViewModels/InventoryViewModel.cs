@@ -18,6 +18,8 @@ public partial class InventoryViewModel : ViewModelBase
         _shell = shell;
     }
 
+    public override bool FillsPage => true;
+
     public ObservableCollection<InventoryRow> Rows { get; } = new();
     public ObservableCollection<InventoryLot> SelectedLots { get; } = new();
 

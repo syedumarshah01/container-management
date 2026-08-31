@@ -44,12 +44,22 @@ public class PageHost : UserControl
             var inner = _locator.Build(vm) ?? new TextBlock { Text = "Missing page" };
             inner.DataContext = vm;
             inner.Margin = new Thickness(32, 28, 32, 16);
-            view = new ScrollViewer
+            var pageBrush = new SolidColorBrush(Color.Parse("#F4F3EF"));
+            if (vm.FillsPage)
             {
-                Content = inner,
-                Background = new SolidColorBrush(Color.Parse("#F4F3EF")),
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-            };
+                inner.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+                inner.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+                view = new Grid { Background = pageBrush, Children = { inner } };
+            }
+            else
+            {
+                view = new ScrollViewer
+                {
+                    Content = inner,
+                    Background = pageBrush,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+                };
+            }
             _views.Add(vm, view);
         }
 

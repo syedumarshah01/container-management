@@ -12,6 +12,11 @@ public abstract class ViewModelBase : ObservableObject
     /// </summary>
     public virtual bool ReloadOnShow => true;
 
+    /// <summary>
+    /// When true the page fills the window and scrolls inside tables, so a pinned panel stays in view.
+    /// </summary>
+    public virtual bool FillsPage => false;
+
     public virtual Task LoadAsync() => Task.CompletedTask;
 }
 

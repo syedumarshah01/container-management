@@ -3,14 +3,14 @@
              xmlns:vm="using:ContainerManagement.ViewModels"
              x:Class="ContainerManagement.Views.InventoryView"
              x:DataType="vm:InventoryViewModel">
-  <StackPanel>
+  <Grid RowDefinitions="Auto,Auto,*,220">
     <Grid ColumnDefinitions="*,280">
       <TextBlock Classes="h1" Text="Stock" />
       <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
                VerticalAlignment="Top" Margin="16,0,0,12" />
     </Grid>
 
-    <Border Classes="statcard" Margin="0,0,0,16">
+    <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">
       <StackPanel>
         <TextBlock Classes="label" Text="Total stock value" />
         <TextBlock Classes="stat" Text="{Binding TotalValue}" />
@@ -18,7 +18,7 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
       <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
@@ -30,9 +30,9 @@
       </DataGrid>
     </Border>
 
-    <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
+    <Border Classes="card" Grid.Row="3" Margin="0">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
         <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
                   IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
                   x:CompileBindings="False">
@@ -42,7 +42,7 @@
             <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
           </DataGrid.Columns>
         </DataGrid>
-      </StackPanel>
+      </DockPanel>
     </Border>
-  </StackPanel>
+  </Grid>
 </UserControl>
