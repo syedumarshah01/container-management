@@ -2,21 +2,27 @@ namespace ContainerManagement.Models;
 
 public static class Money
 {
-    public static string Pkr(decimal value) =>
-        "Rs " + value.ToString("N2");
+    public static string Pkr(decimal value) => "Rs " + Num(value);
 
     public static string PkrCompact(decimal value)
     {
         var abs = Math.Abs(value);
         if (abs >= 10_000_000m)
-            return "Rs " + (value / 10_000_000m).ToString("0.##") + " Cr";
+            return "Rs " + Num(value / 10_000_000m) + " Cr";
         if (abs >= 100_000m)
-            return "Rs " + (value / 100_000m).ToString("0.##") + " L";
+            return "Rs " + Num(value / 100_000m) + " L";
         return Pkr(value);
     }
 
-    public static string Qty(decimal value) =>
-        value == decimal.Truncate(value) ? value.ToString("N0") : value.ToString("N2");
+    public static string Qty(decimal value) => Num(value);
+
+    private static string Num(decimal value)
+    {
+        var n = decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        if (n == decimal.Truncate(n))
+            return n.ToString("N0");
+        return n.ToString("N2").TrimEnd('0').TrimEnd('.');
+    }
 }
 
 public class DashboardVm

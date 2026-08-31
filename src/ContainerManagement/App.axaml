@@ -151,6 +151,9 @@
       <Setter Property="MinHeight" Value="38" />
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="FormatString" Value="#,##0.##" />
+    </Style>
 
     <Style Selector="ScrollViewer">
       <Setter Property="AllowAutoHide" Value="True" />
