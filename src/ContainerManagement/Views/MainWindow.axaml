@@ -7,7 +7,8 @@
         Title="{Binding BrandName}"
         Width="1200" Height="780"
         MinWidth="960" MinHeight="640"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized">
   <Grid>
     <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E6E4DE" BorderThickness="0,1,0,0" Padding="24,10">
