@@ -3,47 +3,62 @@
              xmlns:vm="using:ContainerManagement.ViewModels"
              x:Class="ContainerManagement.Views.InventoryView"
              x:DataType="vm:InventoryViewModel">
-  <Grid RowDefinitions="Auto,Auto,*,220">
-    <Grid ColumnDefinitions="*,280">
-      <TextBlock Classes="h1" Text="Stock" />
-      <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
-               VerticalAlignment="Top" Margin="16,0,0,12" />
-    </Grid>
+  <UserControl.Styles>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer x:Name="PageScroll" Classes="page"
+                AllowAutoHide="False"
+                VerticalScrollBarVisibility="Visible"
+                HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
+        <Grid ColumnDefinitions="*,280">
+          <TextBlock Classes="h1" Text="Stock" />
+          <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
+                   VerticalAlignment="Top" Margin="16,0,0,12" />
+        </Grid>
 
-    <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">
-      <StackPanel>
-        <TextBlock Classes="label" Text="Total stock value" />
-        <TextBlock Classes="stat" Text="{Binding TotalValue}" />
-        <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
-      </StackPanel>
-    </Border>
+        <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Total stock value" />
+            <TextBlock Classes="stat" Text="{Binding TotalValue}" />
+            <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
+          </StackPanel>
+        </Border>
 
-    <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
-      <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
-        <DataGrid.Columns>
-          <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
-          <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
-          <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
-          <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
-          <DataGridTextColumn Header="Which container" Binding="{Binding LotsText}" Width="160" />
-        </DataGrid.Columns>
-      </DataGrid>
-    </Border>
+        <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Items" />
+            <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                      VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+                <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
+                <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
+                <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
+                <DataGridTextColumn Header="Which container" Binding="{Binding LotsText}" Width="160" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
 
-    <Border Classes="card" Grid.Row="3" Margin="0">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
-        <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
-                  IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
-                  VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
-            <DataGridTextColumn Header="In Stock" Binding="{Binding RemainingText}" Width="110" />
-            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
-          </DataGrid.Columns>
-        </DataGrid>
-      </DockPanel>
-    </Border>
-  </Grid>
+      <Border Classes="card" Margin="0">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
+          <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
+                    IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
+                    VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
+              <DataGridTextColumn Header="In Stock" Binding="{Binding RemainingText}" Width="110" />
+              <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>
