@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using ContainerManagement.ViewModels;
 
@@ -44,6 +43,7 @@ public class PageHost : UserControl
             var inner = _locator.Build(vm) ?? new TextBlock { Text = "Missing page" };
             inner.DataContext = vm;
             inner.Margin = new Thickness(32, 28, 32, 16);
+            TableScroll.Attach(inner);
             var pageBrush = new SolidColorBrush(Color.Parse("#F4F3EF"));
             if (vm.FillsPage)
             {
