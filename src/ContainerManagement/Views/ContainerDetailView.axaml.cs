@@ -9,11 +9,6 @@ public partial class ContainerDetailView : UserControl
     {
         InitializeComponent();
         PageScrollBar.Attach(PageScroll);
-        SizeChanged += (_, e) =>
-        {
-            if (e.NewSize.Height > 0)
-                MainPane.Height = e.NewSize.Height;
-            PageScrollBar.Style(PageScroll);
-        };
+        SizeChanged += (_, _) => PageScrollBar.Style(PageScroll);
     }
 }

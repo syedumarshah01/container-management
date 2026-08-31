@@ -226,7 +226,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
             return;
         }
         if (SelectedNav is not null)
-            ShowNav(SelectedNav.Key);
+            Present(NavPage(SelectedNav.Key), allowReload: false);
     }
 
     public void GoDashboard() => Select("dash");
@@ -245,11 +245,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
 
     public void OpenSale(int id)
     {
-        var vm = ActivatorUtilities.CreateInstance<SaleDetailViewModel>(_services, id);
-        if (CurrentPage is NewSaleViewModel)
-            Present(vm, forceLoad: true);
-        else
-            Push(vm);
+        Push(ActivatorUtilities.CreateInstance<SaleDetailViewModel>(_services, id));
     }
 
     public void EditSale(int id)
@@ -274,7 +270,9 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private void ShowNav(string key)
     {
         _back.Clear();
-        Present(NavPage(key));
+        var page = Create(key);
+        _navPages[key] = page;
+        Present(page, forceLoad: true);
     }
 
     private void Push(ViewModelBase vm)
