@@ -84,7 +84,7 @@ public partial class InventoryViewModel : ViewModelBase
         var list = src.ToList();
         var keepId = Selected?.ProductId;
         Rows.Clear();
-        foreach (var r in list.Where(r => r.TotalRemaining > 0))
+        foreach (var r in list)
             Rows.Add(r);
 
         TotalValue = Money.Pkr(list.Sum(r => r.TotalValue));

@@ -56,7 +56,7 @@ public class ReportService
             LowStockCount = inv.Count(r => r.IsLow),
             LowStockHint = inv.Count(r => r.IsLow) == 0
                 ? ""
-                : inv.Count(r => r.IsLow) + " items below " + Money.Qty(shop.LowStockQty),
+                : inv.Count(r => r.IsLow) + " items at or below " + Money.Qty(shop.LowStockQty),
             TopReceivables = receivables.Where(r => r.Balance > 0).Take(5).ToList(),
             ContainerProfits = profits,
             RecentSales = recent,
@@ -101,7 +101,7 @@ public class ReportService
                     Unit = g.Key.Unit,
                     TotalRemaining = remaining,
                     TotalValue = g.Sum(x => x.QuantityRemaining * x.UnitCost),
-                    IsLow = remaining > 0 && remaining <= threshold,
+                    IsLow = remaining <= threshold,
                     Lots = g.Select(x => new InventoryLot
                     {
                         ContainerId = x.ContainerId,
@@ -115,7 +115,7 @@ public class ReportService
                     }).OrderBy(l => l.ContainerTitle).ToList()
                 };
             })
-            .Where(r => r.TotalRemaining > 0 || r.Lots.Any(l => l.NeverSold))
+            .Where(r => r.Lots.Count > 0)
             .OrderBy(r => r.ProductName)
             .ToList();
     }

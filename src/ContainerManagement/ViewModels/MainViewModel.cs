@@ -35,6 +35,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("To collect", "market"),
             new NavItem("Item sales", "itemsales"),
             new NavItem("Profit", "profit"),
+            new NavItem("Expenses", "expenses"),
             new NavItem("Backup", "backup"),
             new NavItem("Settings", "settings")
         ];
@@ -330,6 +331,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         "customers" => _services.GetRequiredService<CustomersViewModel>(),
         "market" => _services.GetRequiredService<ReceivablesViewModel>(),
         "profit" => _services.GetRequiredService<ProfitViewModel>(),
+        "expenses" => _services.GetRequiredService<ExpensesViewModel>(),
         "backup" => _services.GetRequiredService<BackupViewModel>(),
         "settings" => _services.GetRequiredService<SettingsViewModel>(),
         _ => _services.GetRequiredService<DashboardViewModel>()

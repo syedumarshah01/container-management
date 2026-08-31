@@ -106,6 +106,16 @@ public static class SchemaPatcher
             """);
 
         Exec(con, """
+            CREATE TABLE IF NOT EXISTS ShopExpenses (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Date TEXT NOT NULL,
+                Description TEXT NOT NULL,
+                Amount REAL NOT NULL,
+                Notes TEXT
+            );
+            """);
+
+        Exec(con, """
             UPDATE ContainerItems
             SET LandedUnitCost = UnitCost
             WHERE LandedUnitCost IS NULL OR LandedUnitCost = 0;

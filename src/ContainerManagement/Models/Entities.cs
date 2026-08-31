@@ -256,3 +256,12 @@ public class CashMovement
     public decimal Amount { get; set; }
     public string? Notes { get; set; }
 }
+
+public class ShopExpense
+{
+    public int Id { get; set; }
+    public DateTime Date { get; set; } = DateTime.Now;
+    public string Description { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string? Notes { get; set; }
+}
