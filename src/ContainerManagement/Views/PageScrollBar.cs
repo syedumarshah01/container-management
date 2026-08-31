@@ -12,8 +12,8 @@ namespace ContainerManagement.Views;
 /// </summary>
 public static class PageScrollBar
 {
-    private static readonly IBrush Thumb = new SolidColorBrush(Color.Parse("#1B2A4A"));
-    private static readonly IBrush Track = new SolidColorBrush(Color.Parse("#D9D6CE"));
+    private static readonly IBrush Thumb = new SolidColorBrush(Color.Parse("#661B2A4A"));
+    private static readonly IBrush Track = new SolidColorBrush(Colors.Transparent);
 
     public static ScrollViewer Wrap(Control inner, IBrush background)
     {
@@ -57,10 +57,10 @@ public static class PageScrollBar
             bar.AllowAutoHide = false;
             bar.VerticalAlignment = VerticalAlignment.Center;
             bar.Height = Math.Clamp(height * 0.4, 160, 260);
-            bar.Width = 12;
-            bar.MinWidth = 12;
+            bar.Width = 8;
+            bar.MinWidth = 8;
             bar.Margin = new Thickness(20, 0, 8, 0);
-            bar.Opacity = 1;
+            bar.Opacity = 0.45;
             bar.Background = Track;
             bar.Resources["ScrollBarThumbFill"] = Thumb;
             bar.Resources["ScrollBarThumbFillPointerOver"] = Thumb;

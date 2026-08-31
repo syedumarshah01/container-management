@@ -12,8 +12,8 @@ namespace ContainerManagement.Views;
 /// </summary>
 public sealed class SideScroll : DockPanel
 {
-    private static readonly IBrush Thumb = new SolidColorBrush(Color.Parse("#1B2A4A"));
-    private static readonly IBrush Track = new SolidColorBrush(Color.Parse("#D9D6CE"));
+    private static readonly IBrush Thumb = new SolidColorBrush(Color.Parse("#661B2A4A"));
+    private static readonly IBrush Track = new SolidColorBrush(Colors.Transparent);
 
     public SideScroll()
     {
@@ -38,11 +38,11 @@ public sealed class SideScroll : DockPanel
 
         panel.Children.Remove(bar);
         bar.AllowAutoHide = false;
-        bar.Width = 12;
-        bar.MinWidth = 12;
+        bar.Width = 8;
+        bar.MinWidth = 8;
         bar.Margin = new Thickness(16, 8, 4, 8);
         bar.VerticalAlignment = VerticalAlignment.Stretch;
-        bar.Opacity = 1;
+        bar.Opacity = 0.4;
         bar.Background = Track;
         bar.Resources["ScrollBarThumbFill"] = Thumb;
         bar.Resources["ScrollBarThumbFillPointerOver"] = Thumb;

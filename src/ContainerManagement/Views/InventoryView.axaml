@@ -31,7 +31,7 @@
         <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
           <DockPanel>
             <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Items" />
-            <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+            <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                       VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
@@ -45,7 +45,7 @@
         </Border>
       </Grid>
 
-      <Border Classes="card" Margin="0">
+      <Border Classes="card" Margin="0" MinHeight="220">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
           <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"

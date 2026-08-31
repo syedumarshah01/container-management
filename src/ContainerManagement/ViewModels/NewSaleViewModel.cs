@@ -53,6 +53,8 @@ public partial class NewSaleViewModel : ViewModelBase
     [ObservableProperty] private string heading = "Sell";
     [ObservableProperty] private NewSaleLineInput? selectedLine;
     [ObservableProperty] private bool fullCashDefault;
+    [ObservableProperty] private string qtyError = "";
+    public bool HasQtyError => !string.IsNullOrEmpty(QtyError);
 
     public override async Task LoadAsync()
     {
@@ -116,6 +118,7 @@ public partial class NewSaleViewModel : ViewModelBase
             SelectedStockContainer = "—";
             SelectedStockQty = "—";
             SelectedStockCost = "—";
+            QtyError = "";
             return;
         }
 
@@ -126,6 +129,7 @@ public partial class NewSaleViewModel : ViewModelBase
         PickPrice = value.LastSalePrice is > 0
             ? value.LastSalePrice
             : Math.Round(value.SellCost * 1.5m, 0);
+        QtyError = "";
     }
 
     partial void OnSelectedCustomerChanged(Customer? value)
@@ -140,23 +144,29 @@ public partial class NewSaleViewModel : ViewModelBase
     {
         if (SelectedStock is null)
         {
-            _shell.Notify("Search and pick an item.", true);
+            QtyError = "Search and pick an item.";
             return;
         }
         var qty = PickQty ?? 0;
-        if (qty <= 0 || qty > SelectedStock.Remaining)
+        if (qty <= 0)
         {
-            _shell.Notify($"Quantity must be between 0 and {Money.Qty(SelectedStock.Remaining)}.", true);
+            QtyError = "Enter a quantity greater than zero.";
+            return;
+        }
+        if (qty > SelectedStock.Remaining)
+        {
+            QtyError = "Only " + Money.Qty(SelectedStock.Remaining) + " in stock.";
             return;
         }
 
         var already = Lines.Where(l => l.ContainerItemId == SelectedStock.ContainerItemId).Sum(l => l.Quantity);
         if (already + qty > SelectedStock.Remaining)
         {
-            _shell.Notify("That would sell more than remaining in this container (including lines already on the bill).", true);
+            QtyError = "Only " + Money.Qty(SelectedStock.Remaining - already) + " left after this bill.";
             return;
         }
 
+        QtyError = "";
         Lines.Add(new NewSaleLineInput
         {
             ContainerId = SelectedStock.ContainerId,
@@ -171,8 +181,10 @@ public partial class NewSaleViewModel : ViewModelBase
             Remaining = SelectedStock.Remaining
         });
         SelectedStock = null;
+        StockSearch = "";
         PickQty = 1;
         PickPrice = 0;
+        QtyError = "";
         if (FullCashDefault && EditingSaleId is null)
             PaidNow = BillNet();
         Recalc();
@@ -278,6 +290,29 @@ public partial class NewSaleViewModel : ViewModelBase
         LedgerHint = $"Received now {Money.Pkr(paid)} · going to ledger {Money.Pkr(Math.Max(0, net - paid))}";
     }
 
+    partial void OnPickQtyChanged(decimal? value) => CheckQty();
     partial void OnPaidNowChanged(decimal? value) => Recalc();
     partial void OnDiscountChanged(decimal? value) => Recalc();
+    partial void OnQtyErrorChanged(string value) => OnPropertyChanged(nameof(HasQtyError));
+
+    private void CheckQty()
+    {
+        if (SelectedStock is null)
+            return;
+        var qty = PickQty ?? 0;
+        if (qty <= 0)
+            return;
+        if (qty > SelectedStock.Remaining)
+        {
+            QtyError = "Only " + Money.Qty(SelectedStock.Remaining) + " in stock.";
+            return;
+        }
+        var already = Lines.Where(l => l.ContainerItemId == SelectedStock.ContainerItemId).Sum(l => l.Quantity);
+        if (already + qty > SelectedStock.Remaining)
+        {
+            QtyError = "Only " + Money.Qty(SelectedStock.Remaining - already) + " left after this bill.";
+            return;
+        }
+        QtyError = "";
+    }
 }

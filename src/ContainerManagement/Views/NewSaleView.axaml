@@ -54,6 +54,8 @@
           <StackPanel Margin="0,0,12,0">
             <TextBlock Classes="label" Text="Quantity" />
             <NumericUpDown Value="{Binding PickQty}" Minimum="0" />
+            <TextBlock Classes="bad" FontSize="12" Text="{Binding QtyError}"
+                       IsVisible="{Binding HasQtyError}" Margin="0,-8,0,8" TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel Grid.Column="1" Margin="0,0,12,0">
             <TextBlock Classes="label" Text="Selling price (Rs)" />

@@ -16,10 +16,10 @@
     <SolidColorBrush x:Key="OkBrush">#157A3F</SolidColorBrush>
     <SolidColorBrush x:Key="BadBrush">#B42318</SolidColorBrush>
     <SolidColorBrush x:Key="LineBrush">#E6E4DE</SolidColorBrush>
-    <SolidColorBrush x:Key="ScrollBarThumbFill">#C9C6BE</SolidColorBrush>
-    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver">#8E8B84</SolidColorBrush>
-    <SolidColorBrush x:Key="ScrollBarThumbFillPressed">#1B2A4A</SolidColorBrush>
-    <SolidColorBrush x:Key="ScrollBarPanningThumbBackground">#C9C6BE</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFill">#661B2A4A</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver">#991B2A4A</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFillPressed">#CC1B2A4A</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarPanningThumbBackground">#661B2A4A</SolidColorBrush>
     <SolidColorBrush x:Key="ScrollBarTrackFill">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="ScrollBarTrackFillPressed">Transparent</SolidColorBrush>
@@ -129,6 +129,10 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="RowHeight" Value="44" />
       <Setter Property="MinHeight" Value="140" />
+      <Setter Property="MaxHeight" Value="348" />
+    </Style>
+    <Style Selector="DataGrid.tall">
+      <Setter Property="MaxHeight" Value="10000" />
     </Style>
     <Style Selector="DataGridColumnHeader">
       <Setter Property="FontSize" Value="12" />
