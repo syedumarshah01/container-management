@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
+    public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -170,6 +171,17 @@ public class AppDbContext : DbContext
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.Description).HasMaxLength(400).IsRequired();
             e.HasIndex(x => x.Date);
+        });
+
+        model.Entity<CashBookEntry>(e =>
+        {
+            e.ToTable("CashBook");
+            e.Property(x => x.Description).HasMaxLength(400).IsRequired();
+            e.Property(x => x.AmountIn).HasPrecision(18, 2);
+            e.Property(x => x.AmountOut).HasPrecision(18, 2);
+            e.HasIndex(x => x.Date);
+            e.HasIndex(x => x.PaymentId);
+            e.HasIndex(x => x.ShopExpenseId);
         });
     }
 }

@@ -102,6 +102,7 @@ public partial class App : Application
         services.AddTransient<LedgerService>();
         services.AddTransient<ReportService>();
         services.AddTransient<ShopExpenseService>();
+        services.AddTransient<CashBookService>();
         services.AddTransient<PrintService>();
         services.AddTransient<ExportService>();
 
@@ -118,6 +119,7 @@ public partial class App : Application
         services.AddTransient<ReceivablesViewModel>();
         services.AddTransient<ProfitViewModel>();
         services.AddTransient<ExpensesViewModel>();
+        services.AddTransient<MainLedgerViewModel>();
         services.AddTransient<BackupViewModel>();
         services.AddTransient<SettingsViewModel>();
     }

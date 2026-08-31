@@ -36,6 +36,8 @@ public class ShopExpenseService
         };
         db.ShopExpenses.Add(row);
         await db.SaveChangesAsync();
+        CashBookService.PostExpense(db, row);
+        await db.SaveChangesAsync();
         return row;
     }
 
@@ -53,6 +55,7 @@ public class ShopExpenseService
         row.Description = description.Trim();
         row.Amount = amount;
         row.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        CashBookService.SyncExpense(db, row);
         await db.SaveChangesAsync();
     }
 
@@ -61,6 +64,7 @@ public class ShopExpenseService
         await using var db = await _factory.CreateDbContextAsync();
         var row = await db.ShopExpenses.FindAsync(id)
             ?? throw new InvalidOperationException("Expense not found.");
+        CashBookService.RemoveExpense(db, id);
         db.ShopExpenses.Remove(row);
         await db.SaveChangesAsync();
     }

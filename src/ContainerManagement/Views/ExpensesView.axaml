@@ -5,6 +5,8 @@
              x:DataType="vm:ExpensesViewModel">
   <StackPanel>
     <TextBlock Classes="h1" Text="Expenses" />
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+               Text="Daily shop costs. Each line also comes off cash in the Main ledger by itself — do not type it there again." />
 
     <Grid ColumnDefinitions="*,*">
       <Border Classes="statcard" Margin="0,0,8,16">

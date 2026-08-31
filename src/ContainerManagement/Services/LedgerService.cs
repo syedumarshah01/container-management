@@ -158,6 +158,7 @@ public class LedgerService
             PaymentId = pay.Id,
             SaleId = saleId
         });
+        CashBookService.PostCustomerPayment(db, pay, customer.Name);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return pay;
@@ -170,6 +171,7 @@ public class LedgerService
             ?? throw new InvalidOperationException("Payment not found.");
         var led = await db.LedgerEntries.Where(e => e.PaymentId == paymentId).ToListAsync();
         db.LedgerEntries.RemoveRange(led);
+        CashBookService.RemoveCustomerPayments(db, new[] { paymentId });
         db.Payments.Remove(pay);
         await db.SaveChangesAsync();
     }

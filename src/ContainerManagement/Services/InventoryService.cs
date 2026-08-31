@@ -293,7 +293,9 @@ public class InventoryService
             ?? throw new InvalidOperationException("Container not found.");
         if (c.SupplierId is null)
             throw new InvalidOperationException("Set the supplier name on this container first.");
-        db.SupplierPayments.Add(new SupplierPayment
+        var supplier = await db.Suppliers.FindAsync(c.SupplierId.Value)
+            ?? throw new InvalidOperationException("Supplier not found.");
+        var pay = new SupplierPayment
         {
             SupplierId = c.SupplierId.Value,
             ContainerId = containerId,
@@ -301,7 +303,10 @@ public class InventoryService
             Amount = amount,
             Method = string.IsNullOrWhiteSpace(method) ? "TT" : method.Trim(),
             Notes = notes?.Trim()
-        });
+        };
+        db.SupplierPayments.Add(pay);
+        await db.SaveChangesAsync();
+        CashBookService.PostSupplierPayment(db, pay, supplier.Name, c.Title);
         await db.SaveChangesAsync();
     }
 

@@ -265,3 +265,26 @@ public class ShopExpense
     public decimal Amount { get; set; }
     public string? Notes { get; set; }
 }
+
+public enum CashBookKind
+{
+    Opening = 0,
+    CustomerIn = 1,
+    SupplierOut = 2,
+    ExpenseOut = 3,
+    RefundOut = 4
+}
+
+public class CashBookEntry
+{
+    public int Id { get; set; }
+    public DateTime Date { get; set; } = DateTime.Now;
+    public CashBookKind Kind { get; set; }
+    public string Description { get; set; } = "";
+    public decimal AmountIn { get; set; }
+    public decimal AmountOut { get; set; }
+    public int? PaymentId { get; set; }
+    public int? SupplierPaymentId { get; set; }
+    public int? ShopExpenseId { get; set; }
+    public int? SaleId { get; set; }
+}

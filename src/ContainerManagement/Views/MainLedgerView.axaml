@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.MainLedgerView"
+             x:DataType="vm:MainLedgerViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Main ledger" />
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+               Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again." />
+
+    <Grid ColumnDefinitions="*,*,*">
+      <Border Classes="statcard" Margin="0,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Cash in hand" />
+          <TextBlock Classes="stat" Text="{Binding CashInHand}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="{Binding MonthLabel}" />
+          <TextBlock Classes="muted" FontSize="12" Text="In" />
+          <TextBlock Classes="stat ok" Text="{Binding MonthIn}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="{Binding MonthLabel}" />
+          <TextBlock Classes="muted" FontSize="12" Text="Out" />
+          <TextBlock Classes="stat" Text="{Binding MonthOut}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Month" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Month" />
+            <ComboBox ItemsSource="{Binding MonthChoices}" SelectedItem="{Binding SelectedMonth}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Year" />
+            <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Opening cash (when you started these books)" />
+        <Grid ColumnDefinitions="200,Auto">
+          <NumericUpDown Value="{Binding OpeningAmount}" Margin="0,0,8,12" />
+          <Button Grid.Column="1" Content="Save opening" Command="{Binding SaveOpeningCommand}" Margin="0,0,0,12" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Pay a supplier" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Record money you actually sent. The amount we owe on the container is not cash until you pay it." />
+        <TextBlock Classes="label" Text="Container" />
+        <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Date" />
+            <DatePicker SelectedDate="{Binding PayDate}" HorizontalAlignment="Left" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Amount (Rs)" />
+            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+          </StackPanel>
+        </Grid>
+        <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Cash book" />
+        <DataGrid ItemsSource="{Binding Rows}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
+            <DataGridTextColumn Header="Particulars" Binding="{Binding Description}" Width="*" />
+            <DataGridTextColumn Header="In" Binding="{Binding InText}" Width="130" />
+            <DataGridTextColumn Header="Out" Binding="{Binding OutText}" Width="130" />
+            <DataGridTextColumn Header="Balance" Binding="{Binding RunningText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

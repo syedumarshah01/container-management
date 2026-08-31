@@ -153,6 +153,7 @@ public class SalesService
 
         sale.Status = SaleStatus.Cancelled;
         sale.CancelledAt = DateTime.Now;
+        CashBookService.PostRefunds(db, pays, sale.Id, sale.Customer.Name);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
@@ -295,6 +296,7 @@ public class SalesService
 
             var oldPays = await db.Payments.Where(p => p.SaleId == sale.Id).ToListAsync();
             var oldLed = await db.LedgerEntries.Where(e => e.SaleId == sale.Id).ToListAsync();
+            CashBookService.RemoveCustomerPayments(db, oldPays.Select(p => p.Id));
             db.Payments.RemoveRange(oldPays);
             db.LedgerEntries.RemoveRange(oldLed);
             db.SaleLines.RemoveRange(sale.Lines);
@@ -395,6 +397,7 @@ public class SalesService
                 SaleId = sale.Id,
                 PaymentId = pay.Id
             });
+            CashBookService.PostCustomerPayment(db, pay, customer.Name);
         }
 
         await db.SaveChangesAsync();
