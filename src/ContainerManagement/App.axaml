@@ -130,19 +130,6 @@
       <Setter Property="RowHeight" Value="44" />
       <Setter Property="MinHeight" Value="140" />
     </Style>
-    <Style Selector="DataGrid ScrollViewer">
-      <Setter Property="AllowAutoHide" Value="False" />
-      <Setter Property="Padding" Value="0,0,28,0" />
-    </Style>
-    <Style Selector="DataGrid ScrollBar">
-      <Setter Property="AllowAutoHide" Value="False" />
-    </Style>
-    <Style Selector="DataGrid ScrollBar:vertical">
-      <Setter Property="Margin" Value="12,8,8,8" />
-    </Style>
-    <Style Selector="DataGrid ScrollBar:horizontal">
-      <Setter Property="Margin" Value="8,12,8,8" />
-    </Style>
     <Style Selector="DataGridColumnHeader">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
