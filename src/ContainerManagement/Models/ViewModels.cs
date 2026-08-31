@@ -146,8 +146,10 @@ public class LedgerRow
     public int? SaleId { get; set; }
     public int? PaymentId { get; set; }
     public string DateText => Date.ToString("dd MMM yyyy");
-    public string DebitText => Debit == 0 ? "—" : Money.Pkr(Debit);
-    public string CreditText => Credit == 0 ? "—" : Money.Pkr(Credit);
+    public string DebitText => Type == LedgerType.Return
+        ? (Credit == 0 ? "—" : "− " + Money.Pkr(Credit))
+        : Debit == 0 ? "—" : Money.Pkr(Debit);
+    public string CreditText => Type == LedgerType.Return || Credit == 0 ? "—" : Money.Pkr(Credit);
     public string RunningText => Money.Pkr(RunningBalance);
 }
 

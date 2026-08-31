@@ -127,7 +127,7 @@ public class SalesService
         db.LedgerEntries.Add(new LedgerEntry
         {
             CustomerId = sale.CustomerId,
-            Date = DateTime.Today,
+            Date = DateTime.Now,
             Type = LedgerType.Return,
             Debit = 0,
             Credit = sale.TotalAmount,
@@ -192,7 +192,7 @@ public class SalesService
         {
             SaleId = sale.Id,
             CustomerId = sale.CustomerId,
-            Date = DateTime.Today
+            Date = DateTime.Now
         };
 
         var names = new List<string>();
@@ -239,11 +239,11 @@ public class SalesService
         db.LedgerEntries.Add(new LedgerEntry
         {
             CustomerId = sale.CustomerId,
-            Date = DateTime.Today,
+            Date = DateTime.Now,
             Type = LedgerType.Return,
             Debit = 0,
             Credit = ret.Amount,
-            Description = $"Return from sale #{sale.Id}: {string.Join(", ", names)}",
+            Description = $"Return · sale #{sale.Id} · {string.Join(", ", names)}",
             SaleId = sale.Id
         });
         await db.SaveChangesAsync();

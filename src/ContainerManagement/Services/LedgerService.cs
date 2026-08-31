@@ -73,9 +73,12 @@ public class LedgerService
         var entries = await db.LedgerEntries
             .AsNoTracking()
             .Where(e => e.CustomerId == customerId)
-            .OrderBy(e => e.Date)
-            .ThenBy(e => e.Id)
             .ToListAsync();
+        entries = entries
+            .OrderBy(e => e.Date.Date)
+            .ThenBy(e => e.Type == LedgerType.Opening ? 0 : 1)
+            .ThenBy(e => e.Id)
+            .ToList();
 
         decimal running = 0;
         var rows = new List<LedgerRow>(entries.Count);
