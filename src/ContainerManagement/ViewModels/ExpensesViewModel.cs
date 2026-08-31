@@ -10,14 +10,24 @@ public partial class ExpensesViewModel : ViewModelBase
 {
     private readonly ShopExpenseService _expenses;
     private readonly IAppShell _shell;
+    private List<ShopExpenseRow> _all = new();
+    private bool _ready;
 
     public ExpensesViewModel(ShopExpenseService expenses, IAppShell shell)
     {
         _expenses = expenses;
         _shell = shell;
+        SelectedMonth = MonthChoices.First(m => m.Number == DateTime.Today.Month);
+        SelectedYear = Years.First(y => y.Year == DateTime.Today.Year);
+        _ready = true;
     }
 
-    public override bool FillsPage => true;
+    public IReadOnlyList<MonthChoice> MonthChoices { get; } = Enumerable.Range(1, 12)
+        .Select(m => new MonthChoice(m, new DateTime(2000, m, 1).ToString("MMMM")))
+        .ToList();
+
+    public ObservableCollection<YearChoice> Years { get; } = new(
+        Enumerable.Range(DateTime.Today.Year - 5, 8).Reverse().Select(y => new YearChoice(y)));
 
     public ObservableCollection<ShopExpenseRow> Rows { get; } = new();
 
@@ -28,17 +38,20 @@ public partial class ExpensesViewModel : ViewModelBase
     [ObservableProperty] private string notes = "";
     [ObservableProperty] private string monthTotal = Money.Pkr(0);
     [ObservableProperty] private string allTotal = Money.Pkr(0);
+    [ObservableProperty] private string monthLabel = "This month";
+    [ObservableProperty] private MonthChoice? selectedMonth;
+    [ObservableProperty] private YearChoice? selectedYear;
 
     public override async Task LoadAsync()
     {
         var keepId = Selected?.Id;
         var list = await _expenses.ListAsync();
         decimal running = 0;
-        var rows = new List<ShopExpenseRow>(list.Count);
+        _all = new List<ShopExpenseRow>(list.Count);
         foreach (var e in list)
         {
             running += e.Amount;
-            rows.Add(new ShopExpenseRow
+            _all.Add(new ShopExpenseRow
             {
                 Id = e.Id,
                 Date = e.Date,
@@ -48,15 +61,60 @@ public partial class ExpensesViewModel : ViewModelBase
                 Running = running
             });
         }
-        rows.Reverse();
-        Rows.Clear();
-        foreach (var r in rows)
-            Rows.Add(r);
 
-        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        MonthTotal = Money.Pkr(list.Where(e => e.Date >= start).Sum(e => e.Amount));
+        foreach (var year in _all.Select(r => r.Date.Year).Distinct())
+        {
+            if (Years.All(y => y.Year != year))
+                Years.Insert(0, new YearChoice(year));
+        }
+
         AllTotal = Money.Pkr(running);
+        ShowMonth();
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.Id == id) : null;
+    }
+
+    partial void OnSelectedMonthChanged(MonthChoice? value)
+    {
+        if (_ready) ShowMonth();
+    }
+
+    partial void OnSelectedYearChanged(YearChoice? value)
+    {
+        if (_ready) ShowMonth();
+    }
+
+    private void ShowMonth()
+    {
+        var month = SelectedMonth?.Number ?? DateTime.Today.Month;
+        var year = SelectedYear?.Year ?? DateTime.Today.Year;
+        var start = new DateTime(year, month, 1);
+        var end = start.AddMonths(1);
+        MonthLabel = start.ToString("MMMM yyyy");
+
+        var monthRows = _all.Where(r => r.Date >= start && r.Date < end)
+            .OrderBy(r => r.Date)
+            .ThenBy(r => r.Id)
+            .ToList();
+        decimal run = 0;
+        var shown = new List<ShopExpenseRow>(monthRows.Count);
+        foreach (var r in monthRows)
+        {
+            run += r.Amount;
+            shown.Add(new ShopExpenseRow
+            {
+                Id = r.Id,
+                Date = r.Date,
+                Description = r.Description,
+                Amount = r.Amount,
+                Notes = r.Notes,
+                Running = run
+            });
+        }
+        shown.Reverse();
+        Rows.Clear();
+        foreach (var r in shown)
+            Rows.Add(r);
+        MonthTotal = Money.Pkr(run);
     }
 
     partial void OnSelectedChanged(ShopExpenseRow? value)
@@ -130,6 +188,26 @@ public partial class ExpensesViewModel : ViewModelBase
             _shell.Notify(ex.Message, true);
         }
     }
+}
+
+public sealed class MonthChoice
+{
+    public MonthChoice(int number, string name)
+    {
+        Number = number;
+        Name = name;
+    }
+
+    public int Number { get; }
+    public string Name { get; }
+    public override string ToString() => Name;
+}
+
+public sealed class YearChoice
+{
+    public YearChoice(int year) => Year = year;
+    public int Year { get; }
+    public override string ToString() => Year.ToString();
 }
 
 public class ShopExpenseRow

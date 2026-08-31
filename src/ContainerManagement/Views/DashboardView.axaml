@@ -14,70 +14,41 @@
     </Grid>
 
     <Border Classes="card">
-      <Grid ColumnDefinitions="*,*,Auto">
-        <StackPanel Margin="0,0,8,0">
-          <TextBlock Classes="label" Text="From" />
-          <DatePicker SelectedDate="{Binding FromDate}" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Margin="0,0,8,0">
-          <TextBlock Classes="label" Text="To" />
-          <DatePicker SelectedDate="{Binding ToDate}" />
-        </StackPanel>
-        <Button Grid.Column="2" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}"
-                VerticalAlignment="Bottom" Margin="0,0,0,12" />
-      </Grid>
+      <StackPanel>
+        <TextBlock Classes="h2" Text="This month" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Total sales" />
+            <TextBlock Classes="stat" Text="{Binding MonthSales}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Total profit" />
+            <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
+            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0"
+                       Text="Sales profit minus this month’s expense ledger." />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
     </Border>
-
-    <Grid ColumnDefinitions="*,*,*">
-      <Border Classes="statcard" Margin="0,0,8,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Total valuation" />
-          <TextBlock Classes="stat" Text="{Binding InventoryValue}" />
-        </StackPanel>
-      </Border>
-      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Total sale" />
-          <TextBlock Classes="stat" Text="{Binding TotalSale}" />
-        </StackPanel>
-      </Border>
-      <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="{Binding ProfitLabel}" />
-          <TextBlock Classes="stat ok" Text="{Binding TotalProfit}" />
-        </StackPanel>
-      </Border>
-    </Grid>
-
-    <TextBlock Classes="h2" Text="Needs attention" />
-    <Grid ColumnDefinitions="*,*">
-      <Border Classes="statcard" Margin="0,0,8,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Low stock" />
-          <TextBlock Classes="stat" Text="{Binding LowStockCount}" />
-          <Button Content="Stock" Command="{Binding GoStockCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
-        </StackPanel>
-      </Border>
-      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Last backup" />
-          <TextBlock Classes="stat" FontSize="18" Text="{Binding LastBackup}" TextWrapping="Wrap" />
-          <Button Content="Backup" Command="{Binding GoBackupCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
-        </StackPanel>
-      </Border>
-    </Grid>
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Low stock" />
-        <DataGrid ItemsSource="{Binding LowStock}" SelectedItem="{Binding SelectedLowStock}"
-                  x:CompileBindings="False">
+        <TextBlock Classes="h2" Text="Daily summary" />
+        <DataGrid ItemsSource="{Binding Days}" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
-            <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
-            <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="140" />
+            <DataGridTextColumn Header="Sales" Binding="{Binding SalesText}" Width="*" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="*" />
           </DataGrid.Columns>
         </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="statcard" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Last backup" />
+        <TextBlock Classes="stat" FontSize="18" Text="{Binding LastBackup}" TextWrapping="Wrap" />
+        <Button Content="Backup" Command="{Binding GoBackupCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
       </StackPanel>
     </Border>
   </StackPanel>

@@ -272,6 +272,16 @@ public class DailySummaryRow
     public string CreditText => Money.Pkr(Credit);
 }
 
+public class HomeDayRow
+{
+    public DateTime Date { get; set; }
+    public decimal Sales { get; set; }
+    public decimal Profit { get; set; }
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string SalesText => Money.Pkr(Sales);
+    public string ProfitText => Money.Pkr(Profit);
+}
+
 public class CashBookRow
 {
     public string When { get; set; } = "";

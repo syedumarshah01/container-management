@@ -67,6 +67,72 @@ public class ReportService
         };
     }
 
+    public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync()
+    {
+        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var end = start.AddMonths(1);
+        await using var db = await _factory.CreateDbContextAsync();
+
+        var lines = await db.SaleLines.AsNoTracking()
+            .Include(l => l.Sale)
+            .Where(l => l.Sale.Status == SaleStatus.Active)
+            .ToListAsync();
+        lines = lines.Where(l => l.Sale.Date >= start && l.Sale.Date < end).ToList();
+
+        var returned = await db.SaleReturnLines.AsNoTracking()
+            .Include(l => l.Return)
+            .ToListAsync();
+        returned = returned.Where(l => l.Return.Date >= start && l.Return.Date < end).ToList();
+
+        var expenses = await db.ShopExpenses.AsNoTracking().ToListAsync();
+        expenses = expenses.Where(e => e.Date >= start && e.Date < end).ToList();
+
+        var days = new Dictionary<DateTime, (decimal Sales, decimal Cogs, decimal Expenses)>();
+
+        void Touch(DateTime day)
+        {
+            day = day.Date;
+            if (!days.ContainsKey(day))
+                days[day] = (0, 0, 0);
+        }
+
+        foreach (var l in lines)
+        {
+            var day = l.Sale.Date.Date;
+            Touch(day);
+            var cur = days[day];
+            days[day] = (cur.Sales + l.Quantity * l.UnitPrice, cur.Cogs + l.Quantity * l.UnitCost, cur.Expenses);
+        }
+
+        foreach (var r in returned)
+        {
+            var day = r.Return.Date.Date;
+            Touch(day);
+            var cur = days[day];
+            days[day] = (cur.Sales - r.Amount, cur.Cogs - r.Quantity * r.UnitCost, cur.Expenses);
+        }
+
+        foreach (var e in expenses)
+        {
+            var day = e.Date.Date;
+            Touch(day);
+            var cur = days[day];
+            days[day] = (cur.Sales, cur.Cogs, cur.Expenses + e.Amount);
+        }
+
+        var rows = days
+            .OrderByDescending(kv => kv.Key)
+            .Select(kv => new HomeDayRow
+            {
+                Date = kv.Key,
+                Sales = kv.Value.Sales,
+                Profit = kv.Value.Sales - kv.Value.Cogs - kv.Value.Expenses
+            })
+            .ToList();
+
+        return (rows.Sum(r => r.Sales), rows.Sum(r => r.Profit), rows);
+    }
+
     public async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(DateTime? from = null, DateTime? to = null)
     {
         await using var db = await _factory.CreateDbContextAsync();

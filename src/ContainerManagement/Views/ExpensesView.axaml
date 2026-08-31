@@ -3,22 +3,17 @@
              xmlns:vm="using:ContainerManagement.ViewModels"
              x:Class="ContainerManagement.Views.ExpensesView"
              x:DataType="vm:ExpensesViewModel">
-  <UserControl.Styles>
-    <Style Selector="DataGrid ScrollBar">
-      <Setter Property="AllowAutoHide" Value="False" />
-    </Style>
-  </UserControl.Styles>
-  <DockPanel>
-    <TextBlock DockPanel.Dock="Top" Classes="h1" Text="Expenses" />
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Expenses" />
 
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*" Margin="0,0,0,16">
-      <Border Classes="statcard" Margin="0,0,8,0">
+    <Grid ColumnDefinitions="*,*">
+      <Border Classes="statcard" Margin="0,0,8,16">
         <StackPanel>
-          <TextBlock Classes="label" Text="This month" />
+          <TextBlock Classes="label" Text="{Binding MonthLabel}" />
           <TextBlock Classes="stat" Text="{Binding MonthTotal}" />
         </StackPanel>
       </Border>
-      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,0">
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,16">
         <StackPanel>
           <TextBlock Classes="label" Text="All time" />
           <TextBlock Classes="stat" Text="{Binding AllTotal}" />
@@ -26,38 +21,45 @@
       </Border>
     </Grid>
 
-    <Border DockPanel.Dock="Top" Classes="card">
+    <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Add a daily expense" />
-        <Grid ColumnDefinitions="180,*,140">
+        <TextBlock Classes="h2" Text="Month" />
+        <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Date" />
-            <DatePicker SelectedDate="{Binding SpendDate}" />
+            <TextBlock Classes="label" Text="Month" />
+            <ComboBox ItemsSource="{Binding MonthChoices}" SelectedItem="{Binding SelectedMonth}" />
           </StackPanel>
-          <StackPanel Grid.Column="1" Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="What" />
-            <TextBox Text="{Binding What}" Watermark="Rent, electricity, tea…" />
-          </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock Classes="label" Text="Amount (Rs)" />
-            <NumericUpDown Value="{Binding Amount}" Minimum="0" />
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Year" />
+            <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
           </StackPanel>
         </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Add a daily expense" />
+        <TextBlock Classes="label" Text="Date" />
+        <DatePicker SelectedDate="{Binding SpendDate}" HorizontalAlignment="Left" />
+        <TextBlock Classes="label" Text="What" />
+        <TextBox Text="{Binding What}" Watermark="Rent, electricity, tea…" />
+        <TextBlock Classes="label" Text="Amount (Rs)" />
+        <NumericUpDown Value="{Binding Amount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
         <TextBlock Classes="label" Text="Note (optional)" />
         <TextBox Text="{Binding Notes}" Watermark="optional" />
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Classes="primary" Content="Add" Command="{Binding AddCommand}" />
-          <Button Content="Save" Command="{Binding SaveCommand}" />
+        <StackPanel Orientation="Horizontal">
+          <Button Classes="primary" Content="Add" Command="{Binding AddCommand}" Margin="0,0,8,0" />
+          <Button Content="Save" Command="{Binding SaveCommand}" Margin="0,0,8,0" />
           <Button Classes="danger" Content="Remove" Command="{Binding RemoveCommand}" />
         </StackPanel>
       </StackPanel>
     </Border>
 
-    <Border Classes="card" Margin="0">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Ledger" />
-        <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                  VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Ledger" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
             <DataGridTextColumn Header="What" Binding="{Binding Description}" Width="*" />
@@ -66,7 +68,7 @@
             <DataGridTextColumn Header="Total so far" Binding="{Binding RunningText}" Width="140" />
           </DataGrid.Columns>
         </DataGrid>
-      </DockPanel>
+      </StackPanel>
     </Border>
-  </DockPanel>
+  </StackPanel>
 </UserControl>
