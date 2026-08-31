@@ -26,7 +26,7 @@ public partial class NewSaleViewModel : ViewModelBase
 
     public Func<string?, CancellationToken, Task<IEnumerable<object>>> SearchGoods { get; }
 
-    public override bool ReloadOnShow => false;
+    public override bool ReloadOnShow => true;
 
     public int? EditingSaleId { get; set; }
 
@@ -56,14 +56,12 @@ public partial class NewSaleViewModel : ViewModelBase
 
     public override async Task LoadAsync()
     {
-        var customers = await _ledger.ListCustomersAsync();
-        Customers.Clear();
-        foreach (var c in customers)
-            Customers.Add(c);
-
+        var keepCustomerId = SelectedCustomer?.Id;
+        var alreadyOpen = HasLoaded;
         _stock = await _inventory.GetSellableStockAsync();
+        await RefreshCustomersAsync(keepCustomerId);
 
-        if (EditingSaleId is int sid)
+        if (EditingSaleId is int sid && !alreadyOpen)
         {
             var sale = await _sales.GetSaleAsync(sid)
                 ?? throw new InvalidOperationException("Sale not found.");
@@ -91,13 +89,24 @@ public partial class NewSaleViewModel : ViewModelBase
                 });
             }
         }
-        else
+        else if (EditingSaleId is null && !alreadyOpen)
         {
             Heading = "Sell";
-            SelectedCustomer = customers.FirstOrDefault(c => c.IsWalkIn) ?? customers.FirstOrDefault();
+            SelectedCustomer = Customers.FirstOrDefault(c => c.IsWalkIn) ?? Customers.FirstOrDefault();
         }
 
         Recalc();
+    }
+
+    private async Task RefreshCustomersAsync(int? keepId)
+    {
+        var customers = await _ledger.ListCustomersAsync();
+        Customers.Clear();
+        foreach (var c in customers)
+            Customers.Add(c);
+        SelectedCustomer = keepId is int id
+            ? Customers.FirstOrDefault(c => c.Id == id)
+            : SelectedCustomer;
     }
 
     partial void OnSelectedStockChanged(StockOption? value)
