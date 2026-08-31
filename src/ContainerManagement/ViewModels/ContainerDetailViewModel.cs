@@ -55,7 +55,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
-    [ObservableProperty] private bool showItemForm;
+    [ObservableProperty] private bool showItemForm = true;
 
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
@@ -148,7 +148,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 null, null, null, null, null);
             _shell.Notify("Item added.");
             ClearGoodsForm();
-            ShowItemForm = false;
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -278,7 +277,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
             await _inventory.DeleteGoodsAsync(SelectedItem.Id);
             _shell.Notify("Item deleted.");
             ClearGoodsForm();
-            ShowItemForm = false;
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -312,16 +310,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand] private void ToggleImport() => ShowImportEditor = !ShowImportEditor;
-    [RelayCommand] private void BeginAddItem()
-    {
-        ClearGoodsForm();
-        ShowItemForm = true;
-    }
-    [RelayCommand] private void CancelItemForm()
-    {
-        ClearGoodsForm();
-        ShowItemForm = false;
-    }
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.Back();
 
