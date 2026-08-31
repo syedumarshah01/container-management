@@ -14,7 +14,6 @@ public partial class NewSaleViewModel : ViewModelBase
     private readonly LedgerService _ledger;
     private readonly IAppShell _shell;
     private List<StockOption> _stock = new();
-    private bool _syncingStock;
 
     public NewSaleViewModel(InventoryService inventory, SalesService sales, LedgerService ledger, IAppShell shell)
     {
@@ -32,8 +31,6 @@ public partial class NewSaleViewModel : ViewModelBase
     public int? EditingSaleId { get; set; }
 
     public ObservableCollection<Customer> Customers { get; } = new();
-    public ObservableCollection<CargoContainer> Containers { get; } = new();
-    public ObservableCollection<StockOption> StockInContainer { get; } = new();
     public ObservableCollection<NewSaleLineInput> Lines { get; } = new();
     public IReadOnlyList<string> Methods { get; } = PaymentMethods.All;
 
@@ -41,9 +38,9 @@ public partial class NewSaleViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? saleDate = DateTimeOffset.Now;
     [ObservableProperty] private DateTimeOffset? dueDate;
     [ObservableProperty] private string notes = "";
-    [ObservableProperty] private CargoContainer? selectedContainer;
     [ObservableProperty] private StockOption? selectedStock;
     [ObservableProperty] private string stockSearch = "";
+    [ObservableProperty] private string selectedStockContainer = "—";
     [ObservableProperty] private string selectedStockQty = "—";
     [ObservableProperty] private string selectedStockCost = "—";
     [ObservableProperty] private decimal? pickQty = 1;
@@ -63,11 +60,6 @@ public partial class NewSaleViewModel : ViewModelBase
         Customers.Clear();
         foreach (var c in customers)
             Customers.Add(c);
-
-        var containers = await _inventory.ContainersWithStockAsync();
-        Containers.Clear();
-        foreach (var c in containers)
-            Containers.Add(c);
 
         _stock = await _inventory.GetSellableStockAsync();
 
@@ -105,38 +97,20 @@ public partial class NewSaleViewModel : ViewModelBase
             SelectedCustomer = customers.FirstOrDefault(c => c.IsWalkIn) ?? customers.FirstOrDefault();
         }
 
-        RefreshStock();
         Recalc();
-    }
-
-    partial void OnSelectedContainerChanged(CargoContainer? value)
-    {
-        if (_syncingStock)
-        {
-            RefreshStock();
-            return;
-        }
-        SelectedStock = null;
-        RefreshStock();
     }
 
     partial void OnSelectedStockChanged(StockOption? value)
     {
         if (value is null)
         {
+            SelectedStockContainer = "—";
             SelectedStockQty = "—";
             SelectedStockCost = "—";
             return;
         }
 
-        if (SelectedContainer is null || SelectedContainer.Id != value.ContainerId)
-        {
-            _syncingStock = true;
-            SelectedContainer = Containers.FirstOrDefault(c => c.Id == value.ContainerId);
-            _syncingStock = false;
-            RefreshStock();
-        }
-
+        SelectedStockContainer = value.ContainerTitle;
         SelectedStockQty = Money.Qty(value.Remaining) + " " + value.Unit;
         SelectedStockCost = Money.Pkr(value.UnitCost);
         PickQty = 1;
@@ -155,14 +129,9 @@ public partial class NewSaleViewModel : ViewModelBase
     [RelayCommand]
     private void AddLine()
     {
-        if (SelectedContainer is null)
-        {
-            _shell.Notify("Select which container these items are being sold from.", true);
-            return;
-        }
         if (SelectedStock is null)
         {
-            _shell.Notify("Select items from that container.", true);
+            _shell.Notify("Search and pick an item.", true);
             return;
         }
         var qty = PickQty ?? 0;
@@ -283,16 +252,7 @@ public partial class NewSaleViewModel : ViewModelBase
         PickQty = 1;
         PickPrice = null;
         _stock = await _inventory.GetSellableStockAsync();
-        RefreshStock();
         Recalc();
-    }
-
-    private void RefreshStock()
-    {
-        StockInContainer.Clear();
-        if (SelectedContainer is null) return;
-        foreach (var s in _stock.Where(s => s.ContainerId == SelectedContainer.Id))
-            StockInContainer.Add(s);
     }
 
     private decimal BillNet()

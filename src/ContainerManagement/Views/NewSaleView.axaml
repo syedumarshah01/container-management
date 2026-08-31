@@ -20,9 +20,6 @@
           </StackPanel>
         </Grid>
 
-        <TextBlock Classes="label" Text="Sold from which container?" />
-        <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding SelectedContainer}" />
-
         <TextBlock Classes="label" Text="Search items" />
         <AutoCompleteBox Watermark="Type a name or SKU"
                          MinimumPrefixLength="1"
@@ -38,15 +35,11 @@
           </AutoCompleteBox.ItemTemplate>
         </AutoCompleteBox>
 
-        <TextBlock Classes="label" Text="Items in that container" />
         <Grid ColumnDefinitions="*,160,160">
-          <ComboBox ItemsSource="{Binding StockInContainer}" SelectedItem="{Binding SelectedStock}" Margin="0,0,8,12">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="m:StockOption">
-                <TextBlock Text="{Binding ProductName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Container" />
+            <TextBlock Text="{Binding SelectedStockContainer}" Margin="0,0,0,12" />
+          </StackPanel>
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="In stock" />
             <TextBlock Text="{Binding SelectedStockQty}" Margin="0,0,0,12" />
