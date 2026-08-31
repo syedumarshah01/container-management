@@ -218,52 +218,6 @@ public class ReportService
             customers);
     }
 
-    public async Task<List<BestSellerRow>> GetBestSellersAsync(DateTime? from, DateTime? to)
-    {
-        var items = await GetItemProfitsAsync(from, to, null);
-        return items
-            .OrderByDescending(i => i.QtySold)
-            .Take(20)
-            .Select(i => new BestSellerRow
-            {
-                ProductName = i.ProductName,
-                Qty = i.QtySold,
-                Revenue = i.Revenue
-            })
-            .ToList();
-    }
-
-    public async Task<List<DailySummaryRow>> GetDailyAsync(DateTime? from, DateTime? to)
-    {
-        await using var db = await _factory.CreateDbContextAsync();
-        var sales = await db.Sales.AsNoTracking()
-            .Where(s => s.Status == SaleStatus.Active)
-            .ToListAsync();
-        if (from is DateTime f) sales = sales.Where(s => s.Date >= f.Date).ToList();
-        if (to is DateTime t) sales = sales.Where(s => s.Date < t.Date.AddDays(1)).ToList();
-
-        var pays = await db.Payments.AsNoTracking().ToListAsync();
-        if (from is DateTime f2) pays = pays.Where(p => p.Date >= f2.Date).ToList();
-        if (to is DateTime t2) pays = pays.Where(p => p.Date < t2.Date.AddDays(1)).ToList();
-
-        var days = sales.Select(s => s.Date.Date).Concat(pays.Select(p => p.Date.Date)).Distinct().OrderByDescending(d => d);
-        return days.Select(d =>
-        {
-            var daySales = sales.Where(s => s.Date.Date == d).ToList();
-            var dayPay = pays.Where(p => p.Date.Date == d).ToList();
-            var billed = daySales.Sum(s => s.TotalAmount);
-            var cash = dayPay.Sum(p => p.Amount);
-            return new DailySummaryRow
-            {
-                Date = d,
-                Bills = daySales.Count,
-                Sales = billed,
-                CashIn = cash,
-                Credit = Math.Max(0, billed - daySales.Sum(s => s.PaidNow))
-            };
-        }).ToList();
-    }
-
     private static async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(AppDbContext db, DateTime? from, DateTime? to)
     {
         var containers = await db.Containers
