@@ -32,6 +32,7 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private decimal? newCartons;
     [ObservableProperty] private decimal? newCbm;
     [ObservableProperty] private decimal? newWeight;
+    [ObservableProperty] private bool showAddForm;
 
     public override async Task LoadAsync()
     {
@@ -47,6 +48,12 @@ public partial class ContainersViewModel : ViewModelBase
         if (Selected is not null)
             _shell.OpenContainer(Selected.ContainerId);
     }
+
+    [RelayCommand]
+    private void BeginAdd() => ShowAddForm = true;
+
+    [RelayCommand]
+    private void CancelAdd() => ShowAddForm = false;
 
     [RelayCommand]
     private async Task CreateAsync()
@@ -76,6 +83,7 @@ public partial class ContainersViewModel : ViewModelBase
             NewCartons = null;
             NewCbm = null;
             NewWeight = null;
+            ShowAddForm = false;
             await LoadAsync();
             _shell.OpenContainer(c.Id);
         }

@@ -4,9 +4,29 @@
              x:Class="ContainerManagement.Views.ContainersView"
              x:DataType="vm:ContainersViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Containers" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Containers" />
+      <Button Grid.Column="1" Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
+              IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
+    </Grid>
 
     <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="All containers  —  double-click to open" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
+            <DataGridTextColumn Header="Origin" Binding="{Binding Origin}" Width="140" />
+            <DataGridTextColumn Header="Arrival" Binding="{Binding ArrivalText}" Width="120" />
+            <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowAddForm}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Add a container" />
         <TextBlock Classes="label" Text="Title" />
@@ -31,7 +51,7 @@
             <NumericUpDown Value="{Binding NewSupplierAmount}" Minimum="0" />
           </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="*,*,*,Auto">
+        <Grid ColumnDefinitions="*,*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Cartons (optional)" />
             <NumericUpDown Value="{Binding NewCartons}" Minimum="0" />
@@ -40,29 +60,15 @@
             <TextBlock Classes="label" Text="CBM (optional)" />
             <NumericUpDown Value="{Binding NewCbm}" Minimum="0" />
           </StackPanel>
-          <StackPanel Grid.Column="2" Margin="0,0,8,0">
+          <StackPanel Grid.Column="2">
             <TextBlock Classes="label" Text="Weight kg (optional)" />
             <NumericUpDown Value="{Binding NewWeight}" Minimum="0" />
           </StackPanel>
-          <Button Grid.Column="3" Classes="primary" Content="Create" Command="{Binding CreateCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
-      </StackPanel>
-    </Border>
-
-    <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="All containers  —  double-click to open" />
-        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" />
-            <DataGridTextColumn Header="Origin" Binding="{Binding Origin}" Width="140" />
-            <DataGridTextColumn Header="Arrival" Binding="{Binding ArrivalText}" Width="120" />
-            <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
-            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
-          </DataGrid.Columns>
-        </DataGrid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="primary" Content="Create" Command="{Binding CreateCommand}" />
+          <Button Content="Cancel" Command="{Binding CancelAddCommand}" />
+        </StackPanel>
       </StackPanel>
     </Border>
   </StackPanel>
