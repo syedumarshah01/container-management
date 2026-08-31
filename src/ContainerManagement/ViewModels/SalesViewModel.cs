@@ -20,6 +20,8 @@ public partial class SalesViewModel : ViewModelBase
         _shell = shell;
     }
 
+    public override bool FillsPage => true;
+
     public ObservableCollection<SaleListRow> Rows { get; } = new();
     public ObservableCollection<CustomerFilter> Customers { get; } = new();
 
