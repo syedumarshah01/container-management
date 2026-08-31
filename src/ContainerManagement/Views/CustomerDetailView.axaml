@@ -99,9 +99,34 @@
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
             <DataGridTextColumn Header="Particulars" Binding="{Binding Description}" Width="*" />
-            <DataGridTextColumn Header="Sold" Binding="{Binding DebitText}" Width="120" />
-            <DataGridTextColumn Header="Received" Binding="{Binding CreditText}" Width="120" />
-            <DataGridTextColumn Header="Balance" Binding="{Binding RunningText}" Width="130" />
+            <DataGridTemplateColumn Header="Sold" Width="120">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding SoldText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Returned" Width="120">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding ReturnedText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Received" Width="120">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding ReceivedText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Balance" Width="130">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding RunningText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>

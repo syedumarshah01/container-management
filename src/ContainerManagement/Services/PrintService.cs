@@ -120,6 +120,7 @@ public class PrintService
             table{border-collapse:collapse;width:100%;margin:16px 0}
             th,td{border-bottom:1px solid #E5E7EB;padding:8px;text-align:left}
             th{font-size:12px;color:#6B7280}
+            td.num,th.num{text-align:right;white-space:nowrap}
             @media print{button{display:none}}
             </style></head><body>
             """);

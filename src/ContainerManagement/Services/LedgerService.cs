@@ -77,6 +77,8 @@ public class LedgerService
         entries = entries
             .OrderBy(e => e.Date.Date)
             .ThenBy(e => e.Type == LedgerType.Opening ? 0 : 1)
+            .ThenBy(e => e.SaleId ?? e.Id)
+            .ThenBy(e => LedgerRank(e.Type))
             .ThenBy(e => e.Id)
             .ToList();
 
@@ -271,6 +273,15 @@ public class LedgerService
             .ThenBy(r => r.Name)
             .ToList();
     }
+
+    private static int LedgerRank(LedgerType type) => type switch
+    {
+        LedgerType.Opening => 0,
+        LedgerType.Sale => 1,
+        LedgerType.Payment => 2,
+        LedgerType.Return => 3,
+        _ => 4
+    };
 
     private static string AgingLabel(DateTime? oldestDue, decimal balance)
     {
