@@ -44,18 +44,36 @@ public class CashBookService
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<(int Id, string Label)>> SupplierContainersAsync()
+    public async Task<List<SupplierPayTarget>> SupplierContainersAsync()
     {
         await using var db = await _factory.CreateDbContextAsync();
         var list = await db.Containers.AsNoTracking()
             .Include(c => c.Supplier)
+            .Include(c => c.SupplierPayments)
             .Where(c => c.SupplierId != null)
-            .OrderBy(c => c.Title)
+            .OrderBy(c => c.Supplier!.Name)
+            .ThenBy(c => c.Title)
             .ToListAsync();
-        return list.Select(c => (
-            c.Id,
-            string.IsNullOrWhiteSpace(c.Supplier?.Name) ? c.Title : c.Title + " · " + c.Supplier!.Name
-        )).ToList();
+        return list.Select(c =>
+        {
+            var owed = c.SupplierAmount - c.SupplierPayments.Sum(p => p.Amount);
+            var supplier = string.IsNullOrWhiteSpace(c.Supplier?.Name) ? "Supplier" : c.Supplier!.Name;
+            return new SupplierPayTarget
+            {
+                Id = c.Id,
+                SupplierName = supplier,
+                ContainerTitle = c.Title,
+                Owed = owed,
+                Label = supplier + " · " + c.Title + " · " + OwedLabel(owed)
+            };
+        }).ToList();
+    }
+
+    private static string OwedLabel(decimal owed)
+    {
+        if (owed > 0.009m) return "owe " + Money.Pkr(owed);
+        if (owed < -0.009m) return "paid extra " + Money.Pkr(-owed);
+        return "settled";
     }
 
     public static void PostCustomerPayment(AppDbContext db, Payment pay, string customerName)
@@ -193,4 +211,13 @@ public class CashBookService
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
     }
+}
+
+public class SupplierPayTarget
+{
+    public int Id { get; set; }
+    public string SupplierName { get; set; } = "";
+    public string ContainerTitle { get; set; } = "";
+    public decimal Owed { get; set; }
+    public string Label { get; set; } = "";
 }

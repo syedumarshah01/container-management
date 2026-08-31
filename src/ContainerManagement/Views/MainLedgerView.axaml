@@ -61,9 +61,11 @@
       <StackPanel>
         <TextBlock Classes="h2" Text="Pay a supplier" />
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Record money you actually sent. The amount we owe on the container is not cash until you pay it." />
-        <TextBlock Classes="label" Text="Container" />
+                   Text="Record money you actually sent. The amount we owe is not cash until you pay it." />
+        <TextBlock Classes="label" Text="Supplier" />
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
+        <TextBlock Classes="label" Text="We owe them" />
+        <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Date" />

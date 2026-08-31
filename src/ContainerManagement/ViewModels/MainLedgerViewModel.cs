@@ -44,6 +44,7 @@ public partial class MainLedgerViewModel : ViewModelBase
     [ObservableProperty] private PayContainerOption? payContainer;
     [ObservableProperty] private DateTimeOffset? payDate = DateTimeOffset.Now;
     [ObservableProperty] private decimal? payAmount;
+    [ObservableProperty] private string weOweThem = "—";
 
     public override async Task LoadAsync()
     {
@@ -74,9 +75,18 @@ public partial class MainLedgerViewModel : ViewModelBase
 
         var keepPay = PayContainer?.Id;
         Containers.Clear();
-        foreach (var (id, label) in await _cash.SupplierContainersAsync())
-            Containers.Add(new PayContainerOption { Id = id, Label = label });
+        foreach (var t in await _cash.SupplierContainersAsync())
+        {
+            Containers.Add(new PayContainerOption
+            {
+                Id = t.Id,
+                Label = t.Label,
+                SupplierName = t.SupplierName,
+                Owed = t.Owed
+            });
+        }
         PayContainer = Containers.FirstOrDefault(c => c.Id == keepPay) ?? Containers.FirstOrDefault();
+        ShowOwed();
 
         ShowMonth();
     }
@@ -89,6 +99,27 @@ public partial class MainLedgerViewModel : ViewModelBase
     partial void OnSelectedYearChanged(YearChoice? value)
     {
         if (_ready) ShowMonth();
+    }
+
+    partial void OnPayContainerChanged(PayContainerOption? value)
+    {
+        if (_ready) ShowOwed();
+    }
+
+    private void ShowOwed()
+    {
+        if (PayContainer is null)
+        {
+            WeOweThem = "—";
+            return;
+        }
+        var owed = PayContainer.Owed;
+        if (owed > 0.009m)
+            WeOweThem = Money.Pkr(owed);
+        else if (owed < -0.009m)
+            WeOweThem = "Paid extra " + Money.Pkr(-owed);
+        else
+            WeOweThem = Money.Pkr(0);
     }
 
     private void ShowMonth()
@@ -169,5 +200,7 @@ public class PayContainerOption
 {
     public int Id { get; set; }
     public string Label { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public decimal Owed { get; set; }
     public override string ToString() => Label;
 }
