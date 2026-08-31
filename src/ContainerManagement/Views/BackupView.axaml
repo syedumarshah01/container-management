@@ -11,7 +11,7 @@
         <TextBlock Classes="h2" Text="Your shop file" />
         <TextBlock Classes="label" Text="Live data" />
         <TextBlock Text="{Binding LiveFile}" TextWrapping="Wrap" Margin="0,0,0,12" />
-        <TextBlock Classes="label" Text="Backups folder (copy this folder to a USB as well)" />
+        <TextBlock Classes="label" Text="Backups folder" />
         <TextBlock Text="{Binding BackupFolder}" TextWrapping="Wrap" Margin="0,0,0,12" />
         <TextBlock Classes="label" Text="Last backup" />
         <TextBlock Text="{Binding LastBackup}" Margin="0,0,0,16" />
@@ -25,8 +25,6 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Google Drive" />
-        <TextBlock Classes="muted" Margin="0,0,0,12" TextWrapping="Wrap"
-                   Text="A second copy of every backup is kept in your Google account. Folders are named like backups_from_31Aug_to_10Sep. Each folder holds 30 copies, then a new folder is created. Delete old folders on Drive when you need space." />
         <TextBlock Classes="label" Text="Status" />
         <TextBlock Text="{Binding DriveStatus}" TextWrapping="Wrap" Margin="0,0,0,12" />
         <TextBlock Classes="label" Text="This Drive folder" />
@@ -45,8 +43,6 @@
                 IsVisible="{Binding IsUnlinked}" />
 
         <StackPanel Margin="0,16,0,0" IsVisible="{Binding ShowGoogleSetup}">
-          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                     Text="One-time setup: open Google Cloud, make a project, enable Drive API, then create OAuth credentials of type Desktop app. Paste the two values below and click Sign in with Google." />
           <TextBlock Classes="label" Text="Client ID" />
           <TextBox Text="{Binding ClientId}" />
           <TextBlock Classes="label" Text="Client secret" />
@@ -76,9 +72,6 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Saved copies" />
-        <TextBlock Classes="muted" Margin="0,0,0,12"
-                   Text="The app also saves a copy automatically when you open it (if the last one is older than 12 hours). Oldest copies are dropped after 30."
-                   TextWrapping="Wrap" />
         <DataGrid ItemsSource="{Binding Backups}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="When" Binding="{Binding WhenText}" Width="180" />
