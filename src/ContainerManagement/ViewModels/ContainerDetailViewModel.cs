@@ -175,39 +175,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task PickPhotoAsync()
-    {
-        if (SelectedItem is null)
-        {
-            _shell.Notify("Select an item first.", true);
-            return;
-        }
-        try
-        {
-            var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            if (window is null) return;
-            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Photo of this item",
-                AllowMultiple = false,
-                FileTypeFilter = [FilePickerFileTypes.ImageAll]
-            });
-            if (files.Count == 0) return;
-            var src = files[0].TryGetLocalPath();
-            if (src is null) return;
-            var dest = Path.Combine(DbPaths.PhotosDirectory, $"item-{SelectedItem.Id}{Path.GetExtension(src)}");
-            File.Copy(src, dest, overwrite: true);
-            await _inventory.UpdateGoodsAsync(
-                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? SelectedItem.Purchased,
-                GoodsInStock ?? SelectedItem.InStock, GoodsCost ?? SelectedItem.ForeignCost,
-                null, null, null, dest);
-            _shell.Notify("Photo saved.");
-            await LoadAsync();
-        }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
-    }
-
-    [RelayCommand]
     private async Task AddExpenseAsync()
     {
         if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to change expenses.", true); return; }
