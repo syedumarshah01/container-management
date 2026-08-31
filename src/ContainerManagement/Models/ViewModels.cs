@@ -79,7 +79,12 @@ public class InventoryRow
     public string ValueText => Money.Pkr(TotalValue);
     public string SkuText => string.IsNullOrWhiteSpace(Sku) ? "—" : Sku;
     public string LotsText =>
-        string.Join(", ", Lots.Select(l => $"{l.ContainerTitle}({Money.Qty(l.Remaining)})"));
+        Lots.Count switch
+        {
+            0 => "—",
+            1 => $"{Lots[0].ContainerTitle} ({Money.Qty(Lots[0].Remaining)})",
+            _ => Lots.Count + " containers"
+        };
 }
 
 public class InventoryLot
@@ -93,6 +98,8 @@ public class InventoryLot
     public decimal LandedCost { get; set; }
     public bool NeverSold { get; set; }
     public decimal Value => Remaining * UnitCost;
+    public string RemainingText => Money.Qty(Remaining);
+    public string ValueText => Money.Pkr(Value);
 }
 
 public class ReceivableRow

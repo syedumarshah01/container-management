@@ -19,15 +19,30 @@
     </Border>
 
     <Border Classes="card">
-      <DataGrid ItemsSource="{Binding Rows}" x:CompileBindings="False">
+      <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
         <DataGrid.Columns>
-          <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="180" />
+          <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
           <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
           <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
           <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
-          <DataGridTextColumn Header="Which container" Binding="{Binding LotsText}" Width="*" />
+          <DataGridTextColumn Header="Which container" Binding="{Binding LotsText}" Width="160" />
         </DataGrid.Columns>
       </DataGrid>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
+        <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
+                  IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
+                  x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
+            <DataGridTextColumn Header="In Stock" Binding="{Binding RemainingText}" Width="110" />
+            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
     </Border>
   </StackPanel>
 </UserControl>
