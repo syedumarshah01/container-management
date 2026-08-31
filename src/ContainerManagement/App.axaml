@@ -16,6 +16,13 @@
     <SolidColorBrush x:Key="OkBrush">#157A3F</SolidColorBrush>
     <SolidColorBrush x:Key="BadBrush">#B42318</SolidColorBrush>
     <SolidColorBrush x:Key="LineBrush">#E6E4DE</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFill">#C9C6BE</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver">#8E8B84</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarThumbFillPressed">#1B2A4A</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarPanningThumbBackground">#C9C6BE</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarTrackFill">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="ScrollBarTrackFillPressed">Transparent</SolidColorBrush>
   </Application.Resources>
 
   <Application.Styles>
