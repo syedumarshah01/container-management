@@ -8,98 +8,47 @@ using Avalonia.VisualTree;
 namespace ContainerManagement.Views;
 
 /// <summary>
-/// Hosts a DataGrid with its scrollbar beside the table, not over the rows.
+/// Hosts a DataGrid and moves its real scrollbar beside the table so rows still scroll.
 /// </summary>
 public sealed class SideScroll : DockPanel
 {
     private static readonly IBrush Thumb = new SolidColorBrush(Color.Parse("#1B2A4A"));
     private static readonly IBrush Track = new SolidColorBrush(Color.Parse("#D9D6CE"));
 
-    private readonly ScrollBar _bar;
-    private ScrollViewer? _viewer;
-    private bool _syncing;
-
     public SideScroll()
     {
         LastChildFill = true;
-        _bar = new ScrollBar
-        {
-            Orientation = Orientation.Vertical,
-            AllowAutoHide = false,
-            Width = 12,
-            MinWidth = 12,
-            Margin = new Thickness(16, 8, 4, 8),
-            Opacity = 1,
-            Background = Track
-        };
-        _bar.Resources["ScrollBarThumbFill"] = Thumb;
-        _bar.Resources["ScrollBarThumbFillPointerOver"] = Thumb;
-        _bar.Resources["ScrollBarPanningThumbBackground"] = Thumb;
-        _bar.Resources["ScrollBarTrackFill"] = Track;
-        SetDock(_bar, Dock.Right);
-        Children.Add(_bar);
-        _bar.PropertyChanged += OnBarChanged;
-        AttachedToVisualTree += (_, _) => Hook();
-        LayoutUpdated += (_, _) =>
-        {
-            Hook();
-            SyncBar();
-        };
+        AttachedToVisualTree += (_, _) => MoveBar();
+        LayoutUpdated += (_, _) => MoveBar();
     }
 
-    private DataGrid? Table => Children.OfType<DataGrid>().FirstOrDefault();
-
-    private void Hook()
+    private void MoveBar()
     {
-        var grid = Table;
+        var grid = Children.OfType<DataGrid>().FirstOrDefault();
         if (grid is null)
             return;
 
-        grid.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
-        grid.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        grid.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
 
-        var viewer = grid.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-        if (viewer is null || ReferenceEquals(viewer, _viewer))
+        var bar = grid.GetVisualDescendants()
+            .OfType<ScrollBar>()
+            .FirstOrDefault(b => b.Orientation == Orientation.Vertical && !ReferenceEquals(b.Parent, this));
+        if (bar is null || bar.Parent is not Panel panel)
             return;
 
-        if (_viewer is not null)
-            _viewer.ScrollChanged -= OnViewerScroll;
-
-        _viewer = viewer;
-        _viewer.AllowAutoHide = true;
-        _viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
-        _viewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        _viewer.Padding = new Thickness(0);
-        _viewer.ScrollChanged += OnViewerScroll;
-        SyncBar();
-    }
-
-    private void OnViewerScroll(object? sender, ScrollChangedEventArgs e)
-    {
-        if (!_syncing)
-            SyncBar();
-    }
-
-    private void OnBarChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        if (e.Property != RangeBase.ValueProperty || _syncing || _viewer is null)
-            return;
-        _syncing = true;
-        _viewer.Offset = new Vector(_viewer.Offset.X, _bar.Value);
-        _syncing = false;
-    }
-
-    private void SyncBar()
-    {
-        if (_viewer is null)
-            return;
-
-        var overflow = Math.Max(0, _viewer.Extent.Height - _viewer.Viewport.Height);
-        _syncing = true;
-        _bar.Maximum = overflow;
-        _bar.ViewportSize = Math.Max(1, _viewer.Viewport.Height);
-        _bar.Value = Math.Clamp(_viewer.Offset.Y, 0, overflow);
-        _bar.IsVisible = overflow > 1;
-        _syncing = false;
+        panel.Children.Remove(bar);
+        bar.AllowAutoHide = false;
+        bar.Width = 12;
+        bar.MinWidth = 12;
+        bar.Margin = new Thickness(16, 8, 4, 8);
+        bar.VerticalAlignment = VerticalAlignment.Stretch;
+        bar.Opacity = 1;
+        bar.Background = Track;
+        bar.Resources["ScrollBarThumbFill"] = Thumb;
+        bar.Resources["ScrollBarThumbFillPointerOver"] = Thumb;
+        bar.Resources["ScrollBarPanningThumbBackground"] = Thumb;
+        bar.Resources["ScrollBarTrackFill"] = Track;
+        SetDock(bar, Dock.Right);
+        Children.Insert(0, bar);
     }
 }
