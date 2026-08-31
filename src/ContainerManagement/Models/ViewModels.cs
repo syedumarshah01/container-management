@@ -35,6 +35,22 @@ public class DashboardVm
     public List<ReceivableRow> TopReceivables { get; set; } = new();
     public List<ContainerProfitRow> ContainerProfits { get; set; } = new();
     public List<Sale> RecentSales { get; set; } = new();
+    public List<InventoryRow> LowStockItems { get; set; } = new();
+    public List<AttentionInvoiceRow> UnpaidInvoices { get; set; } = new();
+    public int UnpaidCount { get; set; }
+    public decimal UnpaidTotal { get; set; }
+}
+
+public class AttentionInvoiceRow
+{
+    public int SaleId { get; set; }
+    public int CustomerId { get; set; }
+    public string CustomerName { get; set; } = "";
+    public DateTime Date { get; set; }
+    public decimal Remaining { get; set; }
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string RemainingText => Money.Pkr(Remaining);
+    public string BillText => "#" + SaleId;
 }
 
 public class ContainerProfitRow

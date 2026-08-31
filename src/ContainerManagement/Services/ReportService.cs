@@ -15,14 +15,28 @@ public class ReportService
         await using var db = await _factory.CreateDbContextAsync();
         var profits = await GetContainerProfitsAsync(db, null, null);
         var receivables = await GetReceivableSnapshotAsync(db);
-        var recent = await db.Sales
+        var sales = await db.Sales
             .AsNoTracking()
             .Include(s => s.Customer)
             .Where(s => s.Status == SaleStatus.Active)
-            .OrderByDescending(s => s.Date)
-            .ThenByDescending(s => s.Id)
-            .Take(8)
             .ToListAsync();
+        var recent = sales.OrderByDescending(s => s.Date).ThenByDescending(s => s.Id).Take(8).ToList();
+        var pays = await db.Payments.AsNoTracking().Where(p => p.SaleId != null).ToListAsync();
+        var saleReturns = await db.SaleReturns.AsNoTracking().ToListAsync();
+        var unpaid = sales
+            .Select(s => new AttentionInvoiceRow
+            {
+                SaleId = s.Id,
+                CustomerId = s.CustomerId,
+                CustomerName = s.Customer.Name,
+                Date = s.Date,
+                Remaining = s.TotalAmount
+                    - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
+                    - saleReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount)
+            })
+            .Where(u => u.Remaining > 0.009m)
+            .OrderByDescending(u => u.Remaining)
+            .ToList();
 
         var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
         var shop = ShopSettings.Load();
@@ -45,7 +59,11 @@ public class ReportService
                 : inv.Count(r => r.IsLow) + " items below " + Money.Qty(shop.LowStockQty),
             TopReceivables = receivables.Where(r => r.Balance > 0).Take(5).ToList(),
             ContainerProfits = profits,
-            RecentSales = recent
+            RecentSales = recent,
+            LowStockItems = inv.Where(r => r.IsLow).OrderBy(r => r.TotalRemaining).ThenBy(r => r.ProductName).Take(10).ToList(),
+            UnpaidInvoices = unpaid.Take(10).ToList(),
+            UnpaidCount = unpaid.Count,
+            UnpaidTotal = unpaid.Sum(u => u.Remaining)
         };
     }
 

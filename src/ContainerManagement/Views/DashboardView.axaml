@@ -49,17 +49,56 @@
       </Border>
     </Grid>
 
+    <TextBlock Classes="h2" Text="Needs attention" />
+    <Grid ColumnDefinitions="*,*,*">
+      <Border Classes="statcard" Margin="0,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Low stock" />
+          <TextBlock Classes="stat" Text="{Binding LowStockCount}" />
+          <Button Content="Stock" Command="{Binding GoStockCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Unpaid bills" />
+          <TextBlock Classes="stat" Text="{Binding UnpaidCount}" />
+          <TextBlock Classes="muted" Text="{Binding UnpaidTotal}" Margin="0,8,0,0" />
+          <Button Content="To collect" Command="{Binding GoCollectCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Last backup" />
+          <TextBlock Classes="stat" FontSize="18" Text="{Binding LastBackup}" TextWrapping="Wrap" />
+          <Button Content="Backup" Command="{Binding GoBackupCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Containers" />
-        <DataGrid ItemsSource="{Binding ContainerProfits}" SelectedItem="{Binding SelectedContainer}"
-                  DoubleTapped="OnContainerDoubleTap" x:CompileBindings="False">
+        <TextBlock Classes="h2" Text="Low stock" />
+        <DataGrid ItemsSource="{Binding LowStock}" SelectedItem="{Binding SelectedLowStock}"
+                  x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="*" />
-            <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
-            <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="140" />
-            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
-            <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="90" />
+            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="SKU" Binding="{Binding SkuText}" Width="90" />
+            <DataGridTextColumn Header="In Stock" Binding="{Binding InStockText}" Width="110" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Unpaid bills" />
+        <DataGrid ItemsSource="{Binding Unpaid}" SelectedItem="{Binding SelectedUnpaid}"
+                  DoubleTapped="OnUnpaidDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Bill" Binding="{Binding BillText}" Width="80" />
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="120" />
+            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*" />
+            <DataGridTextColumn Header="Left" Binding="{Binding RemainingText}" Width="140" />
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>
