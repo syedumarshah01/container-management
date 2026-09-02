@@ -166,8 +166,8 @@ public class InventoryService
     {
         if (string.IsNullOrWhiteSpace(productName))
             throw new InvalidOperationException("Item name is required.");
-        if (received <= 0)
-            throw new InvalidOperationException("Purchased quantity must be greater than zero.");
+        if (received < 0)
+            throw new InvalidOperationException("Purchased quantity cannot be negative.");
         if (remaining < 0)
             throw new InvalidOperationException("In stock cannot be negative.");
         if (remaining > received)

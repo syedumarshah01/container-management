@@ -128,6 +128,12 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsCost = value.ForeignCost;
     }
 
+    partial void OnGoodsInStockChanged(decimal? value)
+    {
+        if (_loadingSelection || SelectedItem is null || value is null) return;
+        GoodsQty = value;
+    }
+
     partial void OnSelectedExpenseChanged(ContainerExpense? value)
     {
         if (_loadingSelection || value is null) return;
@@ -166,9 +172,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         }
         try
         {
-            var remaining = GoodsInStock ?? SelectedItem.InStock;
+            var stock = GoodsInStock ?? SelectedItem.InStock;
             await _inventory.UpdateGoodsAsync(
-                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, remaining, GoodsCost ?? 0,
+                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, stock, stock, GoodsCost ?? 0,
                 null, null, null, SelectedItem.PhotoPath);
             _shell.Notify("Item updated.");
             await LoadAsync();

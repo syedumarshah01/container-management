@@ -117,6 +117,7 @@ public partial class App : Application
         services.AddTransient<SalesViewModel>();
         services.AddTransient<CustomersViewModel>();
         services.AddTransient<ReceivablesViewModel>();
+        services.AddTransient<WeOweViewModel>();
         services.AddTransient<ProfitViewModel>();
         services.AddTransient<ExpensesViewModel>();
         services.AddTransient<MainLedgerViewModel>();

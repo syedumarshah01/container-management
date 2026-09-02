@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.WeOweView"
+             x:DataType="vm:WeOweViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="We owe" />
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+               Text="What is still due to suppliers in China. Paying here takes the money off cash in the Main ledger." />
+
+    <Border Classes="statcard" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Still to pay" />
+        <TextBlock Classes="stat bad" Text="{Binding TotalOwed}" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Suppliers" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="*" />
+            <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
+            <DataGridTextColumn Header="We owe" Binding="{Binding OwedText}" Width="160" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Pay a supplier" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Record money you actually sent. The amount we owe is not cash until you pay it." />
+        <TextBlock Classes="label" Text="Supplier" />
+        <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
+        <TextBlock Classes="label" Text="We owe them" />
+        <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Date" />
+            <DatePicker SelectedDate="{Binding PayDate}" HorizontalAlignment="Left" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Amount (Rs)" />
+            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+          </StackPanel>
+        </Grid>
+        <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

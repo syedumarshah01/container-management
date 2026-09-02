@@ -6,7 +6,7 @@
   <StackPanel>
     <TextBlock Classes="h1" Text="Main ledger" />
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
-               Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again." />
+               Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again. Pay a supplier on the We owe page." />
 
     <Grid ColumnDefinitions="*,*,*">
       <Border Classes="statcard" Margin="0,0,8,16">
@@ -54,29 +54,6 @@
           <NumericUpDown Value="{Binding OpeningAmount}" Margin="0,0,8,12" />
           <Button Grid.Column="1" Content="Save opening" Command="{Binding SaveOpeningCommand}" Margin="0,0,0,12" />
         </Grid>
-      </StackPanel>
-    </Border>
-
-    <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="Pay a supplier" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Record money you actually sent. The amount we owe is not cash until you pay it." />
-        <TextBlock Classes="label" Text="Supplier" />
-        <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
-        <TextBlock Classes="label" Text="We owe them" />
-        <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
-        <Grid ColumnDefinitions="*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Date" />
-            <DatePicker SelectedDate="{Binding PayDate}" HorizontalAlignment="Left" />
-          </StackPanel>
-          <StackPanel Grid.Column="1">
-            <TextBlock Classes="label" Text="Amount (Rs)" />
-            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
-          </StackPanel>
-        </Grid>
-        <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
 

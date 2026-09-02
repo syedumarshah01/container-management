@@ -9,15 +9,13 @@ namespace ContainerManagement.ViewModels;
 public partial class MainLedgerViewModel : ViewModelBase
 {
     private readonly CashBookService _cash;
-    private readonly InventoryService _inventory;
     private readonly IAppShell _shell;
     private List<CashBookRowVm> _all = new();
     private bool _ready;
 
-    public MainLedgerViewModel(CashBookService cash, InventoryService inventory, IAppShell shell)
+    public MainLedgerViewModel(CashBookService cash, IAppShell shell)
     {
         _cash = cash;
-        _inventory = inventory;
         _shell = shell;
         SelectedMonth = MonthChoices.First(m => m.Number == DateTime.Today.Month);
         SelectedYear = Years.First(y => y.Year == DateTime.Today.Year);
@@ -32,7 +30,6 @@ public partial class MainLedgerViewModel : ViewModelBase
         Enumerable.Range(DateTime.Today.Year - 5, 8).Reverse().Select(y => new YearChoice(y)));
 
     public ObservableCollection<CashBookRowVm> Rows { get; } = new();
-    public ObservableCollection<PayContainerOption> Containers { get; } = new();
 
     [ObservableProperty] private string cashInHand = Money.Pkr(0);
     [ObservableProperty] private string monthIn = Money.Pkr(0);
@@ -41,26 +38,19 @@ public partial class MainLedgerViewModel : ViewModelBase
     [ObservableProperty] private decimal? openingAmount;
     [ObservableProperty] private MonthChoice? selectedMonth;
     [ObservableProperty] private YearChoice? selectedYear;
-    [ObservableProperty] private PayContainerOption? payContainer;
-    [ObservableProperty] private DateTimeOffset? payDate = DateTimeOffset.Now;
-    [ObservableProperty] private decimal? payAmount;
-    [ObservableProperty] private string weOweThem = "—";
 
     public override async Task LoadAsync()
     {
         var list = await _cash.ListAsync();
-        decimal running = 0;
         _all = new List<CashBookRowVm>(list.Count);
         foreach (var e in list)
         {
-            running += e.AmountIn - e.AmountOut;
             _all.Add(new CashBookRowVm
             {
                 Date = e.Date,
                 Description = e.Description,
                 AmountIn = e.AmountIn,
-                AmountOut = e.AmountOut,
-                Running = running
+                AmountOut = e.AmountOut
             });
         }
 
@@ -70,24 +60,8 @@ public partial class MainLedgerViewModel : ViewModelBase
                 Years.Insert(0, new YearChoice(year));
         }
 
-        CashInHand = Money.Pkr(running);
+        CashInHand = Money.Pkr(_all.Sum(r => r.AmountIn - r.AmountOut));
         OpeningAmount = list.Where(e => e.Kind == CashBookKind.Opening).Sum(e => e.AmountIn - e.AmountOut);
-
-        var keepPay = PayContainer?.Id;
-        Containers.Clear();
-        foreach (var t in await _cash.SupplierContainersAsync())
-        {
-            Containers.Add(new PayContainerOption
-            {
-                Id = t.Id,
-                Label = t.Label,
-                SupplierName = t.SupplierName,
-                Owed = t.Owed
-            });
-        }
-        PayContainer = Containers.FirstOrDefault(c => c.Id == keepPay) ?? Containers.FirstOrDefault();
-        ShowOwed();
-
         ShowMonth();
     }
 
@@ -101,27 +75,6 @@ public partial class MainLedgerViewModel : ViewModelBase
         if (_ready) ShowMonth();
     }
 
-    partial void OnPayContainerChanged(PayContainerOption? value)
-    {
-        if (_ready) ShowOwed();
-    }
-
-    private void ShowOwed()
-    {
-        if (PayContainer is null)
-        {
-            WeOweThem = "—";
-            return;
-        }
-        var owed = PayContainer.Owed;
-        if (owed > 0.009m)
-            WeOweThem = Money.Pkr(owed);
-        else if (owed < -0.009m)
-            WeOweThem = "Paid extra " + Money.Pkr(-owed);
-        else
-            WeOweThem = Money.Pkr(0);
-    }
-
     private void ShowMonth()
     {
         var month = SelectedMonth?.Number ?? DateTime.Today.Month;
@@ -130,13 +83,36 @@ public partial class MainLedgerViewModel : ViewModelBase
         var end = start.AddMonths(1);
         MonthLabel = start.ToString("MMMM yyyy");
 
-        var monthRows = _all.Where(r => r.Date >= start && r.Date < end)
-            .OrderByDescending(r => r.Date)
-            .ThenByDescending(r => r.Running)
-            .ToList();
+        var prior = _all.Where(r => r.Date < start).ToList();
+        var monthRows = _all.Where(r => r.Date >= start && r.Date < end).ToList();
+        decimal running = prior.Sum(r => r.AmountIn - r.AmountOut);
+
         Rows.Clear();
+        if (prior.Count > 0)
+        {
+            Rows.Add(new CashBookRowVm
+            {
+                Date = start,
+                Description = "Balance brought forward",
+                AmountIn = 0,
+                AmountOut = 0,
+                Running = running
+            });
+        }
+
         foreach (var r in monthRows)
-            Rows.Add(r);
+        {
+            running += r.AmountIn - r.AmountOut;
+            Rows.Add(new CashBookRowVm
+            {
+                Date = r.Date,
+                Description = r.Description,
+                AmountIn = r.AmountIn,
+                AmountOut = r.AmountOut,
+                Running = running
+            });
+        }
+
         MonthIn = Money.Pkr(monthRows.Sum(r => r.AmountIn));
         MonthOut = Money.Pkr(monthRows.Sum(r => r.AmountOut));
     }
@@ -148,32 +124,6 @@ public partial class MainLedgerViewModel : ViewModelBase
         {
             await _cash.SetOpeningAsync(OpeningAmount ?? 0);
             _shell.Notify("Opening cash saved.");
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            _shell.Notify(ex.Message, true);
-        }
-    }
-
-    [RelayCommand]
-    private async Task PaySupplierAsync()
-    {
-        if (PayContainer is null)
-        {
-            _shell.Notify("Pick a container that has a supplier.", true);
-            return;
-        }
-        try
-        {
-            await _inventory.PaySupplierAsync(
-                PayContainer.Id,
-                PayDate?.DateTime ?? DateTime.Today,
-                PayAmount ?? 0,
-                "Bank Transfer",
-                null);
-            _shell.Notify("Supplier payment taken off cash.");
-            PayAmount = null;
             await LoadAsync();
         }
         catch (Exception ex)
@@ -194,13 +144,4 @@ public class CashBookRowVm
     public string InText => AmountIn == 0 ? "—" : Money.Pkr(AmountIn);
     public string OutText => AmountOut == 0 ? "—" : Money.Pkr(AmountOut);
     public string RunningText => Money.Pkr(Running);
-}
-
-public class PayContainerOption
-{
-    public int Id { get; set; }
-    public string Label { get; set; } = "";
-    public string SupplierName { get; set; } = "";
-    public decimal Owed { get; set; }
-    public override string ToString() => Label;
 }
