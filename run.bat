@@ -17,6 +17,17 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem A running copy locks bin\Debug\net8.0\ProBooks.exe, so the build cannot overwrite it.
+rem Close it gently first: the app still gets to take its backup-on-close copy of the database.
+tasklist /FI "IMAGENAME eq ProBooks.exe" 2>nul | find /I "ProBooks.exe" >nul
+if not errorlevel 1 (
+  echo ProBooks is open. Closing it so the build can write new files...
+  taskkill /IM ProBooks.exe >nul 2>&1
+  timeout /t 3 /nobreak >nul
+  taskkill /IM ProBooks.exe /F >nul 2>&1
+)
+
+echo.
 echo [1/3] Restoring packages...
 dotnet restore src\ContainerManagement
 if errorlevel 1 (
