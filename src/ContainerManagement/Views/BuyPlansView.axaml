@@ -10,24 +10,6 @@
               IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
-    <Border Classes="card" Padding="22,14">
-      <Grid ColumnDefinitions="*,*,2*">
-        <StackPanel>
-          <TextBlock Classes="label" Text="ALL IN" />
-          <TextBlock FontSize="19" FontWeight="SemiBold" Text="{Binding AllSpend}" />
-        </StackPanel>
-        <StackPanel Grid.Column="1">
-          <TextBlock Classes="label" Text="IF ALL SELLS" />
-          <TextBlock FontSize="19" FontWeight="SemiBold" Text="{Binding AllSale}" />
-        </StackPanel>
-        <StackPanel Grid.Column="2">
-          <TextBlock Classes="label" Text="PROFIT, EVERY SHEET" />
-          <TextBlock FontSize="23" FontWeight="SemiBold" Text="{Binding AllProfit}"
-                     Classes.ok="{Binding AllProfitGood}" Classes.bad="{Binding !AllProfitGood}" />
-        </StackPanel>
-      </Grid>
-    </Border>
-
     <Border Classes="card">
       <StackPanel>
         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">

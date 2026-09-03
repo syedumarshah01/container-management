@@ -31,10 +31,6 @@ public partial class BuyPlansViewModel : ViewModelBase
     [ObservableProperty] private bool hasSelection;
     [ObservableProperty] private bool confirmDelete;
     [ObservableProperty] private bool isOwner;
-    [ObservableProperty] private string allSpend = "—";
-    [ObservableProperty] private string allSale = "—";
-    [ObservableProperty] private string allProfit = "—";
-    [ObservableProperty] private bool allProfitGood = true;
 
     public override async Task LoadAsync()
     {
@@ -46,13 +42,6 @@ public partial class BuyPlansViewModel : ViewModelBase
         foreach (var r in list)
             Rows.Add(r);
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.Id == id) : null;
-
-        var all = Rows.ToList();
-        AllSpend = Money.PkrCompact(all.Sum(r => r.Total.SpendPkr));
-        AllSale = Money.PkrCompact(all.Sum(r => r.Total.SalePkr));
-        var profit = all.Sum(r => r.Total.ProfitPkr);
-        AllProfit = Money.PkrCompact(profit);
-        AllProfitGood = profit >= 0;
     }
 
     partial void OnSelectedChanged(BuyPlanRow? value) => HasSelection = value is not null;
