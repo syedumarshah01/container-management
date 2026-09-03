@@ -127,7 +127,7 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
             MarkDirty();
     }
 
-    partial void OnSelectedItemChanged(BuyPlanLineRow? value)
+    partial void OnSelectedChanged(BuyPlanLineRow? value)
     {
         if (_busy || value is null)
             return;
