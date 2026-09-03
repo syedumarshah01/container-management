@@ -28,7 +28,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         [
             new NavItem("Home", "dash"),
             new NavItem("Containers", "containers"),
-            new NavItem("Buy plan", "buyplan"),
+            new NavItem("Order sheets", "buyplan"),
             new NavItem("Stock", "inventory"),
             new NavItem("Sell", "newsale"),
             new NavItem("Sales", "sales"),

@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 namespace ContainerManagement.Services;
 
 /// <summary>
-/// The China order sheet you fill before buying: item, quantity, yen cost, weight, sale price,
-/// then one expense figure for the whole lot. Saved plans are only a plan — stock and ledgers
-/// are not touched.
+/// The order sheet written before buying from China: item, quantity, yen cost, weight, sale price,
+/// plus one expense figure for the whole lot. A sheet is only a plan — stock and ledgers are not
+/// touched.
 /// </summary>
 public class BuyPlanService
 {
@@ -41,15 +41,14 @@ public class BuyPlanService
         return plan is null ? null : ToRow(plan);
     }
 
-    public async Task<BuyPlan> CreateAsync(string title, string? supplier, decimal yenRate, decimal expense)
+    public async Task<BuyPlan> CreateAsync(string title)
     {
         await using var db = await _factory.CreateDbContextAsync();
         var plan = new BuyPlan
         {
             Title = PickTitle(title),
-            Supplier = TrimOrNull(supplier),
-            YenRate = CleanRate(yenRate),
-            ExpensePkr = CleanMoney(expense, "Expense")
+            YenRate = DefaultYenRate,
+            ExpensePkr = 0
         };
         db.BuyPlans.Add(plan);
         await db.SaveChangesAsync();
@@ -57,27 +56,26 @@ public class BuyPlanService
     }
 
     /// <summary>
-    /// Writes the header and replaces every row with what the page holds, in one go, so a half
-    /// typed sheet can never leave the plan with rows missing.
+    /// Writes the header and replaces every row in one go, so a half typed sheet can never leave
+    /// the plan with rows missing.
     /// </summary>
     public async Task SaveAsync(
-        int id, string title, string? supplier, string? notes, decimal yenRate, decimal expense,
-        IReadOnlyList<BuyPlanLineInput> lines)
+        int id, string title, decimal yenRate, decimal expense, IReadOnlyList<BuyPlanLineInput> lines)
     {
+        var rate = CleanRate(yenRate);
+        var spend = CleanMoney(expense, "Expense");
         foreach (var line in lines)
             Validate(line);
 
         await using var db = await _factory.CreateDbContextAsync();
         var plan = await db.BuyPlans.Include(p => p.Lines).FirstOrDefaultAsync(p => p.Id == id)
-            ?? throw new InvalidOperationException("This plan is gone. It may have been deleted.");
+            ?? throw new InvalidOperationException("This sheet is gone. It may have been deleted.");
 
         await using var tx = await db.Database.BeginTransactionAsync();
 
         plan.Title = PickTitle(title);
-        plan.Supplier = TrimOrNull(supplier);
-        plan.Notes = TrimOrNull(notes);
-        plan.YenRate = CleanRate(yenRate);
-        plan.ExpensePkr = CleanMoney(expense, "Expense");
+        plan.YenRate = rate;
+        plan.ExpensePkr = spend;
 
         db.BuyPlanLines.RemoveRange(plan.Lines);
         plan.Lines.Clear();
@@ -89,8 +87,7 @@ public class BuyPlanService
                 Quantity = line.Quantity,
                 UnitCostYen = line.UnitCostYen,
                 UnitWeightKg = line.UnitWeightKg,
-                SalePricePkr = line.SalePricePkr,
-                Notes = TrimOrNull(line.Notes)
+                SalePricePkr = line.SalePricePkr
             });
         }
 
@@ -102,14 +99,11 @@ public class BuyPlanService
     {
         await using var db = await _factory.CreateDbContextAsync();
         var plan = await db.BuyPlans.Include(p => p.Lines).AsNoTracking().FirstOrDefaultAsync(p => p.Id == id)
-            ?? throw new InvalidOperationException("This plan is gone. It may have been deleted.");
+            ?? throw new InvalidOperationException("This sheet is gone. It may have been deleted.");
 
-        var copyTitle = await NextCopyTitle(db, plan.Title);
         var copy = new BuyPlan
         {
-            Title = copyTitle,
-            Supplier = plan.Supplier,
-            Notes = plan.Notes,
+            Title = await NextCopyTitle(db, plan.Title),
             YenRate = plan.YenRate,
             ExpensePkr = plan.ExpensePkr
         };
@@ -121,8 +115,7 @@ public class BuyPlanService
                 Quantity = l.Quantity,
                 UnitCostYen = l.UnitCostYen,
                 UnitWeightKg = l.UnitWeightKg,
-                SalePricePkr = l.SalePricePkr,
-                Notes = l.Notes
+                SalePricePkr = l.SalePricePkr
             });
         }
 
@@ -135,7 +128,7 @@ public class BuyPlanService
     {
         await using var db = await _factory.CreateDbContextAsync();
         var plan = await db.BuyPlans.Include(p => p.Lines).FirstOrDefaultAsync(p => p.Id == id)
-            ?? throw new InvalidOperationException("This plan is gone. It may have been deleted.");
+            ?? throw new InvalidOperationException("This sheet is gone. It may have been deleted.");
 
         await using var tx = await db.Database.BeginTransactionAsync();
         db.BuyPlanLines.RemoveRange(plan.Lines);
@@ -146,24 +139,19 @@ public class BuyPlanService
 
     private static void Validate(BuyPlanLineInput line)
     {
+        var name = string.IsNullOrWhiteSpace(line.ItemName) ? "A row" : line.ItemName.Trim();
         if (string.IsNullOrWhiteSpace(line.ItemName))
             throw new InvalidOperationException("Every row needs an item name.");
-        if (line.Quantity < 0)
-            throw new InvalidOperationException($"Quantity for {line.ItemName.Trim()} cannot be negative.");
-        if (line.Quantity == 0)
-            throw new InvalidOperationException($"Quantity for {line.ItemName.Trim()} must be greater than zero.");
-        if (line.UnitCostYen < 0)
-            throw new InvalidOperationException($"Yen cost for {line.ItemName.Trim()} cannot be negative.");
-        if (line.UnitWeightKg < 0)
-            throw new InvalidOperationException($"Weight for {line.ItemName.Trim()} cannot be negative.");
-        if (line.SalePricePkr < 0)
-            throw new InvalidOperationException($"Sale price for {line.ItemName.Trim()} cannot be negative.");
+        if (line.Quantity <= 0)
+            throw new InvalidOperationException($"{name} needs a quantity above zero.");
+        if (line.UnitCostYen < 0 || line.SalePricePkr < 0 || line.UnitWeightKg < 0)
+            throw new InvalidOperationException($"{name} has a negative number in it.");
     }
 
     private static decimal CleanRate(decimal rate)
     {
         if (rate <= 0)
-            throw new InvalidOperationException("Rupees for 1 yen must be more than zero. Type your rate, for example 17.");
+            throw new InvalidOperationException("Rupees for 1 yen must be above zero. Type your rate, for example 17.");
         return decimal.Round(rate, 6, MidpointRounding.AwayFromZero);
     }
 
@@ -175,7 +163,7 @@ public class BuyPlanService
     }
 
     private static string PickTitle(string title) =>
-        string.IsNullOrWhiteSpace(title) ? "Plan " + DateTime.Now.ToString("dd MMM yyyy") : title.Trim();
+        string.IsNullOrWhiteSpace(title) ? "Order sheet " + DateTime.Now.ToString("dd MMM") : title.Trim();
 
     private static async Task<string> NextCopyTitle(AppDbContext db, string title)
     {
@@ -187,17 +175,12 @@ public class BuyPlanService
         return candidate;
     }
 
-    private static string? TrimOrNull(string? s) =>
-        string.IsNullOrWhiteSpace(s) ? null : s.Trim();
-
     private static BuyPlanRow ToRow(BuyPlan p)
     {
         var row = new BuyPlanRow
         {
             Id = p.Id,
             Title = p.Title,
-            Supplier = p.Supplier ?? "",
-            Notes = p.Notes ?? "",
             CreatedAt = p.CreatedAt,
             YenRate = p.YenRate,
             ExpensePkr = p.ExpensePkr,
@@ -210,8 +193,7 @@ public class BuyPlanService
                     Quantity = l.Quantity,
                     UnitCostYen = l.UnitCostYen,
                     UnitWeightKg = l.UnitWeightKg,
-                    SalePricePkr = l.SalePricePkr,
-                    Notes = l.Notes
+                    SalePricePkr = l.SalePricePkr
                 })
                 .ToList()
         };

@@ -5,110 +5,81 @@
              x:DataType="vm:BuyPlansViewModel">
   <StackPanel>
     <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="h1" Text="Buy plan" />
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top" Margin="16,0,0,0">
-        <Button Content="Open" Command="{Binding OpenCommand}" />
-        <Button Content="Duplicate" Command="{Binding DuplicateCommand}" IsVisible="{Binding IsOwner}" />
-        <Button Classes="gold" Content="New plan" Command="{Binding BeginAddCommand}"
-                IsVisible="{Binding !ShowAddForm}" />
-      </StackPanel>
+      <TextBlock Classes="h1" Text="Order sheets" />
+      <Button Grid.Column="1" Classes="gold" Content="New sheet" Command="{Binding BeginAddCommand}"
+              IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
-    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
-               Text="The list you write before buying: item, quantity, cost in yen, weight, and the price you will sell at. Add the freight and customs figure at the bottom of the sheet and the profit shows itself. A plan is only paper — it does not move stock." />
-
-    <Grid ColumnDefinitions="*,*,*">
-      <Border Classes="statcard" Margin="0,0,8,0">
+    <Border Classes="card" Padding="22,14">
+      <Grid ColumnDefinitions="*,*,2*">
         <StackPanel>
-          <TextBlock Classes="label" Text="Going in, all plans" />
-          <TextBlock Classes="stat" Text="{Binding AllSpend}" />
-          <TextBlock Classes="muted" Text="cost + expenses" Margin="0,6,0,0" />
+          <TextBlock Classes="label" Text="ALL IN" />
+          <TextBlock FontSize="19" FontWeight="SemiBold" Text="{Binding AllSpend}" />
         </StackPanel>
-      </Border>
-      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,0">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Out, if all sells" />
-          <TextBlock Classes="stat" Text="{Binding AllSale}" />
-          <TextBlock Classes="muted" Text="every piece at the sale price" Margin="0,6,0,0" />
+        <StackPanel Grid.Column="1">
+          <TextBlock Classes="label" Text="IF ALL SELLS" />
+          <TextBlock FontSize="19" FontWeight="SemiBold" Text="{Binding AllSale}" />
         </StackPanel>
-      </Border>
-      <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,0">
-        <StackPanel>
-          <TextBlock Classes="label" Text="Profit, all plans" />
-          <TextBlock Classes="stat" Text="{Binding AllProfit}" Classes.ok="{Binding AllProfitGood}"
-                     Classes.bad="{Binding !AllProfitGood}" />
-          <TextBlock Classes="muted" Text="{Binding BestPlan}" TextWrapping="Wrap" Margin="0,6,0,0" />
+        <StackPanel Grid.Column="2">
+          <TextBlock Classes="label" Text="PROFIT, EVERY SHEET" />
+          <TextBlock FontSize="23" FontWeight="SemiBold" Text="{Binding AllProfit}"
+                     Classes.ok="{Binding AllProfitGood}" Classes.bad="{Binding !AllProfitGood}" />
         </StackPanel>
-      </Border>
-    </Grid>
-    <TextBlock Classes="muted" Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,0,0,16" />
+      </Grid>
+    </Border>
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Plans" />
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+          <TextBlock Classes="h2" Text="Sheets" Margin="0" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                      IsVisible="{Binding HasSelection}" Margin="16,0,0,0">
+            <Button Content="Open" Command="{Binding OpenCommand}" />
+            <Button Content="Duplicate" Command="{Binding DuplicateCommand}" IsVisible="{Binding IsOwner}" />
+            <CheckBox Content="Delete for good" IsChecked="{Binding ConfirmDelete}" VerticalAlignment="Center"
+                      IsVisible="{Binding IsOwner}" />
+            <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}"
+                    IsEnabled="{Binding ConfirmDelete}" IsVisible="{Binding IsOwner}" />
+          </StackPanel>
+        </Grid>
+
         <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Plan" Binding="{Binding TitleText}" Width="*" />
-            <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierText}" Width="140" />
-            <DataGridTextColumn Header="Rows" Binding="{Binding ItemCountText}" Width="80" />
-            <DataGridTextColumn Header="Cost (¥)" Binding="{Binding CostYenText}" Width="130" />
-            <DataGridTextColumn Header="Cost (Rs)" Binding="{Binding CostPkrText}" Width="140" />
-            <DataGridTextColumn Header="Expenses (Rs)" Binding="{Binding ExpenseText}" Width="140" />
-            <DataGridTextColumn Header="Sells for (Rs)" Binding="{Binding SaleText}" Width="150" />
-            <DataGridTemplateColumn Header="Profit (Rs)" Width="150">
+            <DataGridTextColumn Header="Sheet" Binding="{Binding TitleText}" Width="*" />
+            <DataGridTextColumn Header="Rows" Binding="{Binding ItemCountText}" Width="90" />
+            <DataGridTextColumn Header="Cost ¥" Binding="{Binding CostYenText}" Width="140" />
+            <DataGridTextColumn Header="Cost Rs" Binding="{Binding CostPkrText}" Width="150" />
+            <DataGridTextColumn Header="Expense" Binding="{Binding ExpenseText}" Width="150" />
+            <DataGridTextColumn Header="Sells for" Binding="{Binding SaleText}" Width="160" />
+            <DataGridTemplateColumn Header="Profit" Width="160">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBlock Text="{Binding ProfitText}" Margin="10,0" VerticalAlignment="Center"
+                             FontWeight="SemiBold"
                              Classes.ok="{Binding ProfitIsGood}" Classes.bad="{Binding !ProfitIsGood}" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Weight" Binding="{Binding WeightText}" Width="110" />
             <DataGridTextColumn Header="Made" Binding="{Binding CreatedText}" Width="110" />
           </DataGrid.Columns>
         </DataGrid>
-        <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,12,0,0" IsVisible="{Binding IsOwner}">
-          <Button Classes="danger" Content="Delete this plan" Command="{Binding DeleteCommand}"
-                  IsEnabled="{Binding ConfirmDelete}" HorizontalAlignment="Left" />
-          <CheckBox Grid.Column="1" Content="Delete for good" IsChecked="{Binding ConfirmDelete}"
-                    VerticalAlignment="Center" Margin="12,0,0,0" />
-          <TextBlock Grid.Column="2" Classes="muted" VerticalAlignment="Center" Margin="16,0,0,0"
-                     Text="Pick a plan in the table, tick the box, then delete." />
-        </Grid>
+
+        <TextBlock Classes="muted" Margin="0,12,0,0" Text="Double-click to open." />
       </StackPanel>
     </Border>
 
-    <Border Classes="card" IsVisible="{Binding ShowAddForm}">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="New plan" />
-        <Grid ColumnDefinitions="*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Name it (for the month or the supplier)" />
-            <TextBox Text="{Binding NewTitle}" Watermark="e.g. April order — Yiwu" />
-          </StackPanel>
-          <StackPanel Grid.Column="1">
-            <TextBlock Classes="label" Text="Supplier in China (optional)" />
-            <TextBox Text="{Binding NewSupplier}" Watermark="just a note" />
-          </StackPanel>
-        </Grid>
-        <Grid ColumnDefinitions="*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Rupees for 1 yen" />
-            <NumericUpDown Value="{Binding NewYenRate}" Minimum="0" Increment="0.5" FormatString="#,##0.##" />
-          </StackPanel>
-          <StackPanel Grid.Column="1">
-            <TextBlock Classes="label" Text="Total expense on the items (Rs)" />
-            <NumericUpDown Value="{Binding NewExpense}" Minimum="0" />
-          </StackPanel>
-        </Grid>
-        <TextBlock Classes="muted" TextWrapping="Wrap"
-                   Text="The rate is your own — the one you actually pay to bring the yen. Both boxes can be changed later on the plan." />
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-          <Button Classes="primary" Content="Create and open" Command="{Binding CreateCommand}" />
+    <Border Classes="card" IsVisible="{Binding ShowAddForm}" Padding="22,16">
+      <Grid ColumnDefinitions="*,Auto" Width="620" HorizontalAlignment="Left">
+        <StackPanel Margin="0,0,12,0">
+          <TextBlock Classes="label" Text="NAME" />
+          <TextBox Text="{Binding NewTitle}" Watermark="e.g. April — Yiwu electronics" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+          <Button Classes="primary" Content="Create" Command="{Binding CreateCommand}" />
           <Button Content="Cancel" Command="{Binding CancelAddCommand}" />
         </StackPanel>
-      </StackPanel>
+      </Grid>
     </Border>
   </StackPanel>
 </UserControl>

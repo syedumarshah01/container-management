@@ -274,8 +274,6 @@ public class BuyPlan
 {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string? Supplier { get; set; }
-    public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     /// <summary>Rupees for 1 yen. Used to turn the yen cost into a rupee cost.</summary>
@@ -299,7 +297,6 @@ public class BuyPlanLine
     public decimal UnitCostYen { get; set; }
     public decimal UnitWeightKg { get; set; }
     public decimal SalePricePkr { get; set; }
-    public string? Notes { get; set; }
 }
 
 public enum CashBookKind

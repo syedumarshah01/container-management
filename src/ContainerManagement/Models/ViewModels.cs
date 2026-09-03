@@ -380,8 +380,8 @@ public static class SupplierPayMethods
 }
 
 /// <summary>
-/// One item row on a buy plan. YenRate is set by the page so the rupee columns follow
-/// the plan's rate — change the rate and every row is rebuilt with it.
+/// One row of an order sheet. YenRate comes from the plan, so the rupee columns follow
+/// the rate as it is typed.
 /// </summary>
 public class BuyPlanLineRow
 {
@@ -391,40 +391,26 @@ public class BuyPlanLineRow
     public decimal UnitCostYen { get; set; }
     public decimal UnitWeightKg { get; set; }
     public decimal SalePricePkr { get; set; }
-    public string? Notes { get; set; }
     public decimal YenRate { get; set; } = 1;
 
-    /// <summary>Quantity x cost in yen.</summary>
     public decimal CostYen => Quantity * UnitCostYen;
-
-    /// <summary>The same cost in rupees at this plan's rate.</summary>
     public decimal CostPkr => Math.Round(CostYen * YenRate, 2);
-
-    /// <summary>What the whole line would bring if it all sold at that price.</summary>
     public decimal SalePkr => Quantity * SalePricePkr;
-
     public decimal TotalWeightKg => Quantity * UnitWeightKg;
 
-    /// <summary>Sale total minus this line's goods cost. Plan expenses are taken off at the plan level.</summary>
+    /// <summary>Selling total minus this row's goods cost. The expense figure is per lot, not per row.</summary>
     public decimal ProfitPkr => SalePkr - CostPkr;
-
-    public decimal CostPerPiecePkr => UnitCostYen * YenRate;
-
-    public decimal MarginPct => SalePkr > 0.009m ? ProfitPkr / SalePkr * 100m : 0m;
 
     public string ItemNameText => string.IsNullOrWhiteSpace(ItemName) ? "(no name)" : ItemName.Trim();
     public string QuantityText => Money.Qty(Quantity);
     public string UnitCostYenText => Money.Yen(UnitCostYen);
     public string CostYenText => Money.Yen(CostYen);
     public string CostPkrText => Money.Pkr(CostPkr);
-    public string CostPerPiecePkrText => Money.Pkr(CostPerPiecePkr);
     public string UnitWeightText => Money.Qty(UnitWeightKg);
     public string TotalWeightText => Money.Qty(TotalWeightKg);
     public string SalePriceText => Money.Pkr(SalePricePkr);
     public string SaleTotalText => Money.Pkr(SalePkr);
     public string ProfitText => Money.Pkr(ProfitPkr);
-    public string MarginText => Money.Pct(MarginPct);
-    public string NotesText => Notes ?? "";
     public bool ProfitIsGood => ProfitPkr >= 0;
 
     public BuyPlanLineInput ToInput() => new()
@@ -433,12 +419,11 @@ public class BuyPlanLineRow
         Quantity = Quantity,
         UnitCostYen = UnitCostYen,
         UnitWeightKg = UnitWeightKg,
-        SalePricePkr = SalePricePkr,
-        Notes = Notes
+        SalePricePkr = SalePricePkr
     };
 }
 
-/// <summary>What a plan adds up to. Built the same way for the list, the editor and the save.</summary>
+/// <summary>What a sheet adds up to. Built the same way on the list, the sheet and the save.</summary>
 public class BuyPlanTotal
 {
     public int ItemCount { get; set; }
@@ -449,33 +434,28 @@ public class BuyPlanTotal
     public decimal TotalWeightKg { get; set; }
     public decimal YenRate { get; set; } = 1;
 
-    /// <summary>Goods cost plus the one expense figure — what goes in.</summary>
+    /// <summary>Goods cost plus the expense figure — all the money that goes in.</summary>
     public decimal SpendPkr => CostPkr + ExpensePkr;
 
     /// <summary>Sold everything, minus what went in.</summary>
     public decimal ProfitPkr => SalePkr - SpendPkr;
 
-    public decimal ProfitYen => YenRate > 0.000001m ? Math.Round(ProfitPkr / YenRate, 0) : 0;
-
     public decimal MarginPct => SalePkr > 0.009m ? ProfitPkr / SalePkr * 100m : 0m;
 
     public bool ProfitIsGood => ProfitPkr >= 0;
 
-    public string ItemCountText => ItemCount == 1 ? "1 item" : ItemCount + " items";
+    public string ItemCountText => ItemCount == 1 ? "1 row" : ItemCount + " rows";
     public string CostYenText => Money.Yen(CostYen);
     public string CostPkrText => Money.Pkr(CostPkr);
     public string ExpenseText => Money.Pkr(ExpensePkr);
     public string SpendText => Money.Pkr(SpendPkr);
     public string SaleText => Money.Pkr(SalePkr);
     public string ProfitText => Money.Pkr(ProfitPkr);
-    public string ProfitYenText => Money.Yen(ProfitYen);
     public string MarginText => Money.Pct(MarginPct);
     public string WeightText => Money.Qty(TotalWeightKg) + " kg";
-    public string RateText => Money.Pkr(YenRate);
 
     public static BuyPlanTotal Build(IEnumerable<BuyPlanLineRow> lines, decimal yenRate, decimal expensePkr)
     {
-        var rate = yenRate > 0 ? yenRate : 1;
         var list = lines.ToList();
         return new BuyPlanTotal
         {
@@ -485,26 +465,23 @@ public class BuyPlanTotal
             ExpensePkr = expensePkr,
             SalePkr = list.Sum(l => l.SalePkr),
             TotalWeightKg = list.Sum(l => l.TotalWeightKg),
-            YenRate = rate
+            YenRate = yenRate > 0 ? yenRate : 1
         };
     }
 }
 
-/// <summary>A plan as the pages see it: header, rows, and the totals box.</summary>
+/// <summary>An order sheet as the pages see it: header, rows, totals.</summary>
 public class BuyPlanRow
 {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
-    public string Supplier { get; set; } = string.Empty;
-    public string Notes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public decimal YenRate { get; set; } = 1;
     public decimal ExpensePkr { get; set; }
     public List<BuyPlanLineRow> Lines { get; set; } = new();
     public BuyPlanTotal Total { get; set; } = new();
 
-    public string TitleText => string.IsNullOrWhiteSpace(Title) ? "Untitled plan" : Title.Trim();
-    public string SupplierText => string.IsNullOrWhiteSpace(Supplier) ? "—" : Supplier.Trim();
+    public string TitleText => string.IsNullOrWhiteSpace(Title) ? "Untitled sheet" : Title.Trim();
     public string CreatedText => CreatedAt.ToString("dd MMM yyyy");
     public string ItemCountText => Total.ItemCountText;
     public string CostYenText => Total.CostYenText;
@@ -519,9 +496,10 @@ public class BuyPlanRow
 
     public void RefreshTotals()
     {
+        var rate = YenRate > 0 ? YenRate : 1;
         foreach (var l in Lines)
-            l.YenRate = YenRate > 0 ? YenRate : 1;
-        Total = BuyPlanTotal.Build(Lines, YenRate, ExpensePkr);
+            l.YenRate = rate;
+        Total = BuyPlanTotal.Build(Lines, rate, ExpensePkr);
     }
 }
 
@@ -533,5 +511,4 @@ public class BuyPlanLineInput
     public decimal UnitCostYen { get; set; }
     public decimal UnitWeightKg { get; set; }
     public decimal SalePricePkr { get; set; }
-    public string? Notes { get; set; }
 }

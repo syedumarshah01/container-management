@@ -141,8 +141,6 @@ public static class SchemaPatcher
             CREATE TABLE IF NOT EXISTS BuyPlans (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 Title TEXT NOT NULL,
-                Supplier TEXT,
-                Notes TEXT,
                 CreatedAt TEXT NOT NULL,
                 YenRate TEXT NOT NULL,
                 ExpensePkr TEXT NOT NULL
@@ -160,7 +158,6 @@ public static class SchemaPatcher
                 UnitCostYen TEXT NOT NULL,
                 UnitWeightKg TEXT NOT NULL,
                 SalePricePkr TEXT NOT NULL,
-                Notes TEXT,
                 FOREIGN KEY (PlanId) REFERENCES BuyPlans(Id) ON DELETE CASCADE
             );
             """);

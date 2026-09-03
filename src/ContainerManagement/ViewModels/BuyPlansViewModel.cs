@@ -7,8 +7,8 @@ using ContainerManagement.Services;
 namespace ContainerManagement.ViewModels;
 
 /// <summary>
-/// The list of China order plans. Numbers here come from each plan's rows; the plan is a
-/// calculation sheet, not stock.
+/// Every saved order sheet, with its totals. Creating one only needs a name — the rate and the
+/// expense figure are typed on the sheet itself.
 /// </summary>
 public partial class BuyPlansViewModel : ViewModelBase
 {
@@ -27,18 +27,14 @@ public partial class BuyPlansViewModel : ViewModelBase
 
     [ObservableProperty] private BuyPlanRow? selected;
     [ObservableProperty] private string newTitle = "";
-    [ObservableProperty] private string newSupplier = "";
-    [ObservableProperty] private decimal? newYenRate = BuyPlanService.SuggestedRate;
-    [ObservableProperty] private decimal? newExpense;
     [ObservableProperty] private bool showAddForm;
+    [ObservableProperty] private bool hasSelection;
     [ObservableProperty] private bool confirmDelete;
-    [ObservableProperty] private string summary = "";
+    [ObservableProperty] private bool isOwner;
     [ObservableProperty] private string allSpend = "—";
     [ObservableProperty] private string allSale = "—";
     [ObservableProperty] private string allProfit = "—";
     [ObservableProperty] private bool allProfitGood = true;
-    [ObservableProperty] private string bestPlan = "—";
-    [ObservableProperty] private bool isOwner;
 
     public override async Task LoadAsync()
     {
@@ -52,35 +48,25 @@ public partial class BuyPlansViewModel : ViewModelBase
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.Id == id) : null;
 
         var all = Rows.ToList();
-        var spend = all.Sum(r => r.Total.SpendPkr);
-        var sale = all.Sum(r => r.Total.SalePkr);
+        AllSpend = Money.PkrCompact(all.Sum(r => r.Total.SpendPkr));
+        AllSale = Money.PkrCompact(all.Sum(r => r.Total.SalePkr));
         var profit = all.Sum(r => r.Total.ProfitPkr);
-
-        AllSpend = Money.PkrCompact(spend);
-        AllSale = Money.PkrCompact(sale);
         AllProfit = Money.PkrCompact(profit);
         AllProfitGood = profit >= 0;
-        var best = all.OrderByDescending(r => r.Total.ProfitPkr).FirstOrDefault();
-        BestPlan = best is null || all.Count == 0 ? "—" : $"{best.TitleText} · {best.Total.ProfitText}";
-        Summary = all.Count == 0
-            ? "No plans yet. Start one when you sit down to write the China list."
-            : all.Count + (all.Count == 1 ? " plan" : " plans")
-              + " · if all of it sells at these prices, " + Money.PkrCompact(profit) + " is made on top of "
-              + Money.PkrCompact(spend);
     }
+
+    partial void OnSelectedChanged(BuyPlanRow? value) => HasSelection = value is not null;
 
     [RelayCommand]
     private void BeginAdd()
     {
-        if (!_access.IsOwner)
-        {
-            _shell.Notify("Owner PIN needed to add a buy plan.", true);
+        if (!NeedOwner("add an order sheet"))
             return;
-        }
         ShowAddForm = true;
     }
 
-    [RelayCommand] private void CancelAdd() => ShowAddForm = false;
+    [RelayCommand]
+    private void CancelAdd() => ShowAddForm = false;
 
     [RelayCommand]
     private void Open()
@@ -92,20 +78,14 @@ public partial class BuyPlansViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateAsync()
     {
-        if (!_access.IsOwner)
-        {
-            _shell.Notify("Owner PIN needed to add a buy plan.", true);
+        if (!NeedOwner("add an order sheet"))
             return;
-        }
         try
         {
-            var plan = await _plans.CreateAsync(NewTitle, NewSupplier, NewYenRate ?? 0, NewExpense ?? 0);
+            var plan = await _plans.CreateAsync(NewTitle);
             NewTitle = "";
-            NewSupplier = "";
-            NewExpense = null;
             ShowAddForm = false;
             await LoadAsync();
-            _shell.Notify("Plan made. Fill the rows, then Save plan.");
             _shell.OpenBuyPlan(plan.Id);
         }
         catch (Exception ex)
@@ -117,14 +97,11 @@ public partial class BuyPlansViewModel : ViewModelBase
     [RelayCommand]
     private async Task DuplicateAsync()
     {
-        if (!_access.IsOwner)
-        {
-            _shell.Notify("Owner PIN needed to copy a buy plan.", true);
+        if (!NeedOwner("copy an order sheet"))
             return;
-        }
         if (Selected is null)
         {
-            _shell.Notify("Pick a plan in the table first.", true);
+            _shell.Notify("Pick a sheet first.", true);
             return;
         }
         try
@@ -132,7 +109,7 @@ public partial class BuyPlansViewModel : ViewModelBase
             var copy = await _plans.DuplicateAsync(Selected.Id);
             await LoadAsync();
             Selected = Rows.FirstOrDefault(r => r.Id == copy.Id);
-            _shell.Notify("Copied. Change the numbers on the copy.");
+            _shell.Notify("Copied.");
         }
         catch (Exception ex)
         {
@@ -143,19 +120,16 @@ public partial class BuyPlansViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        if (!_access.IsOwner)
-        {
-            _shell.Notify("Owner PIN needed to delete a buy plan.", true);
+        if (!NeedOwner("delete an order sheet"))
             return;
-        }
         if (Selected is null)
         {
-            _shell.Notify("Pick a plan in the table first.", true);
+            _shell.Notify("Pick a sheet first.", true);
             return;
         }
         if (!ConfirmDelete)
         {
-            _shell.Notify("Tick “Delete for good” first.", true);
+            _shell.Notify("Tick Delete first.", true);
             return;
         }
         try
@@ -170,5 +144,13 @@ public partial class BuyPlansViewModel : ViewModelBase
         {
             _shell.Notify(ex.Message, true);
         }
+    }
+
+    private bool NeedOwner(string action)
+    {
+        if (_access.IsOwner)
+            return true;
+        _shell.Notify("Owner PIN needed to " + action + ".", true);
+        return false;
     }
 }

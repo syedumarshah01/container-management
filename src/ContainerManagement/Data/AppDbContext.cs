@@ -190,7 +190,6 @@ public class AppDbContext : DbContext
         {
             e.ToTable("BuyPlans");
             e.Property(x => x.Title).HasMaxLength(200).IsRequired();
-            e.Property(x => x.Supplier).HasMaxLength(200);
             e.Property(x => x.YenRate).HasPrecision(18, 6);
             e.Property(x => x.ExpensePkr).HasPrecision(18, 2);
             e.HasIndex(x => x.CreatedAt);

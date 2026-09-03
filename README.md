@@ -83,7 +83,7 @@ Then run `publish/mac/ProBooks`.
 
 | Need | Where |
 | --- | --- |
-| Plan a China order before buying | **Buy plan** → New plan → add rows |
+| Plan a China order before buying | **Order sheets** → New sheet → type the rows |
 | New container + items | **Containers** → fill title → Create → add items / expenses |
 | Sell (must pick container) | **New Sale** |
 | Grand inventory | **Grand Inventory** |
@@ -96,11 +96,11 @@ Then run `publish/mac/ProBooks`.
 
 Profit = sales revenue − cost of sold items − expenses on that container. Unsold stock is valuation, not profit.
 
-## Buy plan (the paper before the purchase)
+## Order sheets (the paper before the purchase)
 
 This is the sheet you write before ordering: every item you mean to buy, with its quantity, its
-cost per piece **in yen**, the weight per piece, and the price you plan to sell at. The page does
-the arithmetic of the paper list:
+cost per piece **in yen**, the weight per piece, and the price you plan to sell at. One tape across
+the top does the arithmetic of the paper list:
 
 | Box | How it is worked out |
 | --- | --- |
@@ -116,5 +116,5 @@ for the whole lot, so it is taken off once, at the plan level. Nothing on this p
 touches a customer ledger: it is a plan, not a purchase. When the container actually lands, add it
 on **Containers** as you do today.
 
-Plans are saved (and can be duplicated for the next order). **Duplicate** is the quick way to start
-the next month from last month's list.
+Plans are saved, and **Duplicate** is the quick way to start next month from this month's list.
+Staff can read a sheet; the owner PIN is needed to change one.

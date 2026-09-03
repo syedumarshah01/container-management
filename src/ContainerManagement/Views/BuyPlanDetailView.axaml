@@ -7,191 +7,137 @@
     <Style Selector="DataGrid ScrollBar">
       <Setter Property="AllowAutoHide" Value="False" />
     </Style>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="FontSize" Value="19" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
   </UserControl.Styles>
   <ScrollViewer x:Name="PageScroll" Classes="page"
                 AllowAutoHide="False"
                 VerticalScrollBarVisibility="Visible"
                 HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
-      <DockPanel LastChildFill="True" Margin="0,0,0,16">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
-                    VerticalAlignment="Top">
+
+      <Grid ColumnDefinitions="*,190,190,Auto" Margin="0,0,0,12">
+        <TextBox Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" Padding="0,6"
+                 Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="#E6E4DE"
+                 Watermark="Name this order sheet" IsEnabled="{Binding IsOwner}" Margin="0,0,16,0" />
+        <StackPanel Grid.Column="1" Margin="0,0,16,0">
+          <TextBlock Classes="label" Text="Rs for 1 yen" />
+          <NumericUpDown Value="{Binding YenRate}" Minimum="0" Increment="0.5"
+                         FontSize="17" FontWeight="SemiBold" IsEnabled="{Binding IsOwner}" />
+        </StackPanel>
+        <StackPanel Grid.Column="2" Margin="0,0,16,0">
+          <TextBlock Classes="label" Text="Total expense (Rs)" />
+          <NumericUpDown Value="{Binding ExpensePkr}" Minimum="0"
+                         FontSize="17" FontWeight="SemiBold" IsEnabled="{Binding IsOwner}" />
+        </StackPanel>
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
           <Button Content="Back" Command="{Binding BackCommand}" />
-          <Button Classes="gold" Content="Save plan" Command="{Binding SaveCommand}" IsVisible="{Binding IsOwner}" />
+          <Button Content="Save" Command="{Binding SaveCommand}" IsVisible="{Binding IsOwner}"
+                  Classes.gold="{Binding IsDirty}" />
         </StackPanel>
-        <StackPanel>
-          <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" />
-          <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
-          <TextBlock Classes="bad" Text="{Binding DirtyHint}" IsVisible="{Binding IsDirty}" Margin="0,4,0,0" />
-          <TextBlock Classes="bad" Text="{Binding ReadOnlyHint}" TextWrapping="Wrap" Margin="0,4,0,0"
-                     IsVisible="{Binding !IsOwner}" />
-        </StackPanel>
-      </DockPanel>
-
-      <Grid ColumnDefinitions="*,*,*" Margin="0,0,0,0">
-        <Border Classes="statcard" Margin="0,0,8,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Total cost in yen" />
-            <TextBlock Classes="stat" Text="{Binding CostYenText}" />
-            <TextBlock Classes="muted" Text="{Binding CountText}" Margin="0,6,0,0" />
-          </StackPanel>
-        </Border>
-        <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Cost in rupees" />
-            <TextBlock Classes="stat" Text="{Binding CostPkrText}" />
-            <TextBlock Classes="muted" Text="{Binding RateText}" Margin="0,6,0,0" />
-          </StackPanel>
-        </Border>
-        <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Total weight" />
-            <TextBlock Classes="stat" Text="{Binding WeightText}" />
-            <TextBlock Classes="muted" Text="the goods only, packing aside" Margin="0,6,0,0" />
-          </StackPanel>
-        </Border>
       </Grid>
 
-      <Grid ColumnDefinitions="*,*,*">
-        <Border Classes="statcard" Margin="0,0,8,0">
+      <Border Classes="card" Padding="22,14">
+        <Grid ColumnDefinitions="2*,2*,2*,2*,2*,3*,2*">
           <StackPanel>
-            <TextBlock Classes="label" Text="Total expense on the items" />
-            <TextBlock Classes="stat" Text="{Binding ExpenseText}" />
-            <TextBlock Classes="muted" Text="freight, customs, clearing, labour" Margin="0,6,0,0" />
+            <TextBlock Classes="label" Text="COST ¥" />
+            <TextBlock Classes="cell" Text="{Binding CostYenText}" />
           </StackPanel>
-        </Border>
-        <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="If everything sells" />
-            <TextBlock Classes="stat" Text="{Binding SaleText}" />
-            <TextBlock Classes="muted" Text="every piece at its sale price" Margin="0,6,0,0" />
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="COST Rs" />
+            <TextBlock Classes="cell" Text="{Binding CostPkrText}" />
           </StackPanel>
-        </Border>
-        <Border Classes="statcard" Grid.Column="2" Margin="8,0,0,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Going in (cost + expense)" />
-            <TextBlock Classes="stat" Text="{Binding SpendText}" />
-            <TextBlock Classes="muted" Text="what the lot costs you" Margin="0,6,0,0" />
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="+ EXPENSE" />
+            <TextBlock Classes="cell" Text="{Binding ExpenseText}" />
           </StackPanel>
-        </Border>
-      </Grid>
-
-      <Border Classes="card">
-        <Grid ColumnDefinitions="*,Auto">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Profit (Rs)" />
-            <TextBlock FontSize="34" FontWeight="SemiBold" Text="{Binding ProfitText}"
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="= ALL IN" />
+            <TextBlock Classes="cell" Text="{Binding SpendText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="4">
+            <TextBlock Classes="label" Text="ALL SOLD FOR" />
+            <TextBlock Classes="cell" Text="{Binding SaleText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="5">
+            <TextBlock Classes="label" Text="PROFIT" />
+            <TextBlock Classes="cell" FontSize="23" Text="{Binding ProfitText}"
                        Classes.ok="{Binding ProfitGood}" Classes.bad="{Binding !ProfitGood}" />
-            <TextBlock Classes="muted" Text="{Binding ProfitFoot}" TextWrapping="Wrap" Margin="0,8,0,0" />
+            <TextBlock Classes="muted" Text="{Binding MarginText}" FontSize="12" />
           </StackPanel>
-          <TextBlock Grid.Column="1" Classes="muted" Text="{Binding ProfitHint}" TextWrapping="Wrap"
-                     MaxWidth="280" VerticalAlignment="Center" Margin="16,0,0,0" />
+          <StackPanel Grid.Column="6">
+            <TextBlock Classes="label" Text="WEIGHT" />
+            <TextBlock Classes="cell" Text="{Binding WeightText}" />
+          </StackPanel>
         </Grid>
       </Border>
-      <TextBlock Classes="bad" Text="{Binding PriceHint}" TextWrapping="Wrap" Margin="0,0,0,16"
-                 IsVisible="{Binding HasPriceHint}" />
-
-      <Border Classes="card" IsVisible="{Binding IsOwner}">
-        <StackPanel>
-          <TextBlock Classes="h2" Text="The sheet" />
-          <Grid ColumnDefinitions="*,*">
-            <StackPanel Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Name of this plan" />
-              <TextBox Text="{Binding Title}" Watermark="e.g. April order — Yiwu" />
-            </StackPanel>
-            <StackPanel Grid.Column="1">
-              <TextBlock Classes="label" Text="Supplier in China (optional)" />
-              <TextBox Text="{Binding Supplier}" />
-            </StackPanel>
-          </Grid>
-          <Grid ColumnDefinitions="*,*">
-            <StackPanel Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Rupees for 1 yen (your rate)" />
-              <NumericUpDown Value="{Binding YenRate}" Minimum="0" Increment="0.5" FormatString="#,##0.##" />
-            </StackPanel>
-            <StackPanel Grid.Column="1">
-              <TextBlock Classes="label" Text="Total expense on the items (Rs)" />
-              <NumericUpDown Value="{Binding ExpensePkr}" Minimum="0" />
-            </StackPanel>
-          </Grid>
-          <TextBlock Classes="label" Text="Note (optional)" />
-          <TextBox Text="{Binding Notes}" AcceptsReturn="True" MinHeight="56" TextWrapping="Wrap" />
-          <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,4,0,0"
-                     Text="Freight, customs, clearing, labour — one figure for the whole lot goes in the expense box. It is added to the cost of the goods and taken off the selling total once." />
-        </StackPanel>
-      </Border>
-
-      <Border Classes="card" IsVisible="{Binding IsOwner}">
-        <StackPanel>
-          <TextBlock Classes="h2" Text="Add an item" />
-          <Grid ColumnDefinitions="2*,*,*,*,*,2*">
-            <StackPanel Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Item" />
-              <TextBox Text="{Binding ItemName}" Watermark="name as on the invoice" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Quantity" />
-              <NumericUpDown Value="{Binding Qty}" Minimum="0" />
-            </StackPanel>
-            <StackPanel Grid.Column="2" Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Cost each (¥)" />
-              <NumericUpDown Value="{Binding UnitCostYen}" Minimum="0" />
-            </StackPanel>
-            <StackPanel Grid.Column="3" Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Weight each (kg)" />
-              <NumericUpDown Value="{Binding UnitWeightKg}" Minimum="0" Increment="0.01" />
-            </StackPanel>
-            <StackPanel Grid.Column="4" Margin="0,0,8,0">
-              <TextBlock Classes="label" Text="Sale price each (Rs)" />
-              <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" />
-            </StackPanel>
-            <StackPanel Grid.Column="5">
-              <TextBlock Classes="label" Text="Note (optional)" />
-              <TextBox Text="{Binding LineNotes}" />
-            </StackPanel>
-          </Grid>
-          <TextBlock Classes="muted" Text="{Binding LineHint}" TextWrapping="Wrap" Margin="0,0,0,8" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Classes="primary" Content="Add row" Command="{Binding AddLineCommand}" />
-            <Button Content="Update picked row" Command="{Binding UpdateLineCommand}" />
-            <Button Classes="danger" Content="Remove picked row" Command="{Binding RemoveLineCommand}" />
-            <Button Content="Clear" Command="{Binding ClearFormCommand}" />
-            <Button Classes="gold" Content="Save plan" Command="{Binding SaveCommand}" />
-          </StackPanel>
-        </StackPanel>
-      </Border>
 
       <Border Classes="card">
         <StackPanel>
-          <TextBlock Classes="h2" Text="Rows on the sheet" />
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <TextBlock Classes="h2" Text="{Binding CountText}" Margin="0" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasSelection}">
+              <Button Content="Update row" Command="{Binding UpdateLineCommand}" />
+              <Button Classes="danger" Content="Remove" Command="{Binding RemoveLineCommand}" />
+            </StackPanel>
+          </Grid>
+
           <DataGrid Classes="tall" ItemsSource="{Binding Lines}" SelectedItem="{Binding Selected}"
                     VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
             <DataGrid.Columns>
               <DataGridTextColumn Header="Item" Binding="{Binding ItemNameText}" Width="*" />
-              <DataGridTextColumn Header="Qty" Binding="{Binding QuantityText}" Width="80" />
-              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="100" />
-              <DataGridTextColumn Header="Total ¥" Binding="{Binding CostYenText}" Width="130" />
-              <DataGridTextColumn Header="Cost (Rs)" Binding="{Binding CostPkrText}" Width="140" />
-              <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="90" />
-              <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="100" />
-              <DataGridTextColumn Header="Sale Rs each" Binding="{Binding SalePriceText}" Width="120" />
-              <DataGridTextColumn Header="Sells for (Rs)" Binding="{Binding SaleTotalText}" Width="150" />
-              <DataGridTemplateColumn Header="Profit (Rs)" Width="150">
+              <DataGridTextColumn Header="Qty" Binding="{Binding QuantityText}" Width="90" />
+              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="110" />
+              <DataGridTextColumn Header="Total ¥" Binding="{Binding CostYenText}" Width="140" />
+              <DataGridTextColumn Header="Rs cost" Binding="{Binding CostPkrText}" Width="150" />
+              <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="100" />
+              <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="110" />
+              <DataGridTextColumn Header="Rs each" Binding="{Binding SalePriceText}" Width="130" />
+              <DataGridTextColumn Header="Sells for" Binding="{Binding SaleTotalText}" Width="150" />
+              <DataGridTemplateColumn Header="Profit" Width="150">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding ProfitText}" Margin="10,0" VerticalAlignment="Center"
+                               FontWeight="SemiBold"
                                Classes.ok="{Binding ProfitIsGood}" Classes.bad="{Binding !ProfitIsGood}" />
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTextColumn Header="Margin" Binding="{Binding MarginText}" Width="90" />
-              <DataGridTextColumn Header="Note" Binding="{Binding NotesText}" Width="150" />
             </DataGrid.Columns>
           </DataGrid>
-          <TextBlock Classes="muted" Margin="0,12,0,0" TextWrapping="Wrap"
-                     Text="Profit on a row is its selling total minus the goods cost only. The expense figure is for the whole lot, so it is taken off once, in the profit box above." />
+
+          <Border Height="1" Background="#E6E4DE" Margin="0,16,0,14" />
+
+          <Grid ColumnDefinitions="3*,*,*,*,*,Auto" IsVisible="{Binding IsOwner}">
+            <StackPanel Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="ITEM" />
+              <TextBox Text="{Binding ItemName}" Watermark="name as on the invoice" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="QTY" />
+              <NumericUpDown Value="{Binding Qty}" Minimum="0" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="¥ EACH" />
+              <NumericUpDown Value="{Binding UnitCostYen}" Minimum="0" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="KG EACH" />
+              <NumericUpDown Value="{Binding UnitWeightKg}" Minimum="0" Increment="0.01" />
+            </StackPanel>
+            <StackPanel Grid.Column="4" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="SELL Rs EACH" />
+              <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" />
+            </StackPanel>
+            <Button Grid.Column="5" Classes="primary" Content="Add row" Command="{Binding AddLineCommand}"
+                    VerticalAlignment="Bottom" />
+          </Grid>
         </StackPanel>
       </Border>
+
     </StackPanel>
   </ScrollViewer>
 </UserControl>
