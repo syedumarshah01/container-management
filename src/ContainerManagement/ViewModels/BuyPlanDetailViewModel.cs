@@ -96,7 +96,7 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
 
     partial void OnSelectedChanged(BuyPlanLineRow? value)
     {
-        HasSelection = value is not null;
+        HasSelection = value is not null && IsOwner;
         if (_busy || value is null)
             return;
         _busy = true;
@@ -233,6 +233,7 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
             Recalc();
         IsDirty = false;
         _busy = false;
+        _shell.MarkChanged();
         _shell.Notify("Saved.");
     }
 

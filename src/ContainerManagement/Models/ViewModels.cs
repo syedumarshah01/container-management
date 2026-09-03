@@ -405,7 +405,10 @@ public class BuyPlanLineRow
     public string QuantityText => Money.Qty(Quantity);
     public string UnitCostYenText => Money.Yen(UnitCostYen);
     public string CostYenText => Money.Yen(CostYen);
+    public decimal CostPerPiecePkr => UnitCostYen * YenRate;
+
     public string CostPkrText => Money.Pkr(CostPkr);
+    public string CostPerPiecePkrText => Money.Pkr(CostPerPiecePkr);
     public string UnitWeightText => Money.Qty(UnitWeightKg);
     public string TotalWeightText => Money.Qty(TotalWeightKg);
     public string SalePriceText => Money.Pkr(SalePricePkr);

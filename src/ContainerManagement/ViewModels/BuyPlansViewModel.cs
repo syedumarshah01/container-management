@@ -29,7 +29,9 @@ public partial class BuyPlansViewModel : ViewModelBase
     [ObservableProperty] private string newTitle = "";
     [ObservableProperty] private bool showAddForm;
     [ObservableProperty] private bool hasSelection;
+    [ObservableProperty] private bool canEdit;
     [ObservableProperty] private bool confirmDelete;
+    [ObservableProperty] private string deleteLabel = "Delete";
     [ObservableProperty] private bool isOwner;
 
     public override async Task LoadAsync()
@@ -44,7 +46,18 @@ public partial class BuyPlansViewModel : ViewModelBase
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.Id == id) : null;
     }
 
-    partial void OnSelectedChanged(BuyPlanRow? value) => HasSelection = value is not null;
+    partial void OnSelectedChanged(BuyPlanRow? value)
+    {
+        HasSelection = value is not null;
+        CanEdit = HasSelection && IsOwner;
+        ConfirmDelete = false;
+    }
+
+    /// <summary>
+    /// Two taps instead of a tick box: the button arms itself, then deletes. Nothing can be
+    /// removed by one stray click, and the row stays free of extra widgets.
+    /// </summary>
+    partial void OnConfirmDeleteChanged(bool value) => DeleteLabel = value ? "Tap again to delete" : "Delete";
 
     [RelayCommand]
     private void BeginAdd()
@@ -118,7 +131,8 @@ public partial class BuyPlansViewModel : ViewModelBase
         }
         if (!ConfirmDelete)
         {
-            _shell.Notify("Tick Delete first.", true);
+            ConfirmDelete = true;
+            _shell.Notify("This deletes the sheet and its rows. Tap Delete again to be sure.", true);
             return;
         }
         try

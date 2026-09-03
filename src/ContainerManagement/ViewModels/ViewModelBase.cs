@@ -30,6 +30,12 @@ public interface IAppShell
     void OpenContainer(int id);
     void GoBuyPlans();
     void OpenBuyPlan(int id);
+
+    /// <summary>
+    /// Called by a page that changed saved data, so the page behind it reloads on Back
+    /// instead of showing the numbers from before the edit.
+    /// </summary>
+    void MarkChanged();
     void GoInventory();
     void GoNewSale();
     void GoSales();

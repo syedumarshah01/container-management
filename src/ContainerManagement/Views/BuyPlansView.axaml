@@ -4,27 +4,20 @@
              x:Class="ContainerManagement.Views.BuyPlansView"
              x:DataType="vm:BuyPlansViewModel">
   <StackPanel>
-    <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="h1" Text="Order sheets" />
-      <Button Grid.Column="1" Classes="gold" Content="New sheet" Command="{Binding BeginAddCommand}"
-              IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Order sheets" Margin="0" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding HasSelection}" />
+        <Button Content="Duplicate" Command="{Binding DuplicateCommand}" IsVisible="{Binding CanEdit}" />
+        <Button Classes="danger" Content="{Binding DeleteLabel}" Command="{Binding DeleteCommand}"
+                IsVisible="{Binding CanEdit}" MinWidth="110" />
+        <Button Classes="gold" Content="New sheet" Command="{Binding BeginAddCommand}"
+                IsVisible="{Binding !ShowAddForm}" />
+      </StackPanel>
     </Grid>
 
     <Border Classes="card">
       <StackPanel>
-        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-          <TextBlock Classes="h2" Text="Sheets" Margin="0" VerticalAlignment="Center" />
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                      IsVisible="{Binding HasSelection}" Margin="16,0,0,0">
-            <Button Content="Open" Command="{Binding OpenCommand}" />
-            <Button Content="Duplicate" Command="{Binding DuplicateCommand}" IsVisible="{Binding IsOwner}" />
-            <CheckBox Content="Delete for good" IsChecked="{Binding ConfirmDelete}" VerticalAlignment="Center"
-                      IsVisible="{Binding IsOwner}" />
-            <Button Classes="danger" Content="Delete" Command="{Binding DeleteCommand}"
-                    IsEnabled="{Binding ConfirmDelete}" IsVisible="{Binding IsOwner}" />
-          </StackPanel>
-        </Grid>
-
         <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>
@@ -33,6 +26,7 @@
             <DataGridTextColumn Header="Cost ¥" Binding="{Binding CostYenText}" Width="140" />
             <DataGridTextColumn Header="Cost Rs" Binding="{Binding CostPkrText}" Width="150" />
             <DataGridTextColumn Header="Expense" Binding="{Binding ExpenseText}" Width="150" />
+            <DataGridTextColumn Header="All in" Binding="{Binding SpendText}" Width="150" />
             <DataGridTextColumn Header="Sells for" Binding="{Binding SaleText}" Width="160" />
             <DataGridTemplateColumn Header="Profit" Width="160">
               <DataGridTemplateColumn.CellTemplate>
@@ -46,7 +40,6 @@
             <DataGridTextColumn Header="Made" Binding="{Binding CreatedText}" Width="110" />
           </DataGrid.Columns>
         </DataGrid>
-
         <TextBlock Classes="muted" Margin="0,12,0,0" Text="Double-click to open." />
       </StackPanel>
     </Border>
@@ -57,7 +50,8 @@
           <TextBlock Classes="label" Text="NAME" />
           <TextBox Text="{Binding NewTitle}" Watermark="e.g. April — Yiwu electronics" />
         </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"
+                    Margin="0,0,0,12">
           <Button Classes="primary" Content="Create" Command="{Binding CreateCommand}" />
           <Button Content="Cancel" Command="{Binding CancelAddCommand}" />
         </StackPanel>

@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
     private readonly LicenseService _license;
     private readonly Dictionary<string, ViewModelBase> _navPages = new();
     private readonly Stack<ViewModelBase> _back = new();
+    private bool _refreshOnBack;
     private static readonly TimeSpan LicenseCheckEvery = TimeSpan.FromHours(12);
     private bool _checkingLicense;
     private DispatcherTimer? _licenseTimer;
@@ -224,14 +225,19 @@ public partial class MainViewModel : ObservableObject, IAppShell
 
     public void Back()
     {
+        var reload = _refreshOnBack;
+        _refreshOnBack = false;
+
         if (_back.Count > 0)
         {
-            Present(_back.Pop(), allowReload: false);
+            Present(_back.Pop(), allowReload: false, forceReload: reload);
             return;
         }
         if (SelectedNav is not null)
-            Present(NavPage(SelectedNav.Key), allowReload: false);
+            Present(NavPage(SelectedNav.Key), allowReload: false, forceReload: reload);
     }
+
+    public void MarkChanged() => _refreshOnBack = true;
 
     public void GoDashboard() => Select("dash");
     public void GoContainers() => Select("containers");
@@ -300,10 +306,10 @@ public partial class MainViewModel : ObservableObject, IAppShell
         return page;
     }
 
-    private void Present(ViewModelBase vm, bool forceLoad = false, bool allowReload = true)
+    private void Present(ViewModelBase vm, bool forceLoad = false, bool allowReload = true, bool forceReload = false)
     {
         CurrentPage = vm;
-        _ = LoadSafe(vm, forceLoad, allowReload);
+        _ = LoadSafe(vm, forceLoad || forceReload, allowReload);
     }
 
     private async Task LoadSafe(ViewModelBase vm, bool forceLoad, bool allowReload)
