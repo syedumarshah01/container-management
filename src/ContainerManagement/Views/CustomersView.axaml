@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.CustomersView"
+             x:DataType="vm:CustomersViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Customers" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="New customer" />
+        <Grid ColumnDefinitions="*,*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Name" />
+            <TextBox Text="{Binding NewName}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Phone" />
+            <TextBox Text="{Binding NewPhone}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Address" />
+            <TextBox Text="{Binding NewAddress}" />
+          </StackPanel>
+        </Grid>
+        <Button Classes="primary" Content="Save customer" Command="{Binding CreateCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <Grid ColumnDefinitions="*,220">
+          <TextBlock Classes="h2" Text="All customers" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search" Margin="12,0,0,12" />
+        </Grid>
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="140" />
+            <DataGridTextColumn Header="They owe" Binding="{Binding BalanceText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.SalesView"
+             x:DataType="vm:SalesViewModel">
+  <UserControl.Styles>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+  </UserControl.Styles>
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <TextBlock Classes="h1" Text="Sales" Margin="0" />
+      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding NewSaleCommand}"
+              VerticalAlignment="Top" Margin="16,0,0,0" />
+    </Grid>
+    <Border Classes="card" Margin="0">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="label" Text="Show invoices for" />
+        <ComboBox DockPanel.Dock="Top" ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}"
+                  MaxWidth="360" HorizontalAlignment="Left" />
+        <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Invoices" />
+        <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="#" Binding="{Binding Id}" Width="50" />
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
+            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="160" />
+            <DataGridTextColumn Header="From container" Binding="{Binding Containers}" Width="*" />
+            <DataGridTextColumn Header="Bill" Binding="{Binding TotalText}" Width="120" />
+            <DataGridTextColumn Header="Credit left" Binding="{Binding CreditText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </DockPanel>
+    </Border>
+  </DockPanel>
+</UserControl>

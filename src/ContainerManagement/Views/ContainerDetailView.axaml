@@ -1,0 +1,166 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ContainerDetailView"
+             x:DataType="vm:ContainerDetailViewModel">
+  <UserControl.Styles>
+    <Style Selector="Expander">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer x:Name="PageScroll" Classes="page"
+                AllowAutoHide="False"
+                VerticalScrollBarVisibility="Visible"
+                HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,Auto,Auto">
+        <DockPanel LastChildFill="True" Margin="0,0,0,16">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                      VerticalAlignment="Top">
+            <Button Content="Back" Command="{Binding BackCommand}" />
+            <Button Content="Close / re-open" Command="{Binding ToggleCloseCommand}" />
+            <Button Classes="gold" Content="Sell" Command="{Binding SellFromHereCommand}" />
+          </StackPanel>
+          <StackPanel>
+            <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
+          </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,0,0,16">
+          <Border Classes="statcard" Margin="0,0,8,0">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Valuation" />
+              <TextBlock Classes="stat" Text="{Binding StockValue}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,0">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Stock sold" />
+              <TextBlock Classes="stat" Text="{Binding StockSold}" />
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <StackPanel Grid.Row="2">
+          <Button Content="Edit import details" Command="{Binding ToggleImportCommand}"
+                  HorizontalAlignment="Left" Margin="0,0,0,16" />
+          <Border Classes="card" IsVisible="{Binding ShowImportEditor}">
+            <StackPanel>
+              <TextBlock Classes="h2" Text="Import details" />
+              <Grid ColumnDefinitions="*,*">
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Classes="label" Text="Supplier in China" />
+                  <TextBox Text="{Binding EditSupplier}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="label" Text="We owe them (Rs)" />
+                  <NumericUpDown Value="{Binding EditSupplierAmount}" Minimum="0" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,*,*">
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Classes="label" Text="Cartons (optional)" />
+                  <NumericUpDown Value="{Binding EditCartons}" Minimum="0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                  <TextBlock Classes="label" Text="CBM (optional)" />
+                  <NumericUpDown Value="{Binding EditCbm}" Minimum="0" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Weight kg (optional)" />
+                  <NumericUpDown Value="{Binding EditWeight}" Minimum="0" />
+                </StackPanel>
+              </Grid>
+              <Button Classes="primary" Content="Save" Command="{Binding SaveDetailsCommand}"
+                      HorizontalAlignment="Left" Margin="0,4,0,0" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <Border Classes="card" Grid.Row="3" Margin="0,0,0,16">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Items" />
+            <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                      VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
+                <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
+                <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
+                <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
+                <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <Border Classes="card" Margin="0,0,0,16">
+        <Expander Header="Add item" IsExpanded="{Binding ShowItemForm}" HorizontalAlignment="Stretch">
+          <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
+            <TextBlock Classes="label" Text="Name" />
+            <TextBox Text="{Binding GoodsName}" HorizontalAlignment="Stretch" />
+            <Grid ColumnDefinitions="*,*,*">
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="SKU / quality (optional)" />
+                <TextBox Text="{Binding GoodsSku}" Watermark="optional" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Qty" />
+                <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Price" />
+                <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" HorizontalAlignment="Stretch" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Classes="label" Text="In stock (when editing)" />
+            <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" HorizontalAlignment="Stretch" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}" />
+              <Button Content="Save item" Command="{Binding SaveGoodsCommand}" />
+              <Button Classes="danger" Content="Delete" Command="{Binding DeleteGoodsCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <Border Classes="card">
+        <Expander Header="Expenses" HorizontalAlignment="Stretch">
+          <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Category" />
+                <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Amount" />
+                <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
+              </StackPanel>
+              <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
+                      VerticalAlignment="Bottom" Margin="0,0,8,12" />
+              <Button Grid.Column="3" Content="Save" Command="{Binding SaveExpenseCommand}"
+                      VerticalAlignment="Bottom" Margin="0,0,8,12" />
+              <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
+                      VerticalAlignment="Bottom" Margin="0,0,0,12" />
+            </Grid>
+            <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
+                <DataGridTextColumn Header="What" Binding="{Binding Category}" Width="*" />
+                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </Expander>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

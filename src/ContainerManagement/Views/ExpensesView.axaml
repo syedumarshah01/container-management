@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ExpensesView"
+             x:DataType="vm:ExpensesViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Expenses" />
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+               Text="Daily shop costs. Each line also comes off cash in the Main ledger by itself — do not type it there again." />
+
+    <Grid ColumnDefinitions="*,*">
+      <Border Classes="statcard" Margin="0,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="{Binding MonthLabel}" />
+          <TextBlock Classes="stat" Text="{Binding MonthTotal}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="All time" />
+          <TextBlock Classes="stat" Text="{Binding AllTotal}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Month" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Month" />
+            <ComboBox ItemsSource="{Binding MonthChoices}" SelectedItem="{Binding SelectedMonth}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Year" />
+            <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Add a daily expense" />
+        <TextBlock Classes="label" Text="Date" />
+        <DatePicker SelectedDate="{Binding SpendDate}" HorizontalAlignment="Left" />
+        <TextBlock Classes="label" Text="What" />
+        <TextBox Text="{Binding What}" Watermark="Rent, electricity, tea…" />
+        <TextBlock Classes="label" Text="Amount (Rs)" />
+        <NumericUpDown Value="{Binding Amount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+        <TextBlock Classes="label" Text="Note (optional)" />
+        <TextBox Text="{Binding Notes}" Watermark="optional" />
+        <StackPanel Orientation="Horizontal">
+          <Button Classes="primary" Content="Add" Command="{Binding AddCommand}" Margin="0,0,8,0" />
+          <Button Content="Save" Command="{Binding SaveCommand}" Margin="0,0,8,0" />
+          <Button Classes="danger" Content="Remove" Command="{Binding RemoveCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Ledger" />
+        <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
+            <DataGridTextColumn Header="What" Binding="{Binding Description}" Width="*" />
+            <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="160" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="130" />
+            <DataGridTextColumn Header="Total so far" Binding="{Binding RunningText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             xmlns:m="using:ContainerManagement.Models"
+             x:Class="ContainerManagement.Views.ItemSalesView"
+             x:DataType="vm:ItemSalesViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Item sales" />
+    <TextBlock Classes="muted" Text="Search an item to see how much you sold and who bought it." Margin="0,0,0,16" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Search item" />
+        <AutoCompleteBox Watermark="Type a name or SKU"
+                         MinimumPrefixLength="1"
+                         FilterMode="None"
+                         MaxDropDownHeight="280"
+                         AsyncPopulator="{Binding SearchItems}"
+                         Text="{Binding Query}"
+                         SelectedItem="{Binding SelectedProduct}">
+          <AutoCompleteBox.ItemTemplate>
+            <DataTemplate x:DataType="m:SoldProductOption">
+              <TextBlock Text="{Binding SearchLabel}" />
+            </DataTemplate>
+          </AutoCompleteBox.ItemTemplate>
+        </AutoCompleteBox>
+      </StackPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="*,*,*,*" IsVisible="{Binding HasResult}">
+      <Border Classes="statcard" Margin="0,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Sold" />
+          <TextBlock Classes="stat" Text="{Binding TotalQty}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Sale amount" />
+          <TextBlock Classes="stat" Text="{Binding TotalAmount}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="2" Margin="8,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Cost each" />
+          <TextBlock Classes="stat" Text="{Binding AvgCost}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="3" Margin="8,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Sale price" />
+          <TextBlock Classes="stat" Text="{Binding AvgPrice}" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border Classes="card" IsVisible="{Binding HasResult}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding Heading}" />
+        <TextBlock Classes="muted" FontSize="12" Text="Cost and sale price are averages if they bought at more than one rate." Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}"
+                  DoubleTapped="OnCustomerDoubleTap" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="*" />
+            <DataGridTextColumn Header="Qty sold" Binding="{Binding QtyText}" Width="110" />
+            <DataGridTextColumn Header="Cost each" Binding="{Binding CostText}" Width="130" />
+            <DataGridTextColumn Header="Sale price" Binding="{Binding PriceText}" Width="130" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="140" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.BackupView"
+             x:DataType="vm:BackupViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Backup" />
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Your shop file" />
+        <TextBlock Classes="label" Text="Live data" />
+        <TextBlock Text="{Binding LiveFile}" TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBlock Classes="label" Text="Backups folder" />
+        <TextBlock Text="{Binding BackupFolder}" TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBlock Classes="label" Text="Last backup" />
+        <TextBlock Text="{Binding LastBackup}" Margin="0,0,0,16" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="gold" Content="Backup now" Command="{Binding BackupNowCommand}" />
+          <Button Content="Open backups folder" Command="{Binding OpenFolderCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Google Drive" />
+        <TextBlock Classes="label" Text="Status" />
+        <TextBlock Text="{Binding DriveStatus}" TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBlock Classes="label" Text="This Drive folder" />
+        <TextBlock Text="{Binding DriveFolderInfo}" TextWrapping="Wrap" Margin="0,0,0,12" />
+        <TextBlock Classes="label" Text="Last upload to Drive" />
+        <TextBlock Text="{Binding DriveLastUpload}" Margin="0,0,0,16" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsUnlinked}">
+          <Button Classes="gold" Content="Link Google Drive folder" Command="{Binding LinkFolderCommand}"
+                  IsEnabled="{Binding !IsBusy}" />
+          <Button Content="Sign in with Google" Command="{Binding SignInCommand}"
+                  IsEnabled="{Binding !IsBusy}" />
+        </StackPanel>
+        <Button Content="I need a Client ID" Command="{Binding ShowSignInHelpCommand}"
+                HorizontalAlignment="Left" Margin="0,8,0,0"
+                IsVisible="{Binding IsUnlinked}" />
+
+        <StackPanel Margin="0,16,0,0" IsVisible="{Binding ShowGoogleSetup}">
+          <TextBlock Classes="label" Text="Client ID" />
+          <TextBox Text="{Binding ClientId}" />
+          <TextBlock Classes="label" Text="Client secret" />
+          <TextBox Text="{Binding ClientSecret}" PasswordChar="•" />
+          <Button Content="Open Google Cloud" Command="{Binding OpenGoogleCloudCommand}"
+                  HorizontalAlignment="Left" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLinked}">
+          <Button Content="Open Google Drive" Command="{Binding OpenDriveCommand}" />
+          <Button Content="Refresh Drive copies" Command="{Binding RefreshCloudCommand}" />
+          <Button Classes="danger" Content="Disconnect" Command="{Binding DisconnectCommand}" />
+        </StackPanel>
+        <DataGrid ItemsSource="{Binding CloudBackups}" SelectedItem="{Binding SelectedCloud}"
+                  Margin="0,12,0,0" IsVisible="{Binding IsLinked}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="When" Binding="{Binding WhenText}" Width="180" />
+            <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="180" />
+            <DataGridTextColumn Header="File" Binding="{Binding Name}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <Button Classes="danger" Content="Restore from Drive" Command="{Binding RestoreFromDriveCommand}"
+                HorizontalAlignment="Left" Margin="0,12,0,0" IsVisible="{Binding IsLinked}" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Saved copies" />
+        <DataGrid ItemsSource="{Binding Backups}" SelectedItem="{Binding Selected}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="When" Binding="{Binding WhenText}" Width="180" />
+            <DataGridTextColumn Header="File" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="90" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <Button Classes="danger" Content="Restore selected" Command="{Binding RestoreCommand}"
+                HorizontalAlignment="Left" Margin="0,12,0,0" />
+        <TextBlock Classes="muted" FontSize="12" Margin="0,8,0,0"
+                   Text="Restore asks you to click twice. It first saves today’s file, then puts the old copy back."
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

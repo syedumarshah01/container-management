@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.InventoryView"
+             x:DataType="vm:InventoryViewModel">
+  <UserControl.Styles>
+    <Style Selector="DataGrid ScrollBar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer x:Name="PageScroll" Classes="page"
+                AllowAutoHide="False"
+                VerticalScrollBarVisibility="Visible"
+                HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
+        <Grid ColumnDefinitions="*,280">
+          <TextBlock Classes="h1" Text="Stock" />
+          <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
+                   VerticalAlignment="Top" Margin="16,0,0,12" />
+        </Grid>
+
+        <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Total stock value" />
+            <TextBlock Classes="stat" Text="{Binding TotalValue}" />
+            <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" Grid.Row="2" Margin="0,0,0,16">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Classes="h2" Text="Items" />
+            <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                      VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Item" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding ProductName}" Classes.bad="{Binding IsLow}"
+                                 VerticalAlignment="Center" Margin="10,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="SKU" Width="90">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding SkuText}" Classes.bad="{Binding IsLow}"
+                                 VerticalAlignment="Center" Margin="10,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="In Stock" Width="110">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding InStockText}" Classes.bad="{Binding IsLow}"
+                                 VerticalAlignment="Center" Margin="10,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Value" Width="130">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding ValueText}" Classes.bad="{Binding IsLow}"
+                                 VerticalAlignment="Center" Margin="10,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Which container" Width="160">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding LotsText}" Classes.bad="{Binding IsLow}"
+                                 VerticalAlignment="Center" Margin="10,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <Border Classes="card" Margin="0" MinHeight="220">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="h2" Text="{Binding LotsHeading}" TextWrapping="Wrap" />
+          <DataGrid ItemsSource="{Binding SelectedLots}" SelectedItem="{Binding SelectedLot}"
+                    IsVisible="{Binding HasSelectedLots}" DoubleTapped="OnLotDoubleTap"
+                    VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
+              <DataGridTextColumn Header="In Stock" Binding="{Binding RemainingText}" Width="110" />
+              <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="130" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

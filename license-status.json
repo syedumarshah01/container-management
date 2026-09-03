@@ -1,0 +1,6 @@
+{
+  "comment": "Edit this file and push. Running copies fetch it from GitHub about once a minute. The shop does not git pull. Pause: shops.CK-XXXXXX.active = false.",
+  "shops": {
+     
+  }
+}
