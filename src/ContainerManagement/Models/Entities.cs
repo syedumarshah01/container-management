@@ -266,6 +266,42 @@ public class ShopExpense
     public string? Notes { get; set; }
 }
 
+/// <summary>
+/// A paper-order sheet kept before the goods are bought: what will be bought from China,
+/// in yen, with the sale price per piece. It never touches stock — it is only a plan.
+/// </summary>
+public class BuyPlan
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Supplier { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    /// <summary>Rupees for 1 yen. Used to turn the yen cost into a rupee cost.</summary>
+    public decimal YenRate { get; set; } = 1;
+
+    /// <summary>One total for freight, customs, clearing, labour — in rupees.</summary>
+    public decimal ExpensePkr { get; set; }
+
+    public List<BuyPlanLine> Lines { get; set; } = new();
+
+    public override string ToString() => Title;
+}
+
+public class BuyPlanLine
+{
+    public int Id { get; set; }
+    public int PlanId { get; set; }
+    public BuyPlan Plan { get; set; } = null!;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCostYen { get; set; }
+    public decimal UnitWeightKg { get; set; }
+    public decimal SalePricePkr { get; set; }
+    public string? Notes { get; set; }
+}
+
 public enum CashBookKind
 {
     Opening = 0,

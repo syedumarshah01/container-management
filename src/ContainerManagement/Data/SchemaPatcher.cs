@@ -135,6 +135,37 @@ public static class SchemaPatcher
             SET LandedUnitCost = UnitCost
             WHERE LandedUnitCost IS NULL OR LandedUnitCost = 0;
             """);
+
+        // Buy plans (China order sheets) — a plan and its item rows.
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS BuyPlans (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Title TEXT NOT NULL,
+                Supplier TEXT,
+                Notes TEXT,
+                CreatedAt TEXT NOT NULL,
+                YenRate TEXT NOT NULL,
+                ExpensePkr TEXT NOT NULL
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlans_CreatedAt ON BuyPlans(CreatedAt);");
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS BuyPlanLines (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                PlanId INTEGER NOT NULL,
+                ItemName TEXT NOT NULL,
+                Quantity TEXT NOT NULL,
+                UnitCostYen TEXT NOT NULL,
+                UnitWeightKg TEXT NOT NULL,
+                SalePricePkr TEXT NOT NULL,
+                Notes TEXT,
+                FOREIGN KEY (PlanId) REFERENCES BuyPlans(Id) ON DELETE CASCADE
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlanLines_PlanId ON BuyPlanLines(PlanId);");
     }
 
     private static void AddColumn(SqliteConnection con, string table, string column, string decl)

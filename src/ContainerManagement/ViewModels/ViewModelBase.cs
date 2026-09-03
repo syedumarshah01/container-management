@@ -28,6 +28,8 @@ public interface IAppShell
     void GoDashboard();
     void GoContainers();
     void OpenContainer(int id);
+    void GoBuyPlans();
+    void OpenBuyPlan(int id);
     void GoInventory();
     void GoNewSale();
     void GoSales();

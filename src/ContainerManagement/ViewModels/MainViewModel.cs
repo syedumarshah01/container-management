@@ -28,6 +28,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         [
             new NavItem("Home", "dash"),
             new NavItem("Containers", "containers"),
+            new NavItem("Buy plan", "buyplan"),
             new NavItem("Stock", "inventory"),
             new NavItem("Sell", "newsale"),
             new NavItem("Sales", "sales"),
@@ -246,6 +247,11 @@ public partial class MainViewModel : ObservableObject, IAppShell
     public void OpenContainer(int id) =>
         Push(ActivatorUtilities.CreateInstance<ContainerDetailViewModel>(_services, id));
 
+    public void GoBuyPlans() => Select("buyplan");
+
+    public void OpenBuyPlan(int id) =>
+        Push(ActivatorUtilities.CreateInstance<BuyPlanDetailViewModel>(_services, id));
+
     public void OpenSale(int id)
     {
         Push(ActivatorUtilities.CreateInstance<SaleDetailViewModel>(_services, id));
@@ -327,6 +333,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         "dash" => _services.GetRequiredService<DashboardViewModel>(),
         "containers" => _services.GetRequiredService<ContainersViewModel>(),
         "inventory" => _services.GetRequiredService<InventoryViewModel>(),
+        "buyplan" => _services.GetRequiredService<BuyPlansViewModel>(),
         "itemsales" => _services.GetRequiredService<ItemSalesViewModel>(),
         "newsale" => _services.GetRequiredService<NewSaleViewModel>(),
         "sales" => _services.GetRequiredService<SalesViewModel>(),

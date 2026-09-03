@@ -14,6 +14,16 @@ public static class Money
         return Pkr(value);
     }
 
+    public static string Yen(decimal value) => "\u00a5" + Num(value);
+
+    public static string Pct(decimal value)
+    {
+        var n = decimal.Round(value, 1, MidpointRounding.AwayFromZero);
+        if (n == decimal.Truncate(n))
+            return n.ToString("N0") + "%";
+        return n.ToString("N1") + "%";
+    }
+
     public static string Qty(decimal value) => Num(value);
 
     private static string Num(decimal value)
@@ -361,10 +371,167 @@ public static class Units
 
 public static class Currencies
 {
-    public static readonly string[] All = ["PKR", "CNY", "USD"];
+    public static readonly string[] All = ["PKR", "JPY", "CNY", "USD"];
 }
 
 public static class SupplierPayMethods
 {
     public static readonly string[] All = ["TT", "LC", "Cash", "Bank Transfer", "Other"];
+}
+
+/// <summary>
+/// One item row on a buy plan. YenRate is set by the page so the rupee columns follow
+/// the plan's rate — change the rate and every row is rebuilt with it.
+/// </summary>
+public class BuyPlanLineRow
+{
+    public int Id { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCostYen { get; set; }
+    public decimal UnitWeightKg { get; set; }
+    public decimal SalePricePkr { get; set; }
+    public string? Notes { get; set; }
+    public decimal YenRate { get; set; } = 1;
+
+    /// <summary>Quantity x cost in yen.</summary>
+    public decimal CostYen => Quantity * UnitCostYen;
+
+    /// <summary>The same cost in rupees at this plan's rate.</summary>
+    public decimal CostPkr => Math.Round(CostYen * YenRate, 2);
+
+    /// <summary>What the whole line would bring if it all sold at that price.</summary>
+    public decimal SalePkr => Quantity * SalePricePkr;
+
+    public decimal TotalWeightKg => Quantity * UnitWeightKg;
+
+    /// <summary>Sale total minus this line's goods cost. Plan expenses are taken off at the plan level.</summary>
+    public decimal ProfitPkr => SalePkr - CostPkr;
+
+    public decimal CostPerPiecePkr => UnitCostYen * YenRate;
+
+    public decimal MarginPct => SalePkr > 0.009m ? ProfitPkr / SalePkr * 100m : 0m;
+
+    public string ItemNameText => string.IsNullOrWhiteSpace(ItemName) ? "(no name)" : ItemName.Trim();
+    public string QuantityText => Money.Qty(Quantity);
+    public string UnitCostYenText => Money.Yen(UnitCostYen);
+    public string CostYenText => Money.Yen(CostYen);
+    public string CostPkrText => Money.Pkr(CostPkr);
+    public string CostPerPiecePkrText => Money.Pkr(CostPerPiecePkr);
+    public string UnitWeightText => Money.Qty(UnitWeightKg);
+    public string TotalWeightText => Money.Qty(TotalWeightKg);
+    public string SalePriceText => Money.Pkr(SalePricePkr);
+    public string SaleTotalText => Money.Pkr(SalePkr);
+    public string ProfitText => Money.Pkr(ProfitPkr);
+    public string MarginText => Money.Pct(MarginPct);
+    public string NotesText => Notes ?? "";
+    public bool ProfitIsGood => ProfitPkr >= 0;
+
+    public BuyPlanLineInput ToInput() => new()
+    {
+        ItemName = ItemName,
+        Quantity = Quantity,
+        UnitCostYen = UnitCostYen,
+        UnitWeightKg = UnitWeightKg,
+        SalePricePkr = SalePricePkr,
+        Notes = Notes
+    };
+}
+
+/// <summary>What a plan adds up to. Built the same way for the list, the editor and the save.</summary>
+public class BuyPlanTotal
+{
+    public int ItemCount { get; set; }
+    public decimal CostYen { get; set; }
+    public decimal CostPkr { get; set; }
+    public decimal ExpensePkr { get; set; }
+    public decimal SalePkr { get; set; }
+    public decimal TotalWeightKg { get; set; }
+    public decimal YenRate { get; set; } = 1;
+
+    /// <summary>Goods cost plus the one expense figure — what goes in.</summary>
+    public decimal SpendPkr => CostPkr + ExpensePkr;
+
+    /// <summary>Sold everything, minus what went in.</summary>
+    public decimal ProfitPkr => SalePkr - SpendPkr;
+
+    public decimal ProfitYen => YenRate > 0.000001m ? Math.Round(ProfitPkr / YenRate, 0) : 0;
+
+    public decimal MarginPct => SalePkr > 0.009m ? ProfitPkr / SalePkr * 100m : 0m;
+
+    public bool ProfitIsGood => ProfitPkr >= 0;
+
+    public string ItemCountText => ItemCount == 1 ? "1 item" : ItemCount + " items";
+    public string CostYenText => Money.Yen(CostYen);
+    public string CostPkrText => Money.Pkr(CostPkr);
+    public string ExpenseText => Money.Pkr(ExpensePkr);
+    public string SpendText => Money.Pkr(SpendPkr);
+    public string SaleText => Money.Pkr(SalePkr);
+    public string ProfitText => Money.Pkr(ProfitPkr);
+    public string ProfitYenText => Money.Yen(ProfitYen);
+    public string MarginText => Money.Pct(MarginPct);
+    public string WeightText => Money.Qty(TotalWeightKg) + " kg";
+    public string RateText => Money.Pkr(YenRate);
+
+    public static BuyPlanTotal Build(IEnumerable<BuyPlanLineRow> lines, decimal yenRate, decimal expensePkr)
+    {
+        var rate = yenRate > 0 ? yenRate : 1;
+        var list = lines.ToList();
+        return new BuyPlanTotal
+        {
+            ItemCount = list.Count,
+            CostYen = list.Sum(l => l.CostYen),
+            CostPkr = list.Sum(l => l.CostPkr),
+            ExpensePkr = expensePkr,
+            SalePkr = list.Sum(l => l.SalePkr),
+            TotalWeightKg = list.Sum(l => l.TotalWeightKg),
+            YenRate = rate
+        };
+    }
+}
+
+/// <summary>A plan as the pages see it: header, rows, and the totals box.</summary>
+public class BuyPlanRow
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Supplier { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public decimal YenRate { get; set; } = 1;
+    public decimal ExpensePkr { get; set; }
+    public List<BuyPlanLineRow> Lines { get; set; } = new();
+    public BuyPlanTotal Total { get; set; } = new();
+
+    public string TitleText => string.IsNullOrWhiteSpace(Title) ? "Untitled plan" : Title.Trim();
+    public string SupplierText => string.IsNullOrWhiteSpace(Supplier) ? "—" : Supplier.Trim();
+    public string CreatedText => CreatedAt.ToString("dd MMM yyyy");
+    public string ItemCountText => Total.ItemCountText;
+    public string CostYenText => Total.CostYenText;
+    public string CostPkrText => Total.CostPkrText;
+    public string ExpenseText => Total.ExpenseText;
+    public string SpendText => Total.SpendText;
+    public string SaleText => Total.SaleText;
+    public string ProfitText => Total.ProfitText;
+    public string MarginText => Total.MarginText;
+    public string WeightText => Total.WeightText;
+    public bool ProfitIsGood => Total.ProfitIsGood;
+
+    public void RefreshTotals()
+    {
+        foreach (var l in Lines)
+            l.YenRate = YenRate > 0 ? YenRate : 1;
+        Total = BuyPlanTotal.Build(Lines, YenRate, ExpensePkr);
+    }
+}
+
+/// <summary>A row as the page hands it to the save.</summary>
+public class BuyPlanLineInput
+{
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCostYen { get; set; }
+    public decimal UnitWeightKg { get; set; }
+    public decimal SalePricePkr { get; set; }
+    public string? Notes { get; set; }
 }

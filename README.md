@@ -83,6 +83,7 @@ Then run `publish/mac/ProBooks`.
 
 | Need | Where |
 | --- | --- |
+| Plan a China order before buying | **Buy plan** → New plan → add rows |
 | New container + items | **Containers** → fill title → Create → add items / expenses |
 | Sell (must pick container) | **New Sale** |
 | Grand inventory | **Grand Inventory** |
@@ -94,3 +95,26 @@ Then run `publish/mac/ProBooks`.
 | Invoice / ledger print, PIN, wipe demo | **Settings** + sale / customer screens |
 
 Profit = sales revenue − cost of sold items − expenses on that container. Unsold stock is valuation, not profit.
+
+## Buy plan (the paper before the purchase)
+
+This is the sheet you write before ordering: every item you mean to buy, with its quantity, its
+cost per piece **in yen**, the weight per piece, and the price you plan to sell at. The page does
+the arithmetic of the paper list:
+
+| Box | How it is worked out |
+| --- | --- |
+| Total cost in yen | quantity × cost per piece, summed over the rows |
+| Cost in rupees | the yen total × your **Rs per 1 yen** rate (one rate per plan) |
+| Total weight | weight per piece × quantity, summed |
+| If everything sells | quantity × sale price, summed |
+| Going in | cost in rupees **+ the one total-expense figure** (freight, customs, clearing, labour) |
+| Profit | if everything sells − going in |
+
+A row's own profit column is its selling total minus the goods cost only — the expense figure is
+for the whole lot, so it is taken off once, at the plan level. Nothing on this page moves stock or
+touches a customer ledger: it is a plan, not a purchase. When the container actually lands, add it
+on **Containers** as you do today.
+
+Plans are saved (and can be duplicated for the next order). **Duplicate** is the quick way to start
+the next month from last month's list.

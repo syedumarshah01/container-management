@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
     public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
+    public DbSet<BuyPlan> BuyPlans => Set<BuyPlan>();
+    public DbSet<BuyPlanLine> BuyPlanLines => Set<BuyPlanLine>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -182,6 +184,29 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.Date);
             e.HasIndex(x => x.PaymentId);
             e.HasIndex(x => x.ShopExpenseId);
+        });
+
+        model.Entity<BuyPlan>(e =>
+        {
+            e.ToTable("BuyPlans");
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Supplier).HasMaxLength(200);
+            e.Property(x => x.YenRate).HasPrecision(18, 6);
+            e.Property(x => x.ExpensePkr).HasPrecision(18, 2);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasMany(x => x.Lines).WithOne(l => l.Plan).HasForeignKey(l => l.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<BuyPlanLine>(e =>
+        {
+            e.ToTable("BuyPlanLines");
+            e.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitCostYen).HasPrecision(18, 4);
+            e.Property(x => x.UnitWeightKg).HasPrecision(18, 3);
+            e.Property(x => x.SalePricePkr).HasPrecision(18, 2);
+            e.HasIndex(x => x.PlanId);
         });
     }
 }
