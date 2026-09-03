@@ -19,16 +19,16 @@
     <Border Classes="card">
       <StackPanel>
         <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                  DoubleTapped="OnDoubleTap" x:CompileBindings="False">
+                  DoubleTapped="OnDoubleTap" HorizontalScrollBarVisibility="Visible" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Sheet" Binding="{Binding TitleText}" Width="*" />
-            <DataGridTextColumn Header="Rows" Binding="{Binding ItemCountText}" Width="90" />
-            <DataGridTextColumn Header="Cost ¥" Binding="{Binding CostYenText}" Width="140" />
-            <DataGridTextColumn Header="Cost Rs" Binding="{Binding CostPkrText}" Width="150" />
-            <DataGridTextColumn Header="Expense" Binding="{Binding ExpenseText}" Width="150" />
-            <DataGridTextColumn Header="All in" Binding="{Binding SpendText}" Width="150" />
-            <DataGridTextColumn Header="Sells for" Binding="{Binding SaleText}" Width="160" />
-            <DataGridTemplateColumn Header="Profit" Width="160">
+            <DataGridTextColumn Header="Sheet" Binding="{Binding TitleText}" Width="340" />
+            <DataGridTextColumn Header="Rows" Binding="{Binding ItemCountText}" Width="100" />
+            <DataGridTextColumn Header="Cost ¥" Binding="{Binding CostYenText}" Width="165" />
+            <DataGridTextColumn Header="Cost Rs" Binding="{Binding CostPkrText}" Width="175" />
+            <DataGridTextColumn Header="Expense" Binding="{Binding ExpenseText}" Width="175" />
+            <DataGridTextColumn Header="All in" Binding="{Binding SpendText}" Width="175" />
+            <DataGridTextColumn Header="Sells for" Binding="{Binding SaleText}" Width="185" />
+            <DataGridTemplateColumn Header="Profit" Width="185">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBlock Text="{Binding ProfitText}" Margin="10,0" VerticalAlignment="Center"
@@ -37,7 +37,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Made" Binding="{Binding CreatedText}" Width="110" />
+            <DataGridTextColumn Header="Made" Binding="{Binding CreatedText}" Width="130" />
           </DataGrid.Columns>
         </DataGrid>
         <TextBlock Classes="muted" Margin="0,12,0,0" Text="Double-click to open." />

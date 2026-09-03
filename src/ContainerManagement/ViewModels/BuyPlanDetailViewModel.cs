@@ -248,12 +248,18 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
         Recalc();
     }
 
+    /// <summary>
+    /// Keeps the stored weight on the same 3 decimal grid the page shows, so the number in the
+    /// "kg each" column really does multiply out to "Total kg".
+    /// </summary>
+    private static decimal Round3(decimal value) => decimal.Round(value, 3, MidpointRounding.AwayFromZero);
+
     private BuyPlanLineRow DraftRow() => new()
     {
         ItemName = ItemName.Trim(),
         Quantity = Qty ?? 0,
         UnitCostYen = UnitCostYen ?? 0,
-        UnitWeightKg = UnitWeightKg ?? 0,
+        UnitWeightKg = Round3(UnitWeightKg ?? 0),
         SalePricePkr = SalePricePkr ?? 0,
         YenRate = Rate
     };

@@ -192,7 +192,7 @@ public class BuyPlanService
                     ItemName = l.ItemName,
                     Quantity = l.Quantity,
                     UnitCostYen = l.UnitCostYen,
-                    UnitWeightKg = l.UnitWeightKg,
+                    UnitWeightKg = decimal.Round(l.UnitWeightKg, 3, MidpointRounding.AwayFromZero),
                     SalePricePkr = l.SalePricePkr
                 })
                 .ToList()

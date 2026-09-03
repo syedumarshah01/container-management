@@ -26,6 +26,18 @@ public static class Money
 
     public static string Qty(decimal value) => Num(value);
 
+    /// <summary>
+    /// Weights get three decimals: a 55 g piece must read 0.055, not 0.06, or the row no longer
+    /// multiplies out to the total next to it.
+    /// </summary>
+    public static string Kg(decimal value)
+    {
+        var n = decimal.Round(value, 3, MidpointRounding.AwayFromZero);
+        if (n == decimal.Truncate(n))
+            return n.ToString("N0");
+        return n.ToString("N3").TrimEnd('0').TrimEnd('.');
+    }
+
     private static string Num(decimal value)
     {
         var n = decimal.Round(value, 2, MidpointRounding.AwayFromZero);
@@ -409,8 +421,8 @@ public class BuyPlanLineRow
 
     public string CostPkrText => Money.Pkr(CostPkr);
     public string CostPerPiecePkrText => Money.Pkr(CostPerPiecePkr);
-    public string UnitWeightText => Money.Qty(UnitWeightKg);
-    public string TotalWeightText => Money.Qty(TotalWeightKg);
+    public string UnitWeightText => Money.Kg(UnitWeightKg);
+    public string TotalWeightText => Money.Kg(TotalWeightKg);
     public string SalePriceText => Money.Pkr(SalePricePkr);
     public string SaleTotalText => Money.Pkr(SalePkr);
     public string ProfitText => Money.Pkr(ProfitPkr);
@@ -455,7 +467,7 @@ public class BuyPlanTotal
     public string SaleText => Money.Pkr(SalePkr);
     public string ProfitText => Money.Pkr(ProfitPkr);
     public string MarginText => Money.Pct(MarginPct);
-    public string WeightText => Money.Qty(TotalWeightKg) + " kg";
+    public string WeightText => Money.Kg(TotalWeightKg) + " kg";
 
     public static BuyPlanTotal Build(IEnumerable<BuyPlanLineRow> lines, decimal yenRate, decimal expensePkr)
     {

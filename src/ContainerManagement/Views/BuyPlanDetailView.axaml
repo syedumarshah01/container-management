@@ -23,7 +23,7 @@
         </StackPanel>
         <StackPanel Grid.Column="1" Margin="0,0,12,0">
           <TextBlock Classes="label" Text="RS FOR 1 YEN" />
-          <NumericUpDown Value="{Binding YenRate}" Minimum="0" Increment="0.5"
+          <NumericUpDown Value="{Binding YenRate}" Minimum="0" Increment="0.01" FormatString="#,##0.####"
                          IsEnabled="{Binding IsOwner}" />
         </StackPanel>
         <StackPanel Grid.Column="2" Margin="0,0,12,0">
@@ -85,19 +85,20 @@
           </Grid>
 
           <DataGrid Classes="tall" ItemsSource="{Binding Lines}" SelectedItem="{Binding Selected}"
-                    VerticalScrollBarVisibility="Visible" x:CompileBindings="False">
+                    VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Visible"
+                    x:CompileBindings="False">
             <DataGrid.Columns>
-              <DataGridTextColumn Header="Item" Binding="{Binding ItemNameText}" Width="*" />
-              <DataGridTextColumn Header="Qty" Binding="{Binding QuantityText}" Width="70" />
-              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="95" />
-              <DataGridTextColumn Header="Total ¥" Binding="{Binding CostYenText}" Width="120" />
-              <DataGridTextColumn Header="Cost each" Binding="{Binding CostPerPiecePkrText}" Width="115" />
-              <DataGridTextColumn Header="Total cost" Binding="{Binding CostPkrText}" Width="130" />
-              <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="85" />
-              <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="100" />
-              <DataGridTextColumn Header="Sells each" Binding="{Binding SalePriceText}" Width="115" />
-              <DataGridTextColumn Header="Total sells" Binding="{Binding SaleTotalText}" Width="130" />
-              <DataGridTemplateColumn Header="Profit" Width="130">
+              <DataGridTextColumn Header="Item" Binding="{Binding ItemNameText}" Width="340" />
+              <DataGridTextColumn Header="Qty" Binding="{Binding QuantityText}" Width="95" />
+              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="125" />
+              <DataGridTextColumn Header="Total ¥" Binding="{Binding CostYenText}" Width="155" />
+              <DataGridTextColumn Header="Cost each" Binding="{Binding CostPerPiecePkrText}" Width="145" />
+              <DataGridTextColumn Header="Total cost" Binding="{Binding CostPkrText}" Width="165" />
+              <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="115" />
+              <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="135" />
+              <DataGridTextColumn Header="Sells each" Binding="{Binding SalePriceText}" Width="145" />
+              <DataGridTextColumn Header="Total sells" Binding="{Binding SaleTotalText}" Width="165" />
+              <DataGridTemplateColumn Header="Profit" Width="165">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding ProfitText}" Margin="10,0" VerticalAlignment="Center"
@@ -126,7 +127,7 @@
             </StackPanel>
             <StackPanel Grid.Column="3" Margin="0,0,10,0">
               <TextBlock Classes="label" Text="KG EACH" />
-              <NumericUpDown Value="{Binding UnitWeightKg}" Minimum="0" Increment="0.01" />
+              <NumericUpDown Value="{Binding UnitWeightKg}" Minimum="0" Increment="0.001" FormatString="#,##0.###" />
             </StackPanel>
             <StackPanel Grid.Column="4" Margin="0,0,10,0">
               <TextBlock Classes="label" Text="SELLS Rs EACH" />
