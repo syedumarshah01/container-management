@@ -23,6 +23,7 @@ shift a figure on screen.
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
 | returns | a full return credits the bill paisa for paisa; over-returning is refused; a return on a bill that was paid hands the cash back through the till once, and holds it as credit when told to |
+| the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
 | the supplier | the bill less every payment, and one cash-book line per payment, never two |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
@@ -118,7 +119,9 @@ rather than assuming it. Say the word and I will move those columns to text for 
 3b. Take a bill the customer paid on the spot, return one piece with "Hand the money back in cash"
    ticked, and check: the Main ledger gained one outflow of exactly the credited amount, their page
    reads Settled rather than an advance, and cash in hand fell by that figure. Untick it on the next
-   return and the money should sit as credit with the till untouched.
+   return and the money should sit as credit with the till untouched. A return on a bill nobody
+   has paid should move no cash at all - but it must still show as a red "goods back" figure for
+   that month on the Main ledger, since that page answers "how does the book look today".
 4. Create a container with a part payment, then pay the rest on We owe with a note: the note should be
    on the Main ledger line, and "Paid to this supplier" should show both payments.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the

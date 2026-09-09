@@ -8,7 +8,7 @@
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
                Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again. Pay a supplier on the We owe page." />
 
-    <Grid ColumnDefinitions="*,*,*">
+    <Grid ColumnDefinitions="*,*,*,*">
       <Border Classes="statcard" Margin="0,0,8,16">
         <StackPanel>
           <TextBlock Classes="label" Text="Cash in hand" />
@@ -27,6 +27,13 @@
           <TextBlock Classes="label" Text="{Binding MonthLabel}" />
           <TextBlock Classes="muted" FontSize="12" Text="Out" />
           <TextBlock Classes="stat" Text="{Binding MonthOut}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="statcard" Grid.Column="3" Margin="8,0,0,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="{Binding MonthLabel}" />
+          <TextBlock Classes="muted" FontSize="12" Text="Goods back - value, not cash out" />
+          <TextBlock Classes="stat bad" Text="{Binding MonthReturns}" />
         </StackPanel>
       </Border>
     </Grid>

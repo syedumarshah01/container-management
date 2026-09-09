@@ -28,6 +28,20 @@ public class CashBookService
             .ToList();
     }
 
+    /// <summary>
+    /// What goods came back, day by day. Returns live here because this is the page that answers "how
+    /// does the book look today", and a return on a credit bill moves no cash at all - so it never
+    /// appears as a row, and without this figure the page would be silent about money the shop has
+    /// agreed to give back. The amounts are the value of the goods, not cash that left: the caller keeps
+    /// them out of the running total.
+    /// </summary>
+    public async Task<List<(DateTime Date, decimal Amount)>> ListReturnsAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.SaleReturns.AsNoTracking().ToListAsync();
+        return rows.Select(r => (r.Date, r.Amount)).ToList();
+    }
+
     public async Task<List<CashBookEntry>> ListAsync()
     {
         await using var db = await _factory.CreateDbContextAsync();

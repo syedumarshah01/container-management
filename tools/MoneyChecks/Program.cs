@@ -338,6 +338,31 @@ public static class Program
         Eq("the return comes off what they owe instead", 999.99m, await sales.RemainingOnInvoiceAsync(third.Id));
         Eq("and the till still holds only the one refund of the settled bill", 181.31m, await RefundedTotalAsync(factory));
 
+        // The case the first cut of this could not express: money was received for the bill, but not
+        // all of it, so the return is part relief and part cash.
+        var fourth = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 1m, UnitPrice = 1999.99m }
+        }, 1_500m, "Cash", null, 0m, null);
+        var fourthLine = fourth.Lines.Single(l => l.ProductId == chargers.ProductId);
+        var back4 = await sales.ReturnItemsAsync(fourth.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = fourthLine.Id, Quantity = 1m } }, true);
+        Eq("a Rs 1,999.99 return on a Rs 1,500 payment hands back the payment, not the whole return",
+            1_500m, back4);
+        Eq("and nothing is left owing on that bill", 0m, await sales.RemainingOnInvoiceAsync(fourth.Id));
+        Eq("the till has paid out the two refunds, and no more than was ever received", 1_681.31m,
+            await RefundedTotalAsync(factory));
+
+        // What the Main ledger's fourth card is built from: the goods, not the cash.
+        var returns = await cash.ListReturnsAsync();
+        Eq("the page's returns figure is every credit the book has taken", 140_087.78m, returns.Sum(r => r.Amount));
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var credited = (await db.LedgerEntries.Where(e => e.Type == LedgerType.Return).ToListAsync())
+                .Sum(e => e.Credit - e.Debit);
+            Eq("and it is the same money their ledgers were credited with", credited, returns.Sum(r => r.Amount));
+        }
+
         Head("paying the supplier: two payments, two ledger lines, no double counting");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 1_000_000.004m, "LC", "part payment, HBL ref 99");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 500_000m, "Cash", null);

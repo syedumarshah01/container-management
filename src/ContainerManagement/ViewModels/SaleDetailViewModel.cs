@@ -94,7 +94,12 @@ public partial class SaleDetailViewModel : ViewModelBase
             });
         }
         CanReturn = !IsCancelled && Lines.Any(l => l.CanReturnLine);
-        RefundInCash = !IsCancelled && await _sales.RemainingOnInvoiceAsync(_id) <= 0.009m;
+        // Anything received for this bill is money that can go back, so the tick comes on whenever
+        // something was paid - not only when the bill was fully settled. A credit bill the customer has
+        // not paid a rupee of stays off: there the return is relief from a debt, not cash.
+        var stillOwed = await _sales.RemainingOnInvoiceAsync(_id);
+        var received = Math.Max(0, _sale.TotalAmount - _sale.Returns.Sum(r => r.Amount) - stillOwed);
+        RefundInCash = !IsCancelled && received > 0.009m;
     }
 
     [RelayCommand]

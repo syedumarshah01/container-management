@@ -11,6 +11,7 @@ public partial class MainLedgerViewModel : ViewModelBase
     private readonly CashBookService _cash;
     private readonly IAppShell _shell;
     private List<CashBookRowVm> _all = new();
+    private List<(DateTime Date, decimal Amount)> _returns = new();
     private bool _ready;
 
     public MainLedgerViewModel(CashBookService cash, IAppShell shell)
@@ -34,6 +35,7 @@ public partial class MainLedgerViewModel : ViewModelBase
     [ObservableProperty] private string cashInHand = Money.Pkr(0);
     [ObservableProperty] private string monthIn = Money.Pkr(0);
     [ObservableProperty] private string monthOut = Money.Pkr(0);
+    [ObservableProperty] private string monthReturns = Money.Pkr(0);
     [ObservableProperty] private string monthLabel = "This month";
     [ObservableProperty] private decimal? openingAmount;
     [ObservableProperty] private MonthChoice? selectedMonth;
@@ -42,6 +44,7 @@ public partial class MainLedgerViewModel : ViewModelBase
     public override async Task LoadAsync()
     {
         var list = await _cash.ListAsync();
+        _returns = await _cash.ListReturnsAsync();
         _all = new List<CashBookRowVm>(list.Count);
         foreach (var e in list)
         {
@@ -82,6 +85,8 @@ public partial class MainLedgerViewModel : ViewModelBase
         var start = new DateTime(year, month, 1);
         var end = start.AddMonths(1);
         MonthLabel = start.ToString("MMMM yyyy");
+
+        MonthReturns = Money.Pkr(_returns.Where(r => r.Date >= start && r.Date < end).Sum(r => r.Amount));
 
         var prior = _all.Where(r => r.Date < start).ToList();
         var monthRows = _all.Where(r => r.Date >= start && r.Date < end).ToList();
