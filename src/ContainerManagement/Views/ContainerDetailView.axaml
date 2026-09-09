@@ -72,11 +72,8 @@
                 <NumericUpDown Grid.Row="2" Grid.Column="1" Width="260" Margin="0,6" Minimum="0"
                                ShowButtonSpinner="False" AllowSpin="False"
                                Value="{Binding EditPaidSoFar}" />
-                <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="16"
-                            Margin="16,0,0,0" VerticalAlignment="Center">
-                  <TextBlock Classes="words" Margin="0" Text="{Binding EditPaidSoFar, Converter={StaticResource WordsConv}}" />
-                  <TextBlock Classes="muted" Text="{Binding EditOwedText}" />
-                </StackPanel>
+                <TextBlock Grid.Row="2" Grid.Column="2" Classes="words" VerticalAlignment="Center" Margin="16,0,0,0"
+                           Text="{Binding EditPaidSoFar, Converter={StaticResource WordsConv}}" />
 
                 <TextBlock Grid.Row="3" Classes="label" Text="Weight (kg)" VerticalAlignment="Center" Margin="0" />
                 <NumericUpDown Grid.Row="3" Grid.Column="1" Width="140" Margin="0,6" Minimum="0"

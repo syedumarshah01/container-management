@@ -52,25 +52,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
     /// </summary>
     [ObservableProperty] private decimal? editPaidSoFar;
-    /// <summary>
-    /// What the two boxes above leave to hand over, while they are being typed. "Left to pay" rather
-    /// than "still owe" on purpose: the field it sits beside is now called "We owe", and two figures on
-    /// one line both claiming to be what is owed is how a wrong one gets believed. This is a preview of
-    /// a save, never a record - the ledger is the record.
-    /// </summary>
-    public string EditOwedText
-    {
-        get
-        {
-            var owed = (EditSupplierAmount ?? 0m) - (EditPaidSoFar ?? 0m);
-            if (owed == 0) return "Settled";
-            return owed > 0 ? "Left to pay " + Money.PkrCompact(owed) : "Advanced " + Money.PkrCompact(-owed);
-        }
-    }
-
-    partial void OnEditSupplierAmountChanged(decimal? value) => OnPropertyChanged(nameof(EditOwedText));
-
-    partial void OnEditPaidSoFarChanged(decimal? value) => OnPropertyChanged(nameof(EditOwedText));
 
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
