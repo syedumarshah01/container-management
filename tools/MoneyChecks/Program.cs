@@ -197,16 +197,16 @@ public static class Program
 
         await inventory.AddExpenseAsync(container.Id, DateTime.Today, "Sea Freight", 200_000m, "audit");
         var first = await reports.GetContainerProfitAsync(container.Id);
-        Eq("the container's revenue is the gross of its sold lines", 140_543.87m, first.Revenue);
+        Eq("the container's revenue is what the bill asked for, discount off", 135_543.86m, first.Revenue);
+        Check("because the discount is shared over the bill's lines and the shares add back to the bill",
+            first.Revenue == bill.TotalAmount, $"billed {bill.TotalAmount}, counted {first.Revenue} of sales");
         Eq("its cost is its sold lines' cost: 693.92 + 0", 693.92m, first.Cogs);
         Eq("its expenses are recorded", 200_000m, first.Expenses);
-        Eq("and profit, as every page defines it, is revenue minus cost only", 139_849.95m, first.Profit);
+        Eq("and profit, as every page defines it, is revenue minus cost only", 134_849.94m, first.Profit);
         Warn("container profit ignores the container's own freight and customs - the margin is 200,000 lower than this row says",
             first.Profit == first.Revenue - first.Cogs - first.Expenses,
             $"row shows {first.Profit}; after its 200,000 of expenses the money actually left with is {first.Revenue - first.Cogs - first.Expenses}");
-        Warn("and it counts the bill's GROSS, so a sale discount never reaches profit",
-            first.Profit == bill.TotalAmount - first.Cogs - first.Expenses,
-            $"the customer was billed {bill.TotalAmount} but profit counts {first.Revenue} of sales - the {bill.DiscountAmount} discount is nowhere in it");
+        Eq("and the discount is off profit too, not only off the bill", bill.TotalAmount - first.Cogs, first.Profit);
         Info("a container expense is also not put through the cash book: rent paid out of the till moves cash, sea freight does not.");
 
         Head("paying the printed bill works (a stored 543.9375 used to reject 543.94)");
@@ -237,8 +237,19 @@ public static class Program
             Eq("1000 pieces less 0.375 twice leaves 999.25", 999.25m, b.QuantityRemaining);
         }
 
-        Head("profit follows a corrected cost - the case that stayed wrong for one release");
+        Head("every page reads the same billed money - Home, the container row, the Profit page");
         var beforeReprice = await reports.GetContainerProfitAsync(container.Id);
+        var home = await reports.GetHomeMonthAsync();
+        Eq("the container now holds both bills: 135,543.86 + 543.94", 136_087.80m, beforeReprice.Revenue);
+        Eq("Home's month says the same figure, not a second version of it", beforeReprice.Revenue, home.Sales);
+        Eq("and Home's profit agrees with the container row, no shop expenses yet", beforeReprice.Profit, home.Profit);
+        var items = await reports.GetItemProfitsAsync(null, null, null);
+        Eq("the Profit page item by item adds back to the same money", beforeReprice.Revenue, items.Sum(i => i.Revenue));
+        Check("and the second bill, which had no discount, was not touched by the sharing",
+            beforeReprice.Revenue - first.Revenue == payBill.Lines[0].LineTotal,
+            $"{beforeReprice.Revenue - first.Revenue} added for an undiscounted line of {payBill.Lines[0].LineTotal}");
+
+        Head("profit follows a corrected cost - the case that stayed wrong for one release");
         Eq("two sold lines at 693.92 each before the cost is fixed", 1387.84m, beforeReprice.Cogs);
         var repriced = await inventory.UpdateGoodsAsync(bulbs.Id, "LED bulb", "pcs", "LB-1", 1000m, 999.25m, 2000m, null, null, 0.375m, null);
         Check("both sold lines of that lot were re-costed", repriced == 2, repriced + " lines touched");

@@ -73,11 +73,27 @@ messages show three now.
   any page - it is never allocated to lines.
 
 So on Home, the container that billed Rs 140,543.87 with Rs 200,000 of freight and a Rs 5,000.01
-discount reads a profit of Rs 139,849.95, where the money actually left with you is closer to
+discount read a profit of Rs 139,849.95, where the money actually left with you is closer to
 −60,150.05. The money-checks run prints this as a `note` every time, so it cannot be unlearned by
-accident. Tell me which definition you want and I will make every page agree: profit after container
-expenses (the way you do the paper sheet: sales − goods − one expense figure) is what I would pick,
-with discounts spread across the lines of the bill they belong to.
+accident.
+
+**Fixed - a discount now reaches profit, and it is shared, not guessed.** It used to be that a
+discount reduced the bill, reduced the ledger and reduced what the customer paid, but no profit
+figure anywhere noticed - while a *return* on the same bill was already credited at the discounted
+price. So the two sides of one bill were measured in two different ways. A discount is now spread
+across that bill's lines in proportion to what each line was billed for, and reports count the
+shared-out figure: on the test bill, the Rs 543.94 line is counted at 524.59 and the Rs 139,999.93
+line at 135,019.27, and those add back to exactly the Rs 135,543.86 the customer was asked to pay.
+The paisa that does not divide evenly goes on the biggest line, never on the smallest, so no line can
+be pushed below zero. A bill with no discount is untouched, to the paisa. Nothing was stored
+differently and no old bill was rewritten - this is worked out when a report runs, so history
+corrects itself without a migration. Cost is deliberately *not* scaled: a discount is a price
+decision, not a cheaper purchase.
+
+**Chosen, not a defect - container expenses stay out of profit.** After the audit, the decision was
+that "profit" on Home and on the Containers list means sold minus the cost of those goods, with
+freight, customs and clearing shown beside it rather than through it. If that ever reads wrong at
+the till, the two words to change are Profit and Margin on those two pages.
 
 **Not changed - noted.** Some tables (`SupplierPayments`, `SaleReturns`, `CashBook`, `ShopExpenses`,
 `StockAdjustments`) were created with money as SQLite `REAL`, a float, while the model writes money as

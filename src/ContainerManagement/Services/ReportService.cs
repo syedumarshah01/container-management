@@ -96,12 +96,13 @@ public class ReportService
                 days[day] = (0, 0, 0);
         }
 
+        var netted = await NetRevenueByLineAsync(db, lines.Select(l => l.SaleId));
         foreach (var l in lines)
         {
             var day = l.Sale.Date.Date;
             Touch(day);
             var cur = days[day];
-            days[day] = (cur.Sales + l.LineTotal, cur.Cogs + l.LineCost, cur.Expenses);
+            days[day] = (cur.Sales + netted.GetValueOrDefault(l.Id, l.LineTotal), cur.Cogs + l.LineCost, cur.Expenses);
         }
 
         foreach (var r in returned)
@@ -197,6 +198,7 @@ public class ReportService
         if (to is DateTime t) q = q.Where(l => l.Sale.Date < t.Date.AddDays(1));
         if (containerId is > 0) q = q.Where(l => l.ContainerId == containerId);
         var list = await q.ToListAsync();
+        var netted = await NetRevenueByLineAsync(db, list.Select(l => l.SaleId));
         var retQ = db.SaleReturnLines.AsNoTracking()
             .Include(l => l.Product)
             .Include(l => l.Return)
@@ -212,7 +214,7 @@ public class ReportService
             {
                 var rets = returned.Where(x => x.ProductId == g.Key.ProductId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
-                var revenue = g.Sum(x => x.LineTotal) - rets.Sum(x => x.Amount);
+                var revenue = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - rets.Sum(x => x.Amount);
                 var cogs = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
                 return new ItemProfitRow
                 {
@@ -267,8 +269,9 @@ public class ReportService
             .Where(l => l.ProductId == productId)
             .ToListAsync();
 
+        var netted = await NetRevenueByLineAsync(db, lines.Select(x => x.SaleId));
         var totalQty = lines.Sum(x => x.Quantity) - returned.Sum(x => x.Quantity);
-        var totalAmount = lines.Sum(x => x.LineTotal) - returned.Sum(x => x.Amount);
+        var totalAmount = lines.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - returned.Sum(x => x.Amount);
         var totalCost = lines.Sum(x => x.LineCost) - returned.Sum(x => Money.Round(x.Quantity * x.UnitCost));
 
         var customers = lines
@@ -278,7 +281,7 @@ public class ReportService
                 var rets = returned.Where(x => x.Return.CustomerId == g.Key.CustomerId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
                 var cost = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
-                var amount = g.Sum(x => x.LineTotal) - rets.Sum(x => x.Amount);
+                var amount = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - rets.Sum(x => x.Amount);
                 return new ItemCustomerSaleRow
                 {
                     CustomerId = g.Key.CustomerId,
@@ -302,6 +305,55 @@ public class ReportService
             customers);
     }
 
+    /// <summary>
+    /// What each line of a bill is worth once that bill's discount is taken off, keyed by line id.
+    ///
+    /// A discount is not one item's loss, so it is shared across the bill's lines in proportion to what
+    /// each was billed for, and the paisa that the sharing leaves over goes on the biggest line. The
+    /// shares then add up to the bill's TotalAmount exactly - the figure the customer was asked to pay -
+    /// so every page that reads them agrees with the bill and with the ledger. A bill with no discount
+    /// returns its own lines unchanged, which is why undiscounted trading does not move at all.
+    /// </summary>
+    private static async Task<Dictionary<int, decimal>> NetRevenueByLineAsync(AppDbContext db, IEnumerable<int> saleIds)
+    {
+        var map = new Dictionary<int, decimal>();
+        var ids = saleIds.Where(id => id > 0).Distinct().ToList();
+        if (ids.Count == 0)
+            return map;
+
+        // Every line of the bill, not the lines this report happens to be filtering down to: the share
+        // has to be measured against what the whole bill was.
+        var billed = await db.SaleLines.AsNoTracking()
+            .Where(l => ids.Contains(l.SaleId))
+            .Select(l => new { l.Id, l.SaleId, l.LineTotal })
+            .ToListAsync();
+        var billedTotals = await db.Sales.AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => new { s.Id, s.TotalAmount })
+            .ToListAsync();
+
+        foreach (var group in billed.GroupBy(l => l.SaleId))
+        {
+            var net = billedTotals.FirstOrDefault(t => t.Id == group.Key)?.TotalAmount ?? 0m;
+            var gross = group.Sum(l => l.LineTotal);
+            if (gross == 0)
+            {
+                foreach (var l in group)
+                    map[l.Id] = 0m;
+                continue;
+            }
+
+            var factor = net / gross;
+            var ordered = group.OrderByDescending(l => l.LineTotal).ThenBy(l => l.Id).ToList();
+            var shares = ordered.Select(l => Money.Round(l.LineTotal * factor)).ToList();
+            shares[0] = Money.Round(shares[0] + (net - shares.Sum()));
+            for (var i = 0; i < ordered.Count; i++)
+                map[ordered[i].Id] = shares[i];
+        }
+
+        return map;
+    }
+
     private static async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(AppDbContext db, DateTime? from, DateTime? to)
     {
         var containers = await db.Containers
@@ -320,12 +372,13 @@ public class ReportService
         if (from is DateTime rf) returnLines = returnLines.Where(l => l.Return.Date >= rf.Date).ToList();
         if (to is DateTime rt) returnLines = returnLines.Where(l => l.Return.Date < rt.Date.AddDays(1)).ToList();
 
+        var netted = await NetRevenueByLineAsync(db, saleLines.Select(l => l.SaleId));
         var lines = saleLines
             .GroupBy(l => l.ContainerId)
             .Select(g => new
             {
                 ContainerId = g.Key,
-                Revenue = g.Sum(x => x.LineTotal),
+                Revenue = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)),
                 Cogs = g.Sum(x => x.LineCost),
                 QtySold = g.Sum(x => x.Quantity)
             })
