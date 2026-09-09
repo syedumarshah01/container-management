@@ -112,7 +112,7 @@
 
           <Border Height="1" Background="#E6E4DE" Margin="0,16,0,14" />
 
-          <Grid ColumnDefinitions="3*,*,*,*,*,Auto" IsVisible="{Binding IsOwner}">
+          <Grid ColumnDefinitions="3*,*,*,*,*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
             <StackPanel Margin="0,0,10,0">
               <TextBlock Classes="label" Text="ITEM" />
               <TextBox Text="{Binding ItemName}" Watermark="name as on the invoice" />
@@ -133,8 +133,10 @@
               <TextBlock Classes="label" Text="SELLS Rs EACH" />
               <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" />
             </StackPanel>
-            <Button Grid.Column="5" Classes="primary" Content="Add row" Command="{Binding AddLineCommand}"
-                    VerticalAlignment="Bottom" Margin="0,0,0,12" MinWidth="100" />
+            <TextBlock Classes="words" Grid.Row="1" Grid.Column="4" Text="{Binding SalePricePkr, Converter={StaticResource WordsConv}}" />
+            <Button Grid.Column="5" Grid.Row="0" Classes="primary" Content="Add row"
+                    Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
+                    Margin="0,0,0,12" MinWidth="100" />
           </Grid>
         </StackPanel>
       </Border>
