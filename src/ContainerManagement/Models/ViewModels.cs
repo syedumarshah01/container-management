@@ -458,7 +458,19 @@ public class BuyPlanLineRow
     public decimal UnitCostYen { get; set; }
     public decimal UnitWeightKg { get; set; }
     public decimal SalePricePkr { get; set; }
-    public decimal YenRate { get; set; } = 1;
+
+    private decimal _yenRate = 1;
+
+    /// <summary>
+    /// Rupees per yen for this row, cut to the six decimals the save keeps. Normalised on the way in,
+    /// because the grid hands rows the rate it has typed and the database hands them back the rate it
+    /// kept: priced with nine decimals and re-priced with six, a row of 250 moved a paisa.
+    /// </summary>
+    public decimal YenRate
+    {
+        get => _yenRate;
+        set => _yenRate = Money.Round(value, 6);
+    }
 
     public decimal CostYen => Quantity * UnitCostYen;
     public decimal CostPkr => Money.Round(CostYen * YenRate);

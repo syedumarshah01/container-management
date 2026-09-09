@@ -115,6 +115,20 @@ public static class Program
         Eq("weight = the rows' weight added", 93.75m + 4.8m, plan.Total.TotalWeightKg);
         Eq("a row's profit is its own sell less its own cost, expense excluded",
             rows[0].SalePkr - rows[0].CostPkr, rows[0].ProfitPkr);
+        // A rate typed with nine decimals, as a live rate copied from a bank SMS often is.
+        var fussy = new BuyPlanRow
+        {
+            YenRate = 1.0701234567m,
+            Lines = new List<BuyPlanLineRow> { new() { Quantity = 250m, UnitCostYen = 640.5m, SalePricePkr = 1999.99m } }
+        };
+        fussy.RefreshTotals();
+        Eq("a nine-decimal rate prices the row by the six decimals the save keeps", 171353.51m,
+            fussy.Lines[0].CostPkr);
+        Eq("and the row holds that rate, not the one typed", 1.070123m, fussy.Lines[0].YenRate);
+        // The same expense, pinned to the rupee figure a re-opened sheet will hold (line above holds
+        // the field; this one holds the total, which is what the tape and the printout read).
+        Eq("so the sheet's all-in is a paisa figure before saving as well", 127_683.50m, plan.Total.SpendPkr);
+
         var noRate = new BuyPlanRow { YenRate = 0m, Lines = rows };
         noRate.RefreshTotals();
         Eq("a rate of 0 counts as 1 rather than dividing by nothing", 250m + 40m * 640.5m, noRate.Total.CostPkr);
