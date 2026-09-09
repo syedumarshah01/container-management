@@ -35,7 +35,7 @@ public class InventoryService
         string title, string? number, string origin, DateTime? arrival, string? notes,
         string? currency = null, decimal? rate = null, string? bl = null,
         decimal? cartons = null, decimal? cbm = null, decimal? weight = null,
-        string? supplierName = null, decimal supplierAmount = 0, decimal paidNow = 0)
+        string? supplierName = null, decimal supplierAmount = 0, decimal paidNow = 0, string? paidMethod = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new InvalidOperationException("Container title is required.");
@@ -76,7 +76,7 @@ public class InventoryService
                 ContainerId = c.Id,
                 Date = DateTime.Today,
                 Amount = paidNow,
-                Method = "TT",
+                Method = string.IsNullOrWhiteSpace(paidMethod) ? "TT" : paidMethod.Trim(),
                 Notes = "Paid at creation"
             };
             db.SupplierPayments.Add(pay);

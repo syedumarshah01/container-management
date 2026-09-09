@@ -23,6 +23,7 @@ public partial class WeOweViewModel : ViewModelBase
 
     public ObservableCollection<WeOweRow> Rows { get; } = new();
     public ObservableCollection<PayContainerOption> Containers { get; } = new();
+    public IReadOnlyList<string> Methods { get; } = SupplierPayMethods.All;
 
     [ObservableProperty] private string totalOwed = Money.Pkr(0);
     [ObservableProperty] private WeOweRow? selected;
@@ -30,6 +31,7 @@ public partial class WeOweViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? payDate = DateTimeOffset.Now;
     [ObservableProperty] private decimal? payAmount;
     [ObservableProperty] private string payNotes = "";
+    [ObservableProperty] private string payMethod = "Bank Transfer";
     [ObservableProperty] private string weOweThem = "—";
     [ObservableProperty] private bool showPayments;
 
@@ -116,7 +118,7 @@ public partial class WeOweViewModel : ViewModelBase
                 PayContainer.Id,
                 PayDate?.DateTime ?? DateTime.Today,
                 PayAmount ?? 0,
-                "Bank Transfer",
+                PayMethod,
                 PayNotes);
             _shell.Notify("Supplier payment taken off cash.");
             PayAmount = null;

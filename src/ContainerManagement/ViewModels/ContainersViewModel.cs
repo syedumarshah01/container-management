@@ -21,6 +21,9 @@ public partial class ContainersViewModel : ViewModelBase
 
     public ObservableCollection<ContainerProfitRow> Rows { get; } = new();
 
+    /// <summary>How the money handed over at creation went out - the same list the We owe page uses.</summary>
+    public IReadOnlyList<string> PaidMethods { get; } = SupplierPayMethods.All;
+
     [ObservableProperty] private ContainerProfitRow? selected;
     [ObservableProperty] private string newTitle = "";
     [ObservableProperty] private string newNumber = "";
@@ -30,6 +33,7 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private string newSupplier = "";
     [ObservableProperty] private decimal? newSupplierAmount;
     [ObservableProperty] private decimal? newPaid;
+    [ObservableProperty] private string newPaidMethod = "Bank Transfer";
     [ObservableProperty] private decimal? newCartons;
     [ObservableProperty] private decimal? newCbm;
     [ObservableProperty] private decimal? newWeight;
@@ -75,14 +79,15 @@ public partial class ContainersViewModel : ViewModelBase
                 NewWeight,
                 NewSupplier,
                 NewSupplierAmount ?? 0,
-                NewPaid ?? 0);
+                NewPaid ?? 0,
+                NewPaidMethod);
             var paid = NewPaid ?? 0;
             var still = (NewSupplierAmount ?? 0) - paid;
             var what = $"Container '{c.Title}' created.";
             if (paid <= 0) what += " Add items on the next screen.";
-            else if (still > 0.009m) what += $" {Money.Pkr(paid)} paid, {Money.Pkr(still)} still owed.";
-            else if (still < -0.009m) what += $" {Money.Pkr(paid)} paid, {Money.Pkr(-still)} extra.";
-            else what += $" {Money.Pkr(paid)} paid, supplier settled.";
+            else if (still > 0.009m) what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(still)} still owed.";
+            else if (still < -0.009m) what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(-still)} extra.";
+            else what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, supplier settled.";
             _shell.Notify(what);
             NewTitle = "";
             NewNumber = "";

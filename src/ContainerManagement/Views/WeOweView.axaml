@@ -37,18 +37,22 @@
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
         <TextBlock Classes="label" Text="We owe them" />
         <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
-        <Grid ColumnDefinitions="*,*">
+        <Grid ColumnDefinitions="*,240,200">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Date" />
             <DatePicker SelectedDate="{Binding PayDate}" HorizontalAlignment="Left" />
           </StackPanel>
-          <StackPanel Grid.Column="1">
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Amount (Rs)" />
-            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Paid by" />
+            <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding PayMethod}" />
           </StackPanel>
         </Grid>
         <TextBlock Classes="label" Text="Note (optional)" />
-        <TextBox Text="{Binding PayNotes}" Watermark="e.g. TT via HBL, ref 4482" />
+        <TextBox Text="{Binding PayNotes}" Watermark="e.g. HBL ref 4482, part payment" />
         <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
