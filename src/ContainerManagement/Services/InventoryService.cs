@@ -160,7 +160,8 @@ public class InventoryService
         return item;
     }
 
-    public async Task UpdateGoodsAsync(
+    /// <returns>How many lines already sold were re-costed along with the item.</returns>
+    public async Task<int> UpdateGoodsAsync(
         int itemId, string productName, string unit, string? sku, decimal received, decimal remaining,
         decimal costEntered, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath)
     {
@@ -179,6 +180,7 @@ public class InventoryService
         var item = await db.ContainerItems.Include(i => i.Container).FirstOrDefaultAsync(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
 
+        var costChanged = item.UnitCost != costEntered;
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
 
         item.ProductId = product.Id;
@@ -195,7 +197,10 @@ public class InventoryService
             item.PhotoPath = photoPath;
             product.PhotoPath = photoPath;
         }
+
+        var repriced = costChanged ? await RepriceSoldLinesAsync(db, item.Id, costEntered) : 0;
         await db.SaveChangesAsync();
+        return repriced;
     }
 
     public async Task DeleteGoodsAsync(int itemId)
@@ -214,6 +219,27 @@ public class InventoryService
         db.StockAdjustments.RemoveRange(adjustments);
         db.ContainerItems.Remove(item);
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// A sale keeps the cost it went out at, which is right when a lot's cost genuinely moves
+    /// mid-container. It is wrong for a cost that was simply never filled in - 0 typed to get the
+    /// bill out, then corrected later - because profit then stays glued to the old figure forever.
+    /// So a corrected cost is applied to the lines already sold from this lot as well, and Home,
+    /// Profit and the container all move together. What a customer owes is untouched: only cost
+    /// moves, never a price or a bill total.
+    /// </summary>
+    private static async Task<int> RepriceSoldLinesAsync(AppDbContext db, int containerItemId, decimal cost)
+    {
+        var lines = await db.SaleLines.Where(l => l.ContainerItemId == containerItemId).ToListAsync();
+        foreach (var line in lines)
+            line.UnitCost = cost;
+
+        var returned = await db.SaleReturnLines.Where(l => l.ContainerItemId == containerItemId).ToListAsync();
+        foreach (var r in returned)
+            r.UnitCost = cost;
+
+        return lines.Count + returned.Count;
     }
 
     public async Task AdjustStockAsync(int itemId, decimal counted, string reason)

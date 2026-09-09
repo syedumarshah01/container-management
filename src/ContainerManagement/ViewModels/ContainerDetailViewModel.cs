@@ -150,6 +150,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             await _inventory.AddGoodsAsync(_id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, GoodsCost ?? 0,
                 null, null, null, null, null);
+            _shell.MarkChanged();
             _shell.Notify("Item added.");
             ClearGoodsForm();
             await LoadAsync();
@@ -173,10 +174,13 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             var stock = GoodsInStock ?? SelectedItem.InStock;
-            await _inventory.UpdateGoodsAsync(
+            var repriced = await _inventory.UpdateGoodsAsync(
                 SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, stock, stock, GoodsCost ?? 0,
                 null, null, null, SelectedItem.PhotoPath);
-            _shell.Notify("Item updated.");
+            _shell.MarkChanged();
+            _shell.Notify(repriced == 0
+                ? "Item updated."
+                : $"Item updated. Cost also applied to {repriced} sold line{(repriced == 1 ? "" : "s")} - profit follows.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -189,6 +193,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddExpenseAsync(_id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0, ExpenseNotes);
+            _shell.MarkChanged();
             _shell.Notify("Expense added.");
             ExpenseAmount = 0;
             ExpenseNotes = "";
@@ -210,6 +215,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             await _inventory.UpdateExpenseAsync(
                 SelectedExpense.Id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0, ExpenseNotes);
+            _shell.MarkChanged();
             _shell.Notify("Expense updated.");
             await LoadAsync();
         }
@@ -224,6 +230,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.DeleteExpenseAsync(SelectedExpense.Id);
+            _shell.MarkChanged();
             _shell.Notify("Expense removed.");
             await LoadAsync();
         }
@@ -246,6 +253,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.DeleteGoodsAsync(SelectedItem.Id);
+            _shell.MarkChanged();
             _shell.Notify("Item deleted.");
             ClearGoodsForm();
             await LoadAsync();
@@ -261,6 +269,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             await _inventory.UpdateImportDetailsAsync(
                 _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
+            _shell.MarkChanged();
             _shell.Notify("Import details saved.");
             await LoadAsync();
         }
@@ -274,6 +283,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.SetStatusAsync(_id, IsClosed ? ContainerStatus.Open : ContainerStatus.Closed);
+            _shell.MarkChanged();
             _shell.Notify(IsClosed ? "Container re-opened." : "Container closed.");
             await LoadAsync();
         }
