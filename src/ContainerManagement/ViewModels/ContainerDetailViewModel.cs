@@ -53,9 +53,10 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// </summary>
     [ObservableProperty] private decimal? editPaidSoFar;
     /// <summary>
-    /// The figure the two boxes above are being edited to reach. This page shows no owed amount of its
-    /// own, and "paid" moves a pile of payments rather than a field, so the form says out loud what a
-    /// save would leave owing - including the advance case, where the pile is bigger than the bill.
+    /// What the two boxes above leave to hand over, while they are being typed. "Left to pay" rather
+    /// than "still owe" on purpose: the field it sits beside is now called "We owe", and two figures on
+    /// one line both claiming to be what is owed is how a wrong one gets believed. This is a preview of
+    /// a save, never a record - the ledger is the record.
     /// </summary>
     public string EditOwedText
     {
@@ -63,7 +64,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             var owed = (EditSupplierAmount ?? 0m) - (EditPaidSoFar ?? 0m);
             if (owed == 0) return "Settled";
-            return owed > 0 ? "Still owe " + Money.PkrCompact(owed) : "Advanced " + Money.PkrCompact(-owed);
+            return owed > 0 ? "Left to pay " + Money.PkrCompact(owed) : "Advanced " + Money.PkrCompact(-owed);
         }
     }
 

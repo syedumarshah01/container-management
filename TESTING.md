@@ -131,4 +131,5 @@ rather than assuming it. Say the word and I will move those columns to text for 
    show one more payment, dated today, marked "Recorded on the container form", the owed figure 1,000
    lower, and one more line in the cash book. Type the old figure back: that payment and that cash line
    should disappear, and the trimmed neighbour should read exactly what it did before. Then try to set
-   "Their total bill" below what has been paid - it should refuse, naming the paid figure.
+   "We owe" below what has been paid - it should refuse, naming the paid figure. "We owe" here is the whole
+   bill for this container, not what is left: what is left is the muted figure beside the paid box.

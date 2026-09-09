@@ -61,7 +61,7 @@
                 <TextBox Grid.Column="1" Width="460" Margin="0,6" Text="{Binding EditSupplier}"
                          Watermark="as on the invoice" />
 
-                <TextBlock Grid.Row="1" Classes="label" Text="To supplier (Rs)" VerticalAlignment="Center" Margin="0" />
+                <TextBlock Grid.Row="1" Classes="label" Text="We owe (Rs)" VerticalAlignment="Center" Margin="0" />
                 <NumericUpDown Grid.Row="1" Grid.Column="1" Width="260" Margin="0,6" Minimum="0"
                                ShowButtonSpinner="False" AllowSpin="False"
                                Value="{Binding EditSupplierAmount}" />
