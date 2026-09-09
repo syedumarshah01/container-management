@@ -9,6 +9,16 @@
     <RootNamespace>ContainerManagement</RootNamespace>
     <AssemblyName>ProBooks</AssemblyName>
     <Product>ProBooks</Product>
+    <!--  The gold P, cut to a rounded tile with the page knocked out, packed as 256/128/64/48/40/32/24/16
+          - 256 as PNG, the rest as 32-bit DIBs, which is what Explorer, the taskbar and a 150% display
+          each reach for. The small ones matter most: an exe that only carries 256 gets resampled down by
+          the shell and turns to mud next to real software.  -->
+    <ApplicationIcon>Assets\probooks.ico</ApplicationIcon>
+    <Company>Syntaxia Solutions</Company>
+    <Copyright>Syntaxia Solutions</Copyright>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     <Description>Desktop container inventory, customer ledger, and profit tracker for importers.</Description>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -34,6 +44,10 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!--  logo.png is the 1 MB master the icon was cut from and probooks.ico is already compiled into the
+          exe by ApplicationIcon. Embedding either again would just make the file fatter.  -->
+    <AvaloniaResource Remove="Assets\logo.png" />
+    <AvaloniaResource Remove="Assets\probooks.ico" />
   </ItemGroup>
 
 </Project>
