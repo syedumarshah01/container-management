@@ -26,7 +26,15 @@ if not errorlevel 1 (
 )
 
 dotnet restore tools\MoneyChecks >nul
-dotnet run --project tools\MoneyChecks -c Debug
+dotnet build tools\MoneyChecks -c Debug --no-restore
+if errorlevel 1 (
+  echo.
+  echo The checks did not build. That is a fault in these checks, not in ProBooks - copy the error above.
+  pause
+  exit /b 2
+)
+
+dotnet run --project tools\MoneyChecks -c Debug --no-build
 set CODE=%ERRORLEVEL%
 
 echo.

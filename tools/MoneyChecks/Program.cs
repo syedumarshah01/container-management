@@ -293,6 +293,18 @@ public static class Program
         }
 
         Head("an order sheet: what was saved is what the sheet showed");
+        // The sheet as it looks while you type, worked out here so the saved one can be compared to it.
+        var live = new BuyPlanRow
+        {
+            YenRate = 1.0701m,
+            ExpensePkr = 100_000.005m,
+            Lines = new List<BuyPlanLineRow>
+            {
+                new() { ItemName = "LED bulb", Quantity = 250m, UnitCostYen = 1m, UnitWeightKg = 0.375m, SalePricePkr = 450m },
+                new() { ItemName = "Charger", Quantity = 40m, UnitCostYen = 640.5m, UnitWeightKg = 0.12m, SalePricePkr = 1999.99m }
+            }
+        };
+        live.RefreshTotals();
         var planId = (await plans.CreateAsync("AUDIT sheet")).Id;
         await plans.SaveAsync(planId, "AUDIT sheet", 1.0701m, 100_000.005m, new List<BuyPlanLineInput>
         {
@@ -303,9 +315,11 @@ public static class Program
         Eq("the yen rate is kept to six decimals", 1.0701m, saved.YenRate);
         Eq("the expense to two", 100_000.01m, saved.ExpensePkr);
         Eq("a per-piece weight to three", 0.375m, saved.Lines[0].UnitWeightKg);
-        Eq("the re-opened sheet costs what the live sheet cost", plan.Total.CostPkr, saved.Total.CostPkr);
-        Eq("and sells for what it sold for", plan.Total.SalePkr, saved.Total.SalePkr);
-        Eq("and profits by the same", plan.Total.ProfitPkr, saved.Total.ProfitPkr);
+        Eq("the re-opened sheet costs what the live sheet cost", live.Total.CostPkr, saved.Total.CostPkr);
+        Eq("and sells for what it sold for", live.Total.SalePkr, saved.Total.SalePkr);
+        Eq("and profits by the same", live.Total.ProfitPkr, saved.Total.ProfitPkr);
+        Eq("a row's own cost survives the round trip", live.Lines[1].CostPkr, saved.Lines[1].CostPkr);
+        Eq("and so does the one expense figure", live.Total.ExpensePkr, saved.Total.ExpensePkr);
         var copied = await plans.GetAsync((await plans.DuplicateAsync(planId)).Id);
         Eq("a duplicate carries the same figures", saved.Total.ProfitPkr, copied.Total.ProfitPkr);
         await plans.DeleteAsync(planId);
@@ -415,7 +429,7 @@ public static class Program
 
     private static void Info(string text) => Console.WriteLine("  info  " + text);
 
-    private static void Check(string name, bool ok, string? detail = null)
+    private static void Check(string name, bool ok, string detail = null)
     {
         if (ok)
         {
@@ -429,7 +443,7 @@ public static class Program
 
     private static void Eq(string name, decimal expected, decimal actual) => Check(name, expected == actual, $"expected {expected}, got {actual}");
 
-    private static void Warn(string name, bool ok, string? detail = null)
+    private static void Warn(string name, bool ok, string detail = null)
     {
         if (ok)
         {
