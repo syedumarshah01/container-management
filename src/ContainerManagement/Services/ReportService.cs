@@ -101,7 +101,7 @@ public class ReportService
             var day = l.Sale.Date.Date;
             Touch(day);
             var cur = days[day];
-            days[day] = (cur.Sales + l.Quantity * l.UnitPrice, cur.Cogs + l.Quantity * l.UnitCost, cur.Expenses);
+            days[day] = (cur.Sales + l.LineTotal, cur.Cogs + l.LineCost, cur.Expenses);
         }
 
         foreach (var r in returned)
@@ -109,7 +109,7 @@ public class ReportService
             var day = r.Return.Date.Date;
             Touch(day);
             var cur = days[day];
-            days[day] = (cur.Sales - r.Amount, cur.Cogs - r.Quantity * r.UnitCost, cur.Expenses);
+            days[day] = (cur.Sales - r.Amount, cur.Cogs - Money.Round(r.Quantity * r.UnitCost), cur.Expenses);
         }
 
         foreach (var e in expenses)
@@ -212,8 +212,8 @@ public class ReportService
             {
                 var rets = returned.Where(x => x.ProductId == g.Key.ProductId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
-                var revenue = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
-                var cogs = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
+                var revenue = g.Sum(x => x.LineTotal) - rets.Sum(x => x.Amount);
+                var cogs = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
                 return new ItemProfitRow
                 {
                     ProductName = g.Key.Name,
@@ -268,8 +268,8 @@ public class ReportService
             .ToListAsync();
 
         var totalQty = lines.Sum(x => x.Quantity) - returned.Sum(x => x.Quantity);
-        var totalAmount = lines.Sum(x => x.Quantity * x.UnitPrice) - returned.Sum(x => x.Amount);
-        var totalCost = lines.Sum(x => x.Quantity * x.UnitCost) - returned.Sum(x => x.Quantity * x.UnitCost);
+        var totalAmount = lines.Sum(x => x.LineTotal) - returned.Sum(x => x.Amount);
+        var totalCost = lines.Sum(x => x.LineCost) - returned.Sum(x => Money.Round(x.Quantity * x.UnitCost));
 
         var customers = lines
             .GroupBy(l => new { l.Sale.CustomerId, l.Sale.Customer.Name })
@@ -277,15 +277,15 @@ public class ReportService
             {
                 var rets = returned.Where(x => x.Return.CustomerId == g.Key.CustomerId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
-                var cost = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
-                var amount = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
+                var cost = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
+                var amount = g.Sum(x => x.LineTotal) - rets.Sum(x => x.Amount);
                 return new ItemCustomerSaleRow
                 {
                     CustomerId = g.Key.CustomerId,
                     CustomerName = g.Key.Name,
                     Qty = qty,
-                    AvgCost = qty == 0 ? 0 : Math.Round(cost / qty, 2),
-                    AvgPrice = qty == 0 ? 0 : Math.Round(amount / qty, 2),
+                    AvgCost = qty == 0 ? 0 : Money.Round(cost / qty),
+                    AvgPrice = qty == 0 ? 0 : Money.Round(amount / qty),
                     Amount = amount
                 };
             })
@@ -297,8 +297,8 @@ public class ReportService
         return (
             totalQty,
             totalAmount,
-            totalQty == 0 ? 0 : Math.Round(totalCost / totalQty, 2),
-            totalQty == 0 ? 0 : Math.Round(totalAmount / totalQty, 2),
+            totalQty == 0 ? 0 : Money.Round(totalCost / totalQty),
+            totalQty == 0 ? 0 : Money.Round(totalAmount / totalQty),
             customers);
     }
 
@@ -325,8 +325,8 @@ public class ReportService
             .Select(g => new
             {
                 ContainerId = g.Key,
-                Revenue = g.Sum(x => x.Quantity * x.UnitPrice),
-                Cogs = g.Sum(x => x.Quantity * x.UnitCost),
+                Revenue = g.Sum(x => x.LineTotal),
+                Cogs = g.Sum(x => x.LineCost),
                 QtySold = g.Sum(x => x.Quantity)
             })
             .ToList();
@@ -336,7 +336,7 @@ public class ReportService
             var s = lines.FirstOrDefault(x => x.ContainerId == c.Id);
             var rets = returnLines.Where(x => x.ContainerId == c.Id).ToList();
             var revenue = (s?.Revenue ?? 0) - rets.Sum(x => x.Amount);
-            var cogs = (s?.Cogs ?? 0) - rets.Sum(x => x.Quantity * x.UnitCost);
+            var cogs = (s?.Cogs ?? 0) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
             var expenses = from is null && to is null
                 ? c.Expenses.Sum(e => e.Amount)
                 : c.Expenses.Where(e =>

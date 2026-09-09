@@ -152,14 +152,14 @@ public class BuyPlanService
     {
         if (rate <= 0)
             throw new InvalidOperationException("Rupees for 1 yen must be above zero. Type your rate, for example 17.");
-        return decimal.Round(rate, 6, MidpointRounding.AwayFromZero);
+        return Money.Round(rate, 6);
     }
 
     private static decimal CleanMoney(decimal value, string what)
     {
         if (value < 0)
             throw new InvalidOperationException($"{what} cannot be negative.");
-        return decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        return Money.Round(value);
     }
 
     private static string PickTitle(string title) =>
@@ -192,7 +192,7 @@ public class BuyPlanService
                     ItemName = l.ItemName,
                     Quantity = l.Quantity,
                     UnitCostYen = l.UnitCostYen,
-                    UnitWeightKg = decimal.Round(l.UnitWeightKg, 3, MidpointRounding.AwayFromZero),
+                    UnitWeightKg = Money.Round(l.UnitWeightKg, 3),
                     SalePricePkr = l.SalePricePkr
                 })
                 .ToList()

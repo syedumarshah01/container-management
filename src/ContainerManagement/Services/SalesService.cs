@@ -184,7 +184,7 @@ public class SalesService
             .ToListAsync();
         var returnedSoFar = alreadyAmount.Sum(r => r.Amount);
 
-        var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var gross = sale.Lines.Sum(l => l.LineTotal);
         var factor = gross == 0 ? 1m : sale.TotalAmount / gross;
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -205,13 +205,13 @@ public class SalesService
             var left = line.Quantity - done;
             if (input.Quantity - left > 0.0005m)
                 throw new InvalidOperationException(
-                    $"Only {Money.Qty(left)} {line.Product.Name} can still come back from this bill.");
+                    $"Only {Money.Qty3(left)} {line.Product.Name} can still come back from this bill.");
 
             var item = await db.ContainerItems.FindAsync(line.ContainerItemId)
                 ?? throw new InvalidOperationException("Stock lot missing.");
             item.QuantityRemaining += input.Quantity;
 
-            var amount = Math.Round(input.Quantity * line.UnitPrice * factor, 2);
+            var amount = Money.Round(input.Quantity * line.UnitPrice * factor);
             ret.Lines.Add(new SaleReturnLine
             {
                 SaleLineId = line.Id,
@@ -223,11 +223,11 @@ public class SalesService
                 UnitCost = line.UnitCost,
                 Amount = amount
             });
-            names.Add(Money.Qty(input.Quantity) + " " + line.Product.Name);
+            names.Add(Money.Qty3(input.Quantity) + " " + line.Product.Name);
             alreadyQty[line.Id] = done + input.Quantity;
         }
 
-        ret.Amount = Math.Round(ret.Lines.Sum(l => l.Amount), 2);
+        ret.Amount = Money.Round(ret.Lines.Sum(l => l.Amount));
         var qtyLeft = sale.Lines.Sum(l => l.Quantity - alreadyQty.GetValueOrDefault(l.Id));
         if (qtyLeft <= 0.0005m)
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
@@ -264,6 +264,10 @@ public class SalesService
     {
         if (lines.Count == 0)
             throw new InvalidOperationException("Add at least one item to the sale.");
+        // Paid and discount are money the shop counts, so they land on a paisa before anything else
+        // is compared to them - the bill the customer is handed is the bill the books keep.
+        paidNow = Money.Round(paidNow);
+        discount = Money.Round(discount);
         if (paidNow < 0)
             throw new InvalidOperationException("Amount received cannot be negative.");
         if (discount < 0)
@@ -336,10 +340,10 @@ public class SalesService
                 throw new InvalidOperationException($"{line.ProductName} does not belong to the selected container.");
             if (item.QuantityRemaining < line.Quantity)
                 throw new InvalidOperationException(
-                    $"Not enough {item.Product.Name} in {item.Container.Title}. Remaining: {Money.Qty(item.QuantityRemaining)} {item.Product.Unit}.");
+                    $"Not enough {item.Product.Name} in {item.Container.Title}. Remaining: {Money.Qty3(item.QuantityRemaining)} {item.Product.Unit}.");
 
             item.QuantityRemaining -= line.Quantity;
-            item.Product.LastSalePrice = line.UnitPrice;
+            item.Product.LastSalePrice = Money.Round(line.UnitPrice);
 
             sale.Lines.Add(new SaleLine
             {
@@ -347,15 +351,15 @@ public class SalesService
                 ContainerItemId = item.Id,
                 ProductId = item.ProductId,
                 Quantity = line.Quantity,
-                UnitPrice = line.UnitPrice,
-                UnitCost = item.UnitCost
+                UnitPrice = Money.Round(line.UnitPrice),
+                UnitCost = Money.Round(item.UnitCost)
             });
         }
 
-        var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var gross = sale.Lines.Sum(l => l.LineTotal);
         if (discount > gross)
             throw new InvalidOperationException("Discount cannot be more than the bill.");
-        sale.TotalAmount = gross - discount;
+        sale.TotalAmount = Money.Round(gross - discount);
         if (paidNow > sale.TotalAmount)
             throw new InvalidOperationException("Amount received cannot be more than the bill. Put extra as a separate payment on the customer ledger.");
 

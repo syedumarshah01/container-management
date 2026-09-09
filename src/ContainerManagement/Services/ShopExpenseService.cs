@@ -23,6 +23,7 @@ public class ShopExpenseService
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new InvalidOperationException("Say what the expense is for.");
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Amount must be greater than zero.");
 
@@ -45,6 +46,7 @@ public class ShopExpenseService
     {
         if (string.IsNullOrWhiteSpace(description))
             throw new InvalidOperationException("Say what the expense is for.");
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Amount must be greater than zero.");
 
@@ -53,7 +55,7 @@ public class ShopExpenseService
             ?? throw new InvalidOperationException("Expense not found.");
         row.Date = date.Date;
         row.Description = description.Trim();
-        row.Amount = amount;
+        row.Amount = Money.Round(amount);
         row.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         CashBookService.SyncExpense(db, row);
         await db.SaveChangesAsync();

@@ -41,6 +41,7 @@ public class CashBookService
 
     public async Task SetOpeningAsync(decimal cashOnHand)
     {
+        cashOnHand = Money.Round(cashOnHand);
         await using var db = await _factory.CreateDbContextAsync();
         var old = await db.CashBook.Where(e => e.Kind == CashBookKind.Opening).ToListAsync();
         var others = await db.CashBook.Where(e => e.Kind != CashBookKind.Opening).Select(e => e.Date).ToListAsync();

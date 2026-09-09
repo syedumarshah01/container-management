@@ -128,7 +128,7 @@ public partial class NewSaleViewModel : ViewModelBase
         PickQty = 1;
         PickPrice = value.LastSalePrice is > 0
             ? value.LastSalePrice
-            : Math.Round(value.SellCost * 1.5m, 0);
+            : Money.Round(value.SellCost * 1.5m, 0);
         QtyError = "";
     }
 
@@ -155,14 +155,14 @@ public partial class NewSaleViewModel : ViewModelBase
         }
         if (qty > SelectedStock.Remaining)
         {
-            QtyError = "Only " + Money.Qty(SelectedStock.Remaining) + " in stock.";
+            QtyError = "Only " + Money.Qty3(SelectedStock.Remaining) + " in stock.";
             return;
         }
 
         var already = Lines.Where(l => l.ContainerItemId == SelectedStock.ContainerItemId).Sum(l => l.Quantity);
         if (already + qty > SelectedStock.Remaining)
         {
-            QtyError = "Only " + Money.Qty(SelectedStock.Remaining - already) + " left after this bill.";
+            QtyError = "Only " + Money.Qty3(SelectedStock.Remaining - already) + " left after this bill.";
             return;
         }
 
@@ -304,13 +304,13 @@ public partial class NewSaleViewModel : ViewModelBase
             return;
         if (qty > SelectedStock.Remaining)
         {
-            QtyError = "Only " + Money.Qty(SelectedStock.Remaining) + " in stock.";
+            QtyError = "Only " + Money.Qty3(SelectedStock.Remaining) + " in stock.";
             return;
         }
         var already = Lines.Where(l => l.ContainerItemId == SelectedStock.ContainerItemId).Sum(l => l.Quantity);
         if (already + qty > SelectedStock.Remaining)
         {
-            QtyError = "Only " + Money.Qty(SelectedStock.Remaining - already) + " left after this bill.";
+            QtyError = "Only " + Money.Qty3(SelectedStock.Remaining - already) + " left after this bill.";
             return;
         }
         QtyError = "";

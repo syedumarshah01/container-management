@@ -167,8 +167,12 @@ public class SaleLine
     public decimal UnitPrice { get; set; }
     public decimal UnitCost { get; set; }
 
-    public decimal LineTotal => Quantity * UnitPrice;
-    public decimal LineCost => Quantity * UnitCost;
+    /// <summary>
+    /// A line's money, rounded once here: the invoice, the customer's balance and the profit figures
+    /// all read these, so the bill that is printed is the bill that is stored.
+    /// </summary>
+    public decimal LineTotal => Money.Round(Quantity * UnitPrice);
+    public decimal LineCost => Money.Round(Quantity * UnitCost);
     public decimal LineProfit => LineTotal - LineCost;
 }
 

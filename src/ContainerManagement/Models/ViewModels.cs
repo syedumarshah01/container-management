@@ -27,6 +27,12 @@ public static class Money
     public static string Qty(decimal value) => Num(value);
 
     /// <summary>
+    /// Quantities in a message, up to three decimals. Money.Qty's two would tell someone that 0.375 kg
+    /// of stock is "0.38 left" - they then type 0.38 and the app refuses them, which reads like a bug.
+    /// </summary>
+    public static string Qty3(decimal value) => Kg(value);
+
+    /// <summary>
     /// Weights get three decimals: a 55 g piece must read 0.055, not 0.06, or the row no longer
     /// multiplies out to the total next to it.
     /// </summary>
@@ -76,6 +82,15 @@ public static class Money
         (100_000, "lac"),
         (1_000, "thousand")
     ];
+
+    /// <summary>
+    /// The app's one rounding rule: half a paisa goes away from zero, the way a bill is written.
+    /// Math.Round's default is banker's rounding - it sends 267.525 to 267.52 - so two screens can
+    /// disagree about the same figure by a paisa and nothing in the books explains which is right.
+    /// Every money value entering or leaving the app goes through here, so what is printed is what
+    /// is stored and what the totals add up to.
+    /// </summary>
+    public static decimal Round(decimal value, int decimals = 2) => decimal.Round(value, decimals, MidpointRounding.AwayFromZero);
 
     private static string Num(decimal value)
     {
@@ -267,7 +282,8 @@ public class NewSaleLineInput
     public decimal UnitPrice { get; set; }
     public decimal UnitCost { get; set; }
     public decimal Remaining { get; set; }
-    public decimal LineTotal => Quantity * UnitPrice;
+    /// <summary>Rounded where it is defined, so the bill and the ledger add up to the same paisa.</summary>
+    public decimal LineTotal => Money.Round(Quantity * UnitPrice);
 }
 
 public class ItemProfitRow
@@ -445,7 +461,7 @@ public class BuyPlanLineRow
     public decimal YenRate { get; set; } = 1;
 
     public decimal CostYen => Quantity * UnitCostYen;
-    public decimal CostPkr => Math.Round(CostYen * YenRate, 2);
+    public decimal CostPkr => Money.Round(CostYen * YenRate);
     public decimal SalePkr => Quantity * SalePricePkr;
     public decimal TotalWeightKg => Quantity * UnitWeightKg;
 

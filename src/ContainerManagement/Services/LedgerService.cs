@@ -107,6 +107,7 @@ public class LedgerService
     public async Task<Payment> ReceivePaymentAsync(
         int customerId, DateTime date, decimal amount, string method, string? notes, int? saleId = null)
     {
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Payment amount must be greater than zero.");
 
@@ -178,6 +179,7 @@ public class LedgerService
 
     public async Task SetOpeningBalanceAsync(int customerId, decimal theyOwe)
     {
+        theyOwe = Money.Round(theyOwe);
         await using var db = await _factory.CreateDbContextAsync();
         if (!await db.Customers.AnyAsync(c => c.Id == customerId))
             throw new InvalidOperationException("Customer not found.");

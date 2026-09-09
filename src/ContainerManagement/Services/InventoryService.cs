@@ -39,6 +39,8 @@ public class InventoryService
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new InvalidOperationException("Container title is required.");
+        supplierAmount = Money.Round(supplierAmount);
+        paidNow = Money.Round(paidNow);
         if (paidNow < 0)
             throw new InvalidOperationException("Amount paid cannot be negative.");
         if (paidNow > 0 && string.IsNullOrWhiteSpace(supplierName))
@@ -112,7 +114,7 @@ public class InventoryService
         c.Cartons = cartons;
         c.Cbm = cbm;
         c.WeightKg = weight;
-        c.SupplierAmount = supplierAmount;
+        c.SupplierAmount = Money.Round(supplierAmount);
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
@@ -129,7 +131,7 @@ public class InventoryService
         c.Cartons = cartons;
         c.Cbm = cbm;
         c.WeightKg = weight;
-        c.SupplierAmount = supplierAmount;
+        c.SupplierAmount = Money.Round(supplierAmount);
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
@@ -155,6 +157,7 @@ public class InventoryService
             throw new InvalidOperationException("Quantity must be greater than zero.");
         if (costEntered < 0)
             throw new InvalidOperationException("Unit cost cannot be negative.");
+        costEntered = Money.Round(costEntered);
 
         await using var db = await _factory.CreateDbContextAsync();
         var container = await db.Containers.FindAsync(containerId)
@@ -201,6 +204,7 @@ public class InventoryService
             throw new InvalidOperationException("In stock cannot be more than purchased.");
         if (costEntered < 0)
             throw new InvalidOperationException("Price cannot be negative.");
+        costEntered = Money.Round(costEntered);
 
         await using var db = await _factory.CreateDbContextAsync();
         var item = await db.ContainerItems.Include(i => i.Container).FirstOrDefaultAsync(i => i.Id == itemId)
@@ -292,6 +296,7 @@ public class InventoryService
 
     public async Task<ContainerExpense> AddExpenseAsync(int containerId, DateTime date, string category, decimal amount, string? notes)
     {
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Expense amount must be greater than zero.");
 
@@ -304,7 +309,7 @@ public class InventoryService
             ContainerId = containerId,
             Date = date,
             Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim(),
-            Amount = amount,
+            Amount = Money.Round(amount),
             Notes = notes?.Trim()
         };
         db.Expenses.Add(exp);
@@ -314,6 +319,7 @@ public class InventoryService
 
     public async Task UpdateExpenseAsync(int expenseId, DateTime date, string category, decimal amount, string? notes)
     {
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Expense amount must be greater than zero.");
 
@@ -322,7 +328,7 @@ public class InventoryService
             ?? throw new InvalidOperationException("Expense not found.");
         exp.Date = date;
         exp.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
-        exp.Amount = amount;
+        exp.Amount = Money.Round(amount);
         exp.Notes = notes?.Trim();
         await db.SaveChangesAsync();
     }
@@ -338,6 +344,7 @@ public class InventoryService
 
     public async Task PaySupplierAsync(int containerId, DateTime date, decimal amount, string method, string? notes)
     {
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Amount must be greater than zero.");
         await using var db = await _factory.CreateDbContextAsync();

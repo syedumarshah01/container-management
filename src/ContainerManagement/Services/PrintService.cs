@@ -36,7 +36,7 @@ public class PrintService
         }
         sb.Append("</table>");
 
-        var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var gross = sale.Lines.Sum(l => l.LineTotal);
         sb.Append($"<p>Items: {H(Money.Pkr(gross))}<br/>");
         if (sale.DiscountAmount > 0)
             sb.Append($"Discount: {H(Money.Pkr(sale.DiscountAmount))}<br/>");
