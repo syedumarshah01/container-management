@@ -1,6 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:ContainerManagement"
+             xmlns:views="using:ContainerManagement.Views"
              x:Class="ContainerManagement.App"
              RequestedThemeVariant="Light">
   <Application.DataTemplates>
@@ -8,6 +9,7 @@
   </Application.DataTemplates>
 
   <Application.Resources>
+    <views:AmountWordsConverter x:Key="WordsConv" />
     <SolidColorBrush x:Key="NavyBrush">#1B2A4A</SolidColorBrush>
     <SolidColorBrush x:Key="NavySoftBrush">#243656</SolidColorBrush>
     <SolidColorBrush x:Key="GoldBrush">#C9A227</SolidColorBrush>
@@ -47,6 +49,14 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="#1B2A4A" />
       <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+    <!--  The live "this is 15 lac" line under an amount box. Pulled up into the box's own bottom
+          margin so it reads as part of the field, not as a new row.  -->
+    <Style Selector="TextBlock.words">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+      <Setter Property="Margin" Value="0,-6,0,6" />
     </Style>
     <Style Selector="TextBlock.muted">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />

@@ -38,6 +38,45 @@ public static class Money
         return n.ToString("N3").TrimEnd('0').TrimEnd('.');
     }
 
+    /// <summary>
+    /// A figure in the units a shop says out loud, for reading a typed amount back to yourself:
+    /// 1573250 becomes "15 lac 73 thousand 250". Breakdown rather than one scale, because "15.7 lac"
+    /// still hides whether that was fifteen point seven or a stray zero. Under a thousand returns
+    /// nothing, and so does an unset box.
+    /// </summary>
+    public static string Words(decimal value)
+    {
+        var whole = decimal.Truncate(decimal.Abs(value));
+        if (whole < 1000)
+            return "";
+        var sign = value < 0 ? "-" : "";
+        if (whole > long.MaxValue)
+            return sign + "over 9 kharb";
+
+        var rest = (long)whole;
+        var parts = new List<string>();
+        foreach (var (size, name) in Scale)
+        {
+            if (rest < size)
+                continue;
+            parts.Add(rest / size + " " + name);
+            rest %= size;
+        }
+        if (rest > 0)
+            parts.Add(rest.ToString());
+        return parts.Count == 0 ? "" : sign + string.Join(" ", parts);
+    }
+
+    /// <summary>South Asian numbering: two digits per step, thousand, lac, crore, arab, kharb.</summary>
+    private static readonly (long Size, string Name)[] Scale =
+    [
+        (100_000_000_000, "kharb"),
+        (1_000_000_000, "arab"),
+        (10_000_000, "crore"),
+        (100_000, "lac"),
+        (1_000, "thousand")
+    ];
+
     private static string Num(decimal value)
     {
         var n = decimal.Round(value, 2, MidpointRounding.AwayFromZero);

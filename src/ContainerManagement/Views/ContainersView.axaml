@@ -49,10 +49,12 @@
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="We owe them (Rs)" />
             <NumericUpDown Value="{Binding NewSupplierAmount}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding NewSupplierAmount, Converter={StaticResource WordsConv}}" />
           </StackPanel>
           <StackPanel Grid.Column="2" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Paid now (Rs)" />
             <NumericUpDown Value="{Binding NewPaid}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding NewPaid, Converter={StaticResource WordsConv}}" />
           </StackPanel>
           <StackPanel Grid.Column="3">
             <TextBlock Classes="label" Text="Paid by" />

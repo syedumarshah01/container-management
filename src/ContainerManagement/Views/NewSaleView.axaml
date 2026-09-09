@@ -86,8 +86,10 @@
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Discount (Rs)" />
             <NumericUpDown Value="{Binding Discount}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding Discount, Converter={StaticResource WordsConv}}" />
             <TextBlock Classes="label" Text="Received now (0 = full credit)" />
             <NumericUpDown Value="{Binding PaidNow}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding PaidNow, Converter={StaticResource WordsConv}}" />
             <TextBlock Classes="label" Text="How they paid" />
             <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding Method}" />
             <TextBlock Classes="label" Text="Due date (credit only)" />

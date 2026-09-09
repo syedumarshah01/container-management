@@ -48,6 +48,7 @@
         <TextBox Text="{Binding What}" Watermark="Rent, electricity, tea…" />
         <TextBlock Classes="label" Text="Amount (Rs)" />
         <NumericUpDown Value="{Binding Amount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+        <TextBlock Classes="words" Text="{Binding Amount, Converter={StaticResource WordsConv}}" />
         <TextBlock Classes="label" Text="Note (optional)" />
         <TextBox Text="{Binding Notes}" Watermark="optional" />
         <StackPanel Orientation="Horizontal">

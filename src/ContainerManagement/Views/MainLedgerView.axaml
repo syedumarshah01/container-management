@@ -54,6 +54,7 @@
           <NumericUpDown Value="{Binding OpeningAmount}" Margin="0,0,8,12" />
           <Button Grid.Column="1" Content="Save opening" Command="{Binding SaveOpeningCommand}" Margin="0,0,0,12" />
         </Grid>
+        <TextBlock Classes="words" Text="{Binding OpeningAmount, Converter={StaticResource WordsConv}}" />
       </StackPanel>
     </Border>
 

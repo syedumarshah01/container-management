@@ -45,6 +45,7 @@
           <TextBox Grid.Column="2" Text="{Binding PayNotes}" Watermark="Note (optional)" Margin="0,0,8,12" />
           <Button Grid.Column="3" Classes="primary" Content="Record" Command="{Binding ReceiveCommand}" Margin="0,0,0,12" />
         </Grid>
+        <TextBlock Classes="words" Text="{Binding PayAmount, Converter={StaticResource WordsConv}}" />
       </StackPanel>
     </Border>
 
@@ -55,6 +56,7 @@
           <NumericUpDown Value="{Binding OpeningAmount}" Margin="0,0,8,12" />
           <Button Grid.Column="1" Content="Save opening" Command="{Binding SaveOpeningCommand}" Margin="0,0,0,12" />
         </Grid>
+        <TextBlock Classes="words" Text="{Binding OpeningAmount, Converter={StaticResource WordsConv}}" />
         <TextBlock Classes="muted" FontSize="12" Text="Positive = they already owed you. Negative = they had an advance." />
       </StackPanel>
     </Border>

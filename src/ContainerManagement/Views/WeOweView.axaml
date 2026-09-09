@@ -45,6 +45,7 @@
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Amount (Rs)" />
             <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Stretch" />
+            <TextBlock Classes="words" Text="{Binding PayAmount, Converter={StaticResource WordsConv}}" />
           </StackPanel>
           <StackPanel Grid.Column="2">
             <TextBlock Classes="label" Text="Paid by" />

@@ -63,6 +63,7 @@
                 <StackPanel Grid.Column="1">
                   <TextBlock Classes="label" Text="We owe them (Rs)" />
                   <NumericUpDown Value="{Binding EditSupplierAmount}" Minimum="0" />
+                  <TextBlock Classes="words" Text="{Binding EditSupplierAmount, Converter={StaticResource WordsConv}}" />
                 </StackPanel>
               </Grid>
               <Grid ColumnDefinitions="*,*,*">
@@ -119,6 +120,7 @@
               <StackPanel Grid.Column="2">
                 <TextBlock Classes="label" Text="Price" />
                 <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="words" Text="{Binding GoodsCost, Converter={StaticResource WordsConv}}" />
               </StackPanel>
             </Grid>
             <TextBlock Classes="label" Text="In stock (when editing)" />
@@ -143,6 +145,7 @@
               <StackPanel Grid.Column="1" Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="Amount" />
                 <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
+                <TextBlock Classes="words" Text="{Binding ExpenseAmount, Converter={StaticResource WordsConv}}" />
               </StackPanel>
               <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,8,12" />
