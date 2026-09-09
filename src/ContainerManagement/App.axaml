@@ -58,6 +58,32 @@
       <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
       <Setter Property="Margin" Value="0,-6,0,6" />
     </Style>
+    <!--  The maker's mark, typeset. Inter because the wordmark is geometric; LetterSpacing counts
+          device-independent pixels, so the tracking is written per size instead of as an em. The
+          on-dark pair only exists so the same plate can sit on the navy rail, where navy ink would be
+          invisible; two classes on the selector keeps it winning over the plain one on purpose rather
+          than by the order the styles happen to be declared in.  -->
+    <Style Selector="TextBlock.brand">
+      <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="3" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+    </Style>
+    <Style Selector="TextBlock.brandTag">
+      <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="LetterSpacing" Value="4" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.brand.brandOnDark">
+      <Setter Property="Foreground" Value="#F2FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.brandTag.brandTagOnDark">
+      <Setter Property="Foreground" Value="#80FFFFFF" />
+    </Style>
+
     <Style Selector="TextBlock.muted">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
     </Style>

@@ -4,7 +4,19 @@
              x:Class="ContainerManagement.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Settings" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Settings" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,18">
+        <Image Source="{Binding BrandArt}" Height="16" HorizontalAlignment="Right"
+               IsVisible="{Binding HasBrandArt}" />
+        <StackPanel IsVisible="{Binding !HasBrandArt}">
+          <TextBlock Classes="brand" Text="SYNTAXIA" HorizontalAlignment="Right" FontSize="12"
+                     LetterSpacing="2.4" />
+          <TextBlock Classes="brandTag" Text="SOLUTIONS" HorizontalAlignment="Right" Margin="0,2,0,0"
+                     FontSize="8" LetterSpacing="3.2" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Shop on invoices" />

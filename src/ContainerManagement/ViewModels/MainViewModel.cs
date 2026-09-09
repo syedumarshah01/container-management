@@ -9,6 +9,16 @@ namespace ContainerManagement.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IAppShell
 {
+    /// <summary>
+    /// The maker's mark for the shell's own screens - the rail, the PIN gate, the activation card. A
+    /// page gets these from ViewModelBase; the shell is not a page.
+    /// </summary>
+    public Avalonia.Media.Imaging.Bitmap? BrandArt => Data.Brand.Artwork;
+
+    public Avalonia.Media.Imaging.Bitmap? BrandArtOnDark => Data.Brand.ArtworkOnDark;
+
+    public bool HasBrandArt => BrandArt is not null;
+
     private readonly IServiceProvider _services;
     private readonly AccessService _access;
     private readonly LicenseService _license;

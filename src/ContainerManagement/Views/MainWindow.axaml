@@ -26,6 +26,16 @@
             <TextBlock Text="{Binding BrandName}" FontSize="20" FontWeight="SemiBold"
                        Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12" />
           </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Margin="20,12,20,16">
+            <Border Height="1" Background="#1FFFFFFF" Margin="0,0,0,10" />
+            <Image Source="{Binding BrandArtOnDark}" Height="15" HorizontalAlignment="Left"
+                   IsVisible="{Binding HasBrandArt}" />
+            <StackPanel IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand brandOnDark" Text="SYNTAXIA" />
+              <TextBlock Classes="brandTag brandTagOnDark" Text="SOLUTIONS" Margin="0,2,0,0" />
+            </StackPanel>
+          </StackPanel>
           <ListBox ItemsSource="{Binding NavItems}"
                    SelectedItem="{Binding SelectedNav}"
                    Background="Transparent"
@@ -74,6 +84,16 @@
           <TextBlock Classes="label" Text="PIN" />
           <TextBox Text="{Binding PinInput}" PasswordChar="•" />
           <Button Classes="gold" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Left" />
+
+          <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,18,0,10" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="9">
+            <Image Source="{Binding BrandArt}" Height="13" IsVisible="{Binding HasBrandArt}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand" Text="SYNTAXIA" FontSize="11" LetterSpacing="2.2" />
+              <TextBlock Classes="brandTag" Text="SOLUTIONS" FontSize="8" LetterSpacing="2.6"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
         </StackPanel>
       </Border>
     </Border>
@@ -81,6 +101,15 @@
     <Border Background="#991B2A4A" IsVisible="{Binding NeedsActivation}">
       <Border Classes="dialog" Width="500" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
+          <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16">
+            <Image Source="{Binding BrandArt}" Height="26" HorizontalAlignment="Center"
+                   IsVisible="{Binding HasBrandArt}" />
+            <StackPanel IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand" Text="SYNTAXIA" HorizontalAlignment="Center" FontSize="17"
+                         LetterSpacing="3.6" />
+              <TextBlock Classes="brandTag" Text="SOLUTIONS" HorizontalAlignment="Center" Margin="0,3,0,0" />
+            </StackPanel>
+          </StackPanel>
           <TextBlock Classes="h1" Text="Activate ProBooks" />
           <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,16" />
           <TextBlock Classes="label" Text="License key" />

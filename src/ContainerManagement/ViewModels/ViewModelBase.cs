@@ -1,3 +1,4 @@
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ContainerManagement.ViewModels;
@@ -5,6 +6,17 @@ namespace ContainerManagement.ViewModels;
 public abstract class ViewModelBase : ObservableObject
 {
     public bool HasLoaded { get; set; }
+
+    /// <summary>
+    /// The maker's mark, for any page that carries a signature. Two properties on the base rather than a
+    /// converter, because a plate has exactly one question to ask: is there artwork, or do we typeset the
+    /// wordmark. Null picture, no broken-image box.
+    /// </summary>
+    public Bitmap? BrandArt => Data.Brand.Artwork;
+
+    public Bitmap? BrandArtOnDark => Data.Brand.ArtworkOnDark;
+
+    public bool HasBrandArt => BrandArt is not null;
 
     /// <summary>
     /// When false, leaving and coming back keeps typed fields as they were.
