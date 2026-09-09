@@ -48,6 +48,12 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private decimal? editWeight;
     [ObservableProperty] private string editSupplier = "";
     [ObservableProperty] private decimal? editSupplierAmount;
+
+    /// <summary>
+    /// The paid box. It is not a container field but the total of that supplier's payments, so saving
+    /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
+    /// </summary>
+    [ObservableProperty] private decimal? editPaidSoFar;
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
@@ -80,6 +86,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
         EditSupplierAmount = c.SupplierAmount;
+        EditPaidSoFar = await _inventory.PaidSoFarAsync(_id);
         IsClosed = c.Status == ContainerStatus.Closed;
 
         _loadingSelection = true;
@@ -268,7 +275,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.UpdateImportDetailsAsync(
-                _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditCartons, EditCbm, EditWeight);
             _shell.MarkChanged();
             _shell.Notify("Import details saved.");
             await LoadAsync();

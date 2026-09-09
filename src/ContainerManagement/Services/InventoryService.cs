@@ -121,21 +121,113 @@ public class InventoryService
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// The import editor: the supplier, their bill, the freight figures - and what has actually been
+    /// handed over, since that number belongs beside the bill it is taken from.
+    ///
+    /// What has been paid is not a figure written on the container, it is the pile of payments against
+    /// it, so editing it edits the pile. Typing more records one more payment, dated today, marked as
+    /// coming from this form. Typing less takes the newest payments back - which is what "less was
+    /// paid than I recorded" means - and an in-between amount leaves the newest payment trimmed to fit.
+    /// Either way the cash book moves with it, line for line, because money that is recorded as paid
+    /// but not as spent is the kind of difference that takes a week to find. Leaving the box empty
+    /// leaves the payments alone: an empty box is "not now", never "nothing".
+    /// </summary>
     public async Task UpdateImportDetailsAsync(
-        int id, string? supplierName, decimal supplierAmount,
+        int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar,
         decimal? cartons, decimal? cbm, decimal? weight)
     {
+        supplierAmount = Money.Round(supplierAmount);
+        if (paidSoFar is decimal typed && typed < 0)
+            throw new InvalidOperationException("Amount paid cannot be negative.");
+
         await using var db = await _factory.CreateDbContextAsync();
         var c = await db.Containers.FindAsync(id)
             ?? throw new InvalidOperationException("Container not found.");
+
+        var payments = await db.SupplierPayments
+            .Where(p => p.ContainerId == id)
+            .OrderBy(p => p.Date).ThenBy(p => p.Id)
+            .ToListAsync();
+        var paid = payments.Sum(p => p.Amount);
+        var target = paidSoFar is decimal entered ? Money.Round(entered) : paid;
+
+        // Both guards look only at what this save is actually changing. A guard that fires on a field
+        // nobody touched would freeze the form: an unrelated cartons edit would refuse to save on
+        // account of a payment record from last month, and the fix would look like a broken button.
+        if (paidSoFar is decimal && target > supplierAmount)
+            throw new InvalidOperationException(
+                "Paid cannot be more than the bill of " + Money.Pkr(supplierAmount)
+                + ". Record the extra against the next container, not this one.");
+        if (supplierAmount != c.SupplierAmount && paid > supplierAmount)
+            throw new InvalidOperationException(
+                Money.Pkr(paid) + " has already been paid against this container, so the bill cannot "
+                + "be set below that. Correct the payments first.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+
         c.Cartons = cartons;
         c.Cbm = cbm;
         c.WeightKg = weight;
-        c.SupplierAmount = Money.Round(supplierAmount);
+        c.SupplierAmount = supplierAmount;
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
+
+        if (target > paid)
+        {
+            if (c.SupplierId is null)
+                throw new InvalidOperationException("Write the supplier name to record what was paid.");
+            var supplier = await db.Suppliers.FindAsync(c.SupplierId.Value);
+            var extra = new SupplierPayment
+            {
+                SupplierId = c.SupplierId.Value,
+                ContainerId = id,
+                Date = DateTime.Today,
+                Amount = Money.Round(target - paid),
+                Method = "Other",
+                Notes = "Recorded on the container form"
+            };
+            db.SupplierPayments.Add(extra);
+            await db.SaveChangesAsync();
+            if (supplier is not null)
+                CashBookService.PostSupplierPayment(db, extra, supplier.Name, c.Title);
+        }
+        else if (target < paid)
+        {
+            var back = Money.Round(paid - target);
+            for (var i = payments.Count - 1; i >= 0 && back > 0; i--)
+            {
+                var p = payments[i];
+                if (p.Amount <= back)
+                {
+                    back = Money.Round(back - p.Amount);
+                    db.CashBook.RemoveRange(db.CashBook.Where(e => e.SupplierPaymentId == p.Id));
+                    db.SupplierPayments.Remove(p);
+                }
+                else
+                {
+                    p.Amount = Money.Round(p.Amount - back);
+                    back = 0;
+                    var line = await db.CashBook.FirstOrDefaultAsync(e => e.SupplierPaymentId == p.Id);
+                    if (line is not null)
+                        line.AmountOut = p.Amount;
+                }
+            }
+        }
+
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
+
+    /// <summary>What has been handed over for this container so far, from its payments.</summary>
+    public async Task<decimal> PaidSoFarAsync(int containerId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var paid = await db.SupplierPayments.AsNoTracking()
+            .Where(p => p.ContainerId == containerId)
+            .ToListAsync();
+        return paid.Sum(p => p.Amount);
     }
 
     public async Task SetStatusAsync(int id, ContainerStatus status)

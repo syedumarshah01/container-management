@@ -310,6 +310,76 @@ public static class Program
                 string.Join("  |  ", supOut.Select(e => e.Description)));
         }
 
+        Head("the form's paid box moves the payments, and the till moves with them");
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_700_000.005m, null, null, null);
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var newest = (await db.SupplierPayments.ToListAsync()).OrderByDescending(p => p.Id).First();
+            Eq("typing more records one payment for the difference, to the paisa", 200_000.01m, newest.Amount);
+            Check("dated the day the money is said to have left", newest.Date.Date == DateTime.Today,
+                newest.Date.ToString("dd MMM yyyy"));
+            Eq("paid so far is the figure typed, not the figure typed less rounding", 4_700_000.01m,
+                await inventory.PaidSoFarAsync(container.Id));
+            Eq("so what is owed fell by exactly that payment", 5_300_000.00m,
+                await inventory.SupplierBalanceAsync(container.Id));
+        }
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var pays = await db.SupplierPayments.ToListAsync();
+            var outLines = (await db.CashBook.ToListAsync()).Where(e => e.Kind == CashBookKind.SupplierOut).ToList();
+            Eq("and the cash book went out by the same total", pays.Sum(p => p.Amount), outLines.Sum(e => e.AmountOut));
+            Check("the payment it added says where it came from",
+                pays.Any(p => p.Notes == "Recorded on the container form"),
+                string.Join("  |  ", pays.Select(p => p.Notes ?? "(no note)")));
+        }
+
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_150_000m, null, null, null);
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var pays = await db.SupplierPayments.OrderBy(p => p.Date).ThenBy(p => p.Id).ToListAsync();
+            Check("typing less takes the newest payment off entirely, and trims the next", pays.Count == 3,
+                pays.Count + " payments: " + string.Join(", ", pays.Select(p => Money.Pkr(p.Amount))));
+            Eq("leaving exactly the figure typed", 4_150_000m, pays.Sum(p => p.Amount));
+            Eq("the trimmed payment keeps its own cash line at the trimmed amount", 150_000m, pays[2].Amount);
+            Eq("and the bill's side of the story agrees", 5_850_000.01m, await inventory.SupplierBalanceAsync(container.Id));
+            var outLines = (await db.CashBook.ToListAsync()).Where(e => e.Kind == CashBookKind.SupplierOut).ToList();
+            Check("no payment is left without a cash line, and no cash line without a payment",
+                pays.Count == outLines.Count && pays.All(p => outLines.Any(e => e.SupplierPaymentId == p.Id)),
+                pays.Count + " payments, " + outLines.Count + " cash lines");
+        }
+        await Throws<InvalidOperationException>("paid cannot be more than the bill",
+            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 5_000_000m, 5_000_000.01m, null, null, null));
+        await Throws<InvalidOperationException>("the bill cannot be lowered below what has already been paid",
+            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 4_000_000m, null, null, null, null));
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
+            Eq("a refused edit wrote nothing: the bill is still what it was", 10_000_000.01m, c.SupplierAmount);
+            Check("and no half-recorded payment was left behind",
+                (await db.SupplierPayments.ToListAsync()).Count == 3, "payments: " + (await db.SupplierPayments.CountAsync()));
+        }
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 999m, null, null);
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
+            Eq("an empty paid box touches no payment at all", 4_150_000m, await inventory.PaidSoFarAsync(container.Id));
+            Eq("while the cartons and the rest still save", 999m, c.Cartons ?? 0m);
+        }
+
+        // What the We owe page allows - a payment larger than what is left - must not turn this form
+        // into a brick. The pile is honest; the form keeps working on everything else.
+        await inventory.PaySupplierAsync(container.Id, DateTime.Today, 6_000_000m, "TT", "over the bill, on purpose");
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 888m, null, null);
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
+            Eq("a container already over its bill still saves an untouched field", 888m, c.Cartons ?? 0m);
+            Eq("and the overpayment the page recorded is left exactly as it was", 10_150_000m,
+                await inventory.PaidSoFarAsync(container.Id));
+            Eq("which is what the owed figure then says, negative and all", -150_000m,
+                await inventory.SupplierBalanceAsync(container.Id));
+        }
+
         Head("a shop expense keeps what was typed");
         await shop.AddAsync(DateTime.Today, "Rent", 25_000.009m, null);
         await using (var db = await factory.CreateDbContextAsync())

@@ -55,15 +55,20 @@
           <Border Classes="card" IsVisible="{Binding ShowImportEditor}">
             <StackPanel>
               <TextBlock Classes="h2" Text="Import details" />
-              <Grid ColumnDefinitions="*,*">
+              <Grid ColumnDefinitions="*,*,*">
                 <StackPanel Margin="0,0,8,0">
                   <TextBlock Classes="label" Text="Supplier in China" />
                   <TextBox Text="{Binding EditSupplier}" />
                 </StackPanel>
-                <StackPanel Grid.Column="1">
-                  <TextBlock Classes="label" Text="We owe them (Rs)" />
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Classes="label" Text="Their total bill (Rs)" />
                   <NumericUpDown Value="{Binding EditSupplierAmount}" Minimum="0" />
                   <TextBlock Classes="words" Text="{Binding EditSupplierAmount, Converter={StaticResource WordsConv}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Paid to them so far (Rs)" />
+                  <NumericUpDown Value="{Binding EditPaidSoFar}" Minimum="0" />
+                  <TextBlock Classes="words" Text="{Binding EditPaidSoFar, Converter={StaticResource WordsConv}}" />
                 </StackPanel>
               </Grid>
               <Grid ColumnDefinitions="*,*,*">

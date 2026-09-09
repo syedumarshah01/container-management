@@ -27,6 +27,7 @@ shift a figure on screen.
 | the supplier | the bill less every payment, and one cash-book line per payment, never two |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill |
+| the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
 | storage size | how large an amount survives in a text column versus a float one |
 
@@ -90,6 +91,11 @@ differently and no old bill was rewritten - this is worked out when a report run
 corrects itself without a migration. Cost is deliberately *not* scaled: a discount is a price
 decision, not a cheaper purchase.
 
+**Fixed - the import form could set the bill below what had been paid.** "We owe" is not a field, it is
+the bill minus the payments, and the form used to write the bill without looking at the pile. Lower the
+bill past what you had already handed over and the container simply started owing a negative amount. It
+refuses now, and names the figure it is refusing.
+
 **Chosen, not a defect - container expenses stay out of profit.** After the audit, the decision was
 that "profit" on Home and on the Containers list means sold minus the cost of those goods, with
 freight, customs and clearing shown beside it rather than through it. If that ever reads wrong at
@@ -115,3 +121,8 @@ rather than assuming it. Say the word and I will move those columns to text for 
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
    match what you last saw.
+7. On a container's **Edit import details**: raise "Paid to them so far" by 1,000 and save. We Owe should
+   show one more payment, dated today, marked "Recorded on the container form", the owed figure 1,000
+   lower, and one more line in the cash book. Type the old figure back: that payment and that cash line
+   should disappear, and the trimmed neighbour should read exactly what it did before. Then try to set
+   "Their total bill" below what has been paid - it should refuse, naming the paid figure.
