@@ -54,6 +54,25 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
     /// </summary>
     [ObservableProperty] private decimal? editPaidSoFar;
+    /// <summary>
+    /// The figure the two boxes above are being edited to reach. This page shows no owed amount of its
+    /// own, and "paid" moves a pile of payments rather than a field, so the form says out loud what a
+    /// save would leave owing - including the advance case, where the pile is bigger than the bill.
+    /// </summary>
+    public string EditOwedText
+    {
+        get
+        {
+            var owed = (EditSupplierAmount ?? 0m) - (EditPaidSoFar ?? 0m);
+            if (owed == 0) return "Settled";
+            return owed > 0 ? "Still owe " + Money.PkrCompact(owed) : "Advanced " + Money.PkrCompact(-owed);
+        }
+    }
+
+    partial void OnEditSupplierAmountChanged(decimal? value) => OnPropertyChanged(nameof(EditOwedText));
+
+    partial void OnEditPaidSoFarChanged(decimal? value) => OnPropertyChanged(nameof(EditOwedText));
+
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
