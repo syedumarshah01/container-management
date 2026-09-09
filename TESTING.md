@@ -52,6 +52,13 @@ at every input, a line's amount is rounded where it is defined, and the bill tot
 printed lines. Reports read the same line amounts, so the shelf, the bill, the ledger and the
 reports cannot drift apart.
 
+**Fixed - the order sheet rounded later than the rest.** The sheet's one expense figure and its
+yen rate were taken as typed while you worked, and rounded only on the way to the database. A sheet
+showing Rs 127,683.495 all-in came back as Rs 127,683.50 after saving, and profit moved with it; a
+rate typed as 1.0701234567 priced a row at Rs 171,353.52 while the saved sheet priced it at
+171,353.51. Both are normalised where they are defined now, so the tape, the saved sheet, the printed
+sheet and the reports are one number.
+
 **Fixed - refusals lied about the quantity.** "Only 0.38 in stock" when 0.375 kg was left (the
 quantity formatter showed two decimals) invited you to type 0.38 and be refused again. Stock
 messages show three now.
