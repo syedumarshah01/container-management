@@ -35,10 +35,14 @@ public class InventoryService
         string title, string? number, string origin, DateTime? arrival, string? notes,
         string? currency = null, decimal? rate = null, string? bl = null,
         decimal? cartons = null, decimal? cbm = null, decimal? weight = null,
-        string? supplierName = null, decimal supplierAmount = 0)
+        string? supplierName = null, decimal supplierAmount = 0, decimal paidNow = 0)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new InvalidOperationException("Container title is required.");
+        if (paidNow < 0)
+            throw new InvalidOperationException("Amount paid cannot be negative.");
+        if (paidNow > 0 && string.IsNullOrWhiteSpace(supplierName))
+            throw new InvalidOperationException("Write the supplier name to record what was paid.");
 
         await using var db = await _factory.CreateDbContextAsync();
         var c = new CargoContainer
@@ -60,6 +64,28 @@ public class InventoryService
             c.SupplierId = await FindOrCreateSupplierId(db, supplierName, null);
         db.Containers.Add(c);
         await db.SaveChangesAsync();
+
+        // Money already handed over when the container was set up is a payment like any other: it
+        // is recorded here so We owe starts at what is genuinely left, and cash drops by the same
+        // amount on the day.
+        if (paidNow > 0)
+        {
+            var pay = new SupplierPayment
+            {
+                SupplierId = c.SupplierId!.Value,
+                ContainerId = c.Id,
+                Date = DateTime.Today,
+                Amount = paidNow,
+                Method = "TT",
+                Notes = "Paid at creation"
+            };
+            db.SupplierPayments.Add(pay);
+            await db.SaveChangesAsync();
+            var supplier = await db.Suppliers.FindAsync(c.SupplierId!.Value);
+            if (supplier is not null)
+                CashBookService.PostSupplierPayment(db, pay, supplier.Name, c.Title);
+            await db.SaveChangesAsync();
+        }
         return c;
     }
 

@@ -29,7 +29,12 @@ public partial class WeOweViewModel : ViewModelBase
     [ObservableProperty] private PayContainerOption? payContainer;
     [ObservableProperty] private DateTimeOffset? payDate = DateTimeOffset.Now;
     [ObservableProperty] private decimal? payAmount;
+    [ObservableProperty] private string payNotes = "";
     [ObservableProperty] private string weOweThem = "—";
+    [ObservableProperty] private bool showPayments;
+
+    public ObservableCollection<SupplierPaymentRow> Payments { get; } = new();
+    private List<SupplierPaymentRow> _paid = new();
 
     public override async Task LoadAsync()
     {
@@ -56,6 +61,7 @@ public partial class WeOweViewModel : ViewModelBase
             });
         }
 
+        _paid = await _cash.SupplierPaymentsAsync();
         TotalOwed = Money.Pkr(targets.Where(t => t.Owed > 0).Sum(t => t.Owed));
         PayContainer = Containers.FirstOrDefault(c => c.Id == keepPay) ?? Containers.FirstOrDefault();
         Selected = Rows.FirstOrDefault(r => r.ContainerId == PayContainer?.Id);
@@ -78,8 +84,15 @@ public partial class WeOweViewModel : ViewModelBase
         if (PayContainer is null)
         {
             WeOweThem = "—";
+            Payments.Clear();
+            ShowPayments = false;
             return;
         }
+        Payments.Clear();
+        foreach (var p in _paid.Where(p => p.ContainerId == PayContainer.Id))
+            Payments.Add(p);
+        ShowPayments = Payments.Count > 0;
+
         var owed = PayContainer.Owed;
         if (owed > 0.009m)
             WeOweThem = Money.Pkr(owed);
@@ -104,9 +117,10 @@ public partial class WeOweViewModel : ViewModelBase
                 PayDate?.DateTime ?? DateTime.Today,
                 PayAmount ?? 0,
                 "Bank Transfer",
-                null);
+                PayNotes);
             _shell.Notify("Supplier payment taken off cash.");
             PayAmount = null;
+            PayNotes = "";
             await LoadAsync();
         }
         catch (Exception ex)

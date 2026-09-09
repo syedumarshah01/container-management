@@ -29,6 +29,7 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private string newNotes = "";
     [ObservableProperty] private string newSupplier = "";
     [ObservableProperty] private decimal? newSupplierAmount;
+    [ObservableProperty] private decimal? newPaid;
     [ObservableProperty] private decimal? newCartons;
     [ObservableProperty] private decimal? newCbm;
     [ObservableProperty] private decimal? newWeight;
@@ -73,13 +74,22 @@ public partial class ContainersViewModel : ViewModelBase
                 NewCbm,
                 NewWeight,
                 NewSupplier,
-                NewSupplierAmount ?? 0);
-            _shell.Notify($"Container '{c.Title}' created. Add items on the next screen.");
+                NewSupplierAmount ?? 0,
+                NewPaid ?? 0);
+            var paid = NewPaid ?? 0;
+            var still = (NewSupplierAmount ?? 0) - paid;
+            var what = $"Container '{c.Title}' created.";
+            if (paid <= 0) what += " Add items on the next screen.";
+            else if (still > 0.009m) what += $" {Money.Pkr(paid)} paid, {Money.Pkr(still)} still owed.";
+            else if (still < -0.009m) what += $" {Money.Pkr(paid)} paid, {Money.Pkr(-still)} extra.";
+            else what += $" {Money.Pkr(paid)} paid, supplier settled.";
+            _shell.Notify(what);
             NewTitle = "";
             NewNumber = "";
             NewNotes = "";
             NewSupplier = "";
             NewSupplierAmount = 0;
+            NewPaid = null;
             NewCartons = null;
             NewCbm = null;
             NewWeight = null;

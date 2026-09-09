@@ -47,7 +47,23 @@
             <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
           </StackPanel>
         </Grid>
+        <TextBlock Classes="label" Text="Note (optional)" />
+        <TextBox Text="{Binding PayNotes}" Watermark="e.g. TT via HBL, ref 4482" />
         <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowPayments}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Paid to this supplier" />
+        <DataGrid ItemsSource="{Binding Payments}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="150" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="170" />
+            <DataGridTextColumn Header="Note" Binding="{Binding NoteText}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
       </StackPanel>
     </Border>
   </StackPanel>

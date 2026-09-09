@@ -10,6 +10,24 @@ public class CashBookService
 
     public CashBookService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
+    /// <summary>What has been paid, newest first, so a payment can be checked against its note.</summary>
+    public async Task<List<SupplierPaymentRow>> SupplierPaymentsAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var pays = await db.SupplierPayments.AsNoTracking().ToListAsync();
+        return pays
+            .OrderByDescending(x => x.Date.Date).ThenByDescending(x => x.Id)
+            .Select(x => new SupplierPaymentRow
+            {
+                ContainerId = x.ContainerId ?? 0,
+                Date = x.Date,
+                Method = x.Method,
+                Amount = x.Amount,
+                Notes = x.Notes
+            })
+            .ToList();
+    }
+
     public async Task<List<CashBookEntry>> ListAsync()
     {
         await using var db = await _factory.CreateDbContextAsync();
@@ -104,11 +122,12 @@ public class CashBookService
     public static void PostSupplierPayment(AppDbContext db, SupplierPayment pay, string supplierName, string? containerTitle)
     {
         var where = string.IsNullOrWhiteSpace(containerTitle) ? "" : " · " + containerTitle;
+        var note = string.IsNullOrWhiteSpace(pay.Notes) ? "" : " — " + pay.Notes.Trim();
         db.CashBook.Add(new CashBookEntry
         {
             Date = pay.Date,
             Kind = CashBookKind.SupplierOut,
-            Description = "Paid " + supplierName + where,
+            Description = "Paid " + supplierName + where + note,
             AmountIn = 0,
             AmountOut = pay.Amount,
             SupplierPaymentId = pay.Id
@@ -211,6 +230,19 @@ public class CashBookService
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
     }
+}
+
+public class SupplierPaymentRow
+{
+    public int ContainerId { get; set; }
+    public DateTime Date { get; set; }
+    public string Method { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string? Notes { get; set; }
+
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string AmountText => Money.Pkr(Amount);
+    public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
 }
 
 public class SupplierPayTarget
