@@ -121,7 +121,10 @@ rather than assuming it. Say the word and I will move those columns to text for 
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
    match what you last saw.
-7. On a container's **Edit import details**: raise "Paid to them so far" by 1,000 and save. We Owe should
+7. On a container's **Edit import details**: the three boxes should sit side by side - supplier widest,
+   then bill, then paid - with nothing stacked on anything else, because a grid cell that was never
+   named puts two inputs on top of each other and the app compiles and passes every money check anyway.
+   Raise "Paid to them so far" by 1,000 and save. We Owe should
    show one more payment, dated today, marked "Recorded on the container form", the owed figure 1,000
    lower, and one more line in the cash book. Type the old figure back: that payment and that cash line
    should disappear, and the trimmed neighbour should read exactly what it did before. Then try to set
