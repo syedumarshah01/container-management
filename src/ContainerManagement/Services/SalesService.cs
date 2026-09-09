@@ -158,7 +158,7 @@ public class SalesService
         await tx.CommitAsync();
     }
 
-    public async Task ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
+    public async Task<decimal> ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs, bool refundInCash = false)
     {
         var wanted = inputs.Where(x => x.Quantity > 0).ToList();
         if (wanted.Count == 0)
@@ -247,8 +247,48 @@ public class SalesService
             Description = $"Return · sale #{sale.Id} · {string.Join(", ", names)}",
             SaleId = sale.Id
         });
+
+        // The credit above takes the return off what they still owe. Where there is nothing left to take
+        // it off - the bill was paid, or this return is bigger than what remains - the difference is
+        // money the shop hands back, and money that leaves the till has to be in the till's book: an
+        // outflow on the main ledger, and a matching debit on their ledger so the two still agree. A
+        // cancelled sale already does exactly this; a return does it a piece at a time.
+        //
+        // It is never more than was received for this bill, because the relief is taken first.
+        var back = 0m;
+        if (refundInCash)
+        {
+            var paid = (await db.Payments.Where(x => x.SaleId == sale.Id).ToListAsync()).Sum(x => x.Amount);
+            var outstanding = sale.TotalAmount - paid;
+            var relief = outstanding > 0 ? Math.Min(ret.Amount, outstanding) : 0m;
+            back = Money.Round(ret.Amount - relief);
+            if (back > 0)
+            {
+                db.LedgerEntries.Add(new LedgerEntry
+                {
+                    CustomerId = sale.CustomerId,
+                    Date = DateTime.Now,
+                    Type = LedgerType.Adjustment,
+                    Debit = back,
+                    Credit = 0,
+                    Description = $"Cash returned — return on sale #{sale.Id}",
+                    SaleId = sale.Id
+                });
+                db.CashBook.Add(new CashBookEntry
+                {
+                    Date = DateTime.Today,
+                    Kind = CashBookKind.RefundOut,
+                    Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.Id}",
+                    AmountIn = 0,
+                    AmountOut = back,
+                    SaleId = sale.Id
+                });
+            }
+        }
+
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        return back;
     }
 
     private async Task<Sale> SaveSaleAsync(

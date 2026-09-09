@@ -62,7 +62,7 @@
       <StackPanel>
           <TextBlock Classes="h2" Text="Return items" />
           <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                     Text="Stock goes back into the same container. The amount comes off this customer’s ledger." />
+                     Text="Stock goes back into the same container. The amount comes off this customer’s ledger, and off the till if you hand the cash back." />
         <ItemsControl ItemsSource="{Binding Lines}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SaleLineRow">
@@ -83,8 +83,11 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <Button Classes="gold" Content="Return these items" Command="{Binding ReturnItemsCommand}"
-                HorizontalAlignment="Left" />
+        <StackPanel Orientation="Horizontal" Spacing="18">
+          <CheckBox Content="Hand the money back in cash" IsChecked="{Binding RefundInCash, Mode=TwoWay}"
+                    VerticalAlignment="Center" />
+          <Button Classes="gold" Content="Return these items" Command="{Binding ReturnItemsCommand}" />
+        </StackPanel>
       </StackPanel>
     </Border>
   </StackPanel>

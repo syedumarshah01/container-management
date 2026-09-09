@@ -39,6 +39,14 @@ public partial class SaleDetailViewModel : ViewModelBase
     [ObservableProperty] private bool canReturn;
     [ObservableProperty] private bool isCancelled;
 
+    /// <summary>
+    /// Whether this return is being paid back in cash. It comes on by default when the bill has nothing
+    /// left on the ledger - a returned item on a settled bill is money going out of the till, not a debt
+    /// being reduced - and off while they still owe, where the return is absorbed as relief. Untick it to
+    /// hold the money as their credit instead; the amount is never posted as cash in that case.
+    /// </summary>
+    [ObservableProperty] private bool refundInCash;
+
     public ObservableCollection<SaleLineRow> Lines { get; } = new();
 
     public override async Task LoadAsync()
@@ -86,6 +94,7 @@ public partial class SaleDetailViewModel : ViewModelBase
             });
         }
         CanReturn = !IsCancelled && Lines.Any(l => l.CanReturnLine);
+        RefundInCash = !IsCancelled && await _sales.RemainingOnInvoiceAsync(_id) <= 0.009m;
     }
 
     [RelayCommand]
@@ -118,8 +127,10 @@ public partial class SaleDetailViewModel : ViewModelBase
                 .Where(l => (l.ReturnQty ?? 0) > 0)
                 .Select(l => new SaleReturnInput { SaleLineId = l.SaleLineId, Quantity = l.ReturnQty ?? 0 })
                 .ToList();
-            await _sales.ReturnItemsAsync(_id, inputs);
-            _shell.Notify("Returned to the same container. Amount taken off their ledger.");
+            var back = await _sales.ReturnItemsAsync(_id, inputs, RefundInCash);
+            _shell.Notify(back > 0
+                ? "Returned to the same container. " + Money.Pkr(back) + " came off their ledger and went back out of the till."
+                : "Returned to the same container. Amount taken off their ledger.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }

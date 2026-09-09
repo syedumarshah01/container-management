@@ -22,7 +22,7 @@ shift a figure on screen.
 | paying | paying the printed bill settles it; one paisa more is refused |
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
-| returns | a full return credits the bill paisa for paisa; over-returning is refused |
+| returns | a full return credits the bill paisa for paisa; over-returning is refused; a return on a bill that was paid hands the cash back through the till once, and holds it as credit when told to |
 | the customer | bills − payments − returns equals the ledger's own entries |
 | the supplier | the bill less every payment, and one cash-book line per payment, never two |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
@@ -115,6 +115,10 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and the customer's balance should all move by the same figure the return credited.
 3. Set an item's cost from 0 to the real figure, press Back, and check the Containers list profit has
    moved without clicking the nav item again.
+3b. Take a bill the customer paid on the spot, return one piece with "Hand the money back in cash"
+   ticked, and check: the Main ledger gained one outflow of exactly the credited amount, their page
+   reads Settled rather than an advance, and cash in hand fell by that figure. Untick it on the next
+   return and the money should sit as credit with the till untouched.
 4. Create a container with a part payment, then pay the rest on We owe with a note: the note should be
    on the Main ledger line, and "Paid to this supplier" should show both payments.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the

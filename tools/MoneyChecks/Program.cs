@@ -296,6 +296,48 @@ public static class Program
             Eq("and the ledger's own entries agree to the paisa", ledgerLines.Sum(e => e.Debit - e.Credit), balance);
         }
 
+        Head("a return on a bill that was paid hands the cash back, once, and the till says so");
+        var balBefore = await ledger.GetBalanceAsync(customer.Id);
+        var refundsBefore = await RefundedTotalAsync(factory);
+        var paidLine = payBill.Lines.Single(l => l.ProductId == bulbs.ProductId);
+        var back1 = await sales.ReturnItemsAsync(payBill.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.125m } }, true);
+        Eq("0.125 kg of a settled bill is credited at the price it sold for", 181.31m, back1);
+        Eq("the till paid out exactly that, and nothing else moved", 181.31m, await RefundedTotalAsync(factory) - refundsBefore);
+        Eq("their balance does not change, because the money is genuinely back in their hand", balBefore,
+            await ledger.GetBalanceAsync(customer.Id));
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var lines = await db.CashBook.Where(e => e.Kind == CashBookKind.RefundOut).ToListAsync();
+            Check("one refund line, not one per entry of the return", lines.Count == 1, lines.Count + " refund lines");
+            Check("it names the customer and the bill it came from",
+                lines[0].Description.Contains(customer.Name) && lines[0].Description.Contains("#" + payBill.Id),
+                lines[0].Description);
+            var adj = await db.LedgerEntries
+                .Where(e => e.Type == LedgerType.Adjustment && e.SaleId == payBill.Id).ToListAsync();
+            Eq("and their ledger carries the matching debit, so the two books still agree", 181.31m,
+                adj.Sum(e => e.Debit - e.Credit));
+        }
+
+        // The rest of the same bill, with the box unticked: the money is held, not handed over.
+        var back2 = await sales.ReturnItemsAsync(payBill.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.250m } }, false);
+        Eq("unticked, the return is credited and nothing is paid out", 0m, back2);
+        Eq("and the till is left at the one refund it already made", 181.31m, await RefundedTotalAsync(factory));
+        Eq("the customer now holds the rest as credit", balBefore - 362.63m, await ledger.GetBalanceAsync(customer.Id));
+
+        // And a bill that is still outstanding: the return is relief from a debt, never a cash movement.
+        var third = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
+        }, 1_000m, "Cash", null, 0m, null);
+        var thirdLine = third.Lines.Single(l => l.ProductId == chargers.ProductId);
+        var back3 = await sales.ReturnItemsAsync(third.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = thirdLine.Id, Quantity = 1m } }, true);
+        Eq("a ticked refund pays nothing out when the bill is still owed", 0m, back3);
+        Eq("the return comes off what they owe instead", 999.99m, await sales.RemainingOnInvoiceAsync(third.Id));
+        Eq("and the till still holds only the one refund of the settled bill", 181.31m, await RefundedTotalAsync(factory));
+
         Head("paying the supplier: two payments, two ledger lines, no double counting");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 1_000_000.004m, "LC", "part payment, HBL ref 99");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 500_000m, "Cash", null);
@@ -442,6 +484,16 @@ public static class Program
             () => inventory.AddGoodsAsync(container.Id, "Bad", "pcs", null, 5m, -1m, null, null, null, null, null));
 
         await EverythingIsExactMoney(factory);
+    }
+
+    /// <summary>Everything the till has handed back, across the whole database.</summary>
+    private static async Task<decimal> RefundedTotalAsync(IDbContextFactory<AppDbContext> factory)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var lines = await db.CashBook.AsNoTracking()
+            .Where(e => e.Kind == CashBookKind.RefundOut)
+            .ToListAsync();
+        return lines.Sum(e => e.AmountOut);
     }
 
     private static async Task<decimal> PersistedBill(IDbContextFactory<AppDbContext> factory, int saleId)
