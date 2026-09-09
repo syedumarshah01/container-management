@@ -530,10 +530,12 @@ public class BuyPlanTotal
         return new BuyPlanTotal
         {
             ItemCount = list.Count,
-            CostYen = list.Sum(l => l.CostYen),
-            CostPkr = list.Sum(l => l.CostPkr),
-            ExpensePkr = expensePkr,
-            SalePkr = list.Sum(l => l.SalePkr),
+            // Money at the definition, not at the label: each row is already a rounded paisa figure,
+            // and so is the expense, so the tape, the saved sheet and the printed one are one number.
+            CostYen = Money.Round(list.Sum(l => l.CostYen)),
+            CostPkr = Money.Round(list.Sum(l => l.CostPkr)),
+            ExpensePkr = Money.Round(expensePkr),
+            SalePkr = Money.Round(list.Sum(l => l.SalePkr)),
             TotalWeightKg = list.Sum(l => l.TotalWeightKg),
             YenRate = yenRate > 0 ? yenRate : 1
         };
@@ -566,7 +568,10 @@ public class BuyPlanRow
 
     public void RefreshTotals()
     {
-        var rate = YenRate > 0 ? YenRate : 1;
+        // The rate is cut to the six decimals the save keeps, HERE, so a row's cost is computed with
+        // the same number the database will hold. A nine-decimal rate typed at the keyboard otherwise
+        // priced the sheet one way and re-opened it another.
+        var rate = Money.Round(YenRate > 0 ? YenRate : 1, 6);
         foreach (var l in Lines)
             l.YenRate = rate;
         Total = BuyPlanTotal.Build(Lines, rate, ExpensePkr);
