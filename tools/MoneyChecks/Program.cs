@@ -159,7 +159,9 @@ public static class Program
         Head("a container: the bill, what was handed over, what is left");
         var container = await inventory.CreateContainerAsync(
             "AUDIT container", "CNT-0001", "China", DateTime.Today, null,
-            "PKR", 1, null, null, null, null,
+            // cartons and CBM are given here and never shown in the import editor again - the checks
+            // below watch them to be sure that form does not erase what it does not display.
+            "PKR", 1, null, 1_200m, 8.5m, null,
             "Yiwu Trading", 10_000_000.005m, 3_000_000.004m, "TT");
         Eq("the supplier bill is kept to the paisa", 10_000_000.01m, container.SupplierAmount);
         Eq("paid 3,000,000.004 was taken as 3,000,000.00, so 7,000,000.01 is owed",
@@ -311,7 +313,7 @@ public static class Program
         }
 
         Head("the form's paid box moves the payments, and the till moves with them");
-        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_700_000.005m, null, null, null);
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_700_000.005m, null);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var newest = (await db.SupplierPayments.ToListAsync()).OrderByDescending(p => p.Id).First();
@@ -333,7 +335,7 @@ public static class Program
                 string.Join("  |  ", pays.Select(p => p.Notes ?? "(no note)")));
         }
 
-        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_150_000m, null, null, null);
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, 4_150_000m, null);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var pays = await db.SupplierPayments.OrderBy(p => p.Date).ThenBy(p => p.Id).ToListAsync();
@@ -348,9 +350,9 @@ public static class Program
                 pays.Count + " payments, " + outLines.Count + " cash lines");
         }
         await Throws<InvalidOperationException>("paid cannot be more than the bill",
-            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 5_000_000m, 5_000_000.01m, null, null, null));
+            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 5_000_000m, 5_000_000.01m, null));
         await Throws<InvalidOperationException>("the bill cannot be lowered below what has already been paid",
-            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 4_000_000m, null, null, null, null));
+            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 4_000_000m, null, null));
         await using (var db = await factory.CreateDbContextAsync())
         {
             var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
@@ -358,22 +360,25 @@ public static class Program
             Check("and no half-recorded payment was left behind",
                 (await db.SupplierPayments.ToListAsync()).Count == 3, "payments: " + (await db.SupplierPayments.CountAsync()));
         }
-        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 999m, null, null);
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 999m);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
             Eq("an empty paid box touches no payment at all", 4_150_000m, await inventory.PaidSoFarAsync(container.Id));
-            Eq("while the cartons and the rest still save", 999m, c.Cartons ?? 0m);
+            Check("and the fields this form no longer shows keep the figures creation gave them",
+                c.Cartons == 1_200m && c.Cbm == 8.5m,
+                "cartons " + c.Cartons + ", cbm " + c.Cbm);
+            Eq("while the weight still saves", 999m, c.WeightKg ?? 0m);
         }
 
         // What the We owe page allows - a payment larger than what is left - must not turn this form
         // into a brick. The pile is honest; the form keeps working on everything else.
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 6_000_000m, "TT", "over the bill, on purpose");
-        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 888m, null, null);
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 888m);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
-            Eq("a container already over its bill still saves an untouched field", 888m, c.Cartons ?? 0m);
+            Eq("a container already over its bill still saves an untouched field", 888m, c.WeightKg ?? 0m);
             Eq("and the overpayment the page recorded is left exactly as it was", 10_150_000m,
                 await inventory.PaidSoFarAsync(container.Id));
             Eq("which is what the owed figure then says, negative and all", -150_000m,

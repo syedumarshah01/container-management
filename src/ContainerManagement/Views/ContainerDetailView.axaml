@@ -58,18 +58,18 @@
 
               <Grid ColumnDefinitions="110,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
                 <TextBlock Classes="label" Text="Supplier" VerticalAlignment="Center" Margin="0" />
-                <TextBox Grid.Column="1" Width="300" Margin="0,6" Text="{Binding EditSupplier}"
+                <TextBox Grid.Column="1" Width="460" Margin="0,6" Text="{Binding EditSupplier}"
                          Watermark="as on the invoice" />
 
                 <TextBlock Grid.Row="1" Classes="label" Text="To supplier (Rs)" VerticalAlignment="Center" Margin="0" />
-                <NumericUpDown Grid.Row="1" Grid.Column="1" Width="190" Margin="0,6" Minimum="0"
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Width="260" Margin="0,6" Minimum="0"
                                ShowButtonSpinner="False" AllowSpin="False"
                                Value="{Binding EditSupplierAmount}" />
                 <TextBlock Grid.Row="1" Grid.Column="2" Classes="words" VerticalAlignment="Center" Margin="16,0,0,0"
                            Text="{Binding EditSupplierAmount, Converter={StaticResource WordsConv}}" />
 
                 <TextBlock Grid.Row="2" Classes="label" Text="Paid (Rs)" VerticalAlignment="Center" Margin="0" />
-                <NumericUpDown Grid.Row="2" Grid.Column="1" Width="190" Margin="0,6" Minimum="0"
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Width="260" Margin="0,6" Minimum="0"
                                ShowButtonSpinner="False" AllowSpin="False"
                                Value="{Binding EditPaidSoFar}" />
                 <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="16"
@@ -78,21 +78,9 @@
                   <TextBlock Classes="muted" Text="{Binding EditOwedText}" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="3" Classes="label" Text="Loading" VerticalAlignment="Center" Margin="0" />
-                <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="22">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <NumericUpDown Width="74" Margin="0,6" Minimum="0" Value="{Binding EditCartons}" />
-                    <TextBlock Classes="muted" Text="cartons" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <NumericUpDown Width="74" Margin="0,6" Minimum="0" Value="{Binding EditCbm}" />
-                    <TextBlock Classes="muted" Text="cbm" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <NumericUpDown Width="88" Margin="0,6" Minimum="0" Value="{Binding EditWeight}" />
-                    <TextBlock Classes="muted" Text="kg" VerticalAlignment="Center" />
-                  </StackPanel>
-                </StackPanel>
+                <TextBlock Grid.Row="3" Classes="label" Text="Weight (kg)" VerticalAlignment="Center" Margin="0" />
+                <NumericUpDown Grid.Row="3" Grid.Column="1" Width="140" Margin="0,6" Minimum="0"
+                               Value="{Binding EditWeight}" />
               </Grid>
 
               <Button Classes="primary" Content="Save" Command="{Binding SaveDetailsCommand}"

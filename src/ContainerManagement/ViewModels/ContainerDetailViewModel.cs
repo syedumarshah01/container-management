@@ -43,8 +43,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string expenseNotes = "";
     [ObservableProperty] private ContainerExpense? selectedExpense;
 
-    [ObservableProperty] private decimal? editCartons;
-    [ObservableProperty] private decimal? editCbm;
     [ObservableProperty] private decimal? editWeight;
     [ObservableProperty] private string editSupplier = "";
     [ObservableProperty] private decimal? editSupplierAmount;
@@ -100,8 +98,6 @@ public partial class ContainerDetailViewModel : ViewModelBase
 
         Title = c.Title;
         Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival {c.ArrivalDate:dd MMM yyyy}";
-        EditCartons = c.Cartons;
-        EditCbm = c.Cbm;
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
         EditSupplierAmount = c.SupplierAmount;
@@ -294,7 +290,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.UpdateImportDetailsAsync(
-                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditCartons, EditCbm, EditWeight);
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditWeight);
             _shell.MarkChanged();
             _shell.Notify("Import details saved.");
             await LoadAsync();

@@ -125,7 +125,9 @@ rather than assuming it. Say the word and I will move those columns to text for 
    "still owe" figure after the box, nothing overlapping - a grid cell that was never named puts two
    inputs on top of each other, and the app compiles and passes every money check regardless. The two
    rupee boxes should not have spinner buttons, and the mouse wheel over them should do nothing; the
-   three small loading boxes should still step. Raise "Paid (Rs)" by 1,000 and save. We Owe should
+   weight box should still step. Cartons and CBM are not in this form any more - they keep whatever the
+   container was created with, and a check makes sure saving here does not erase them. Raise
+   "Paid (Rs)" by 1,000 and save. We Owe should
    show one more payment, dated today, marked "Recorded on the container form", the owed figure 1,000
    lower, and one more line in the cash book. Type the old figure back: that payment and that cash line
    should disappear, and the trimmed neighbour should read exactly what it did before. Then try to set

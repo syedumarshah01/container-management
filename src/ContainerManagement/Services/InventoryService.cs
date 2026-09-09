@@ -134,8 +134,7 @@ public class InventoryService
     /// leaves the payments alone: an empty box is "not now", never "nothing".
     /// </summary>
     public async Task UpdateImportDetailsAsync(
-        int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar,
-        decimal? cartons, decimal? cbm, decimal? weight)
+        int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar, decimal? weight)
     {
         supplierAmount = Money.Round(supplierAmount);
         if (paidSoFar is decimal typed && typed < 0)
@@ -153,7 +152,7 @@ public class InventoryService
         var target = paidSoFar is decimal entered ? Money.Round(entered) : paid;
 
         // Both guards look only at what this save is actually changing. A guard that fires on a field
-        // nobody touched would freeze the form: an unrelated cartons edit would refuse to save on
+        // nobody touched would freeze the form: an unrelated weight edit would refuse to save on
         // account of a payment record from last month, and the fix would look like a broken button.
         if (paidSoFar is decimal && target > supplierAmount)
             throw new InvalidOperationException(
@@ -166,8 +165,8 @@ public class InventoryService
 
         await using var tx = await db.Database.BeginTransactionAsync();
 
-        c.Cartons = cartons;
-        c.Cbm = cbm;
+        // Only what the form shows. Cartons and CBM stay as they were set at creation, because a save
+        // that writes nulls nobody can see or cancel is how figures quietly disappear from a book.
         c.WeightKg = weight;
         c.SupplierAmount = supplierAmount;
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
