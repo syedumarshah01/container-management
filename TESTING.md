@@ -26,8 +26,9 @@ shift a figure on screen.
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
 | the supplier | the bill less every payment, and one cash-book line per payment, never two |
+| paying with no bill | money is not taken against a container whose bill was never written, and a shortfall is called an advance only when a bill exists to be exceeded |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
-| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date |
+| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying a bill-less container |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
@@ -127,7 +128,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    on the Main ledger line, and "Paid to this supplier" should show both payments. The arrival date
    should be blank when the form opens - not today - and Create should refuse until you pick one. Pick a
    date in the past and the list should show exactly that day; a wrong one can be corrected under
-   "Edit import details".
+   "Edit import details". Try the paid box with no bill in the box above it: it should refuse and tell you
+   to write the bill, not file the payment.
+4b. On a container with goods entered but no bill, We Owe should read "no bill recorded - Rs X paid", not
+   "paid extra". Open its Edit import details: the bill should be pre-filled with the cost of the goods,
+   with one line saying that is what happened; save, and We Owe should read settled. Paying 100,000 more
+   than the bill now reads "Paid extra Rs 1,00,000" - an advance, said as one.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

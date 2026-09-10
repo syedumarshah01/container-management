@@ -500,7 +500,7 @@ public static class Program
         await Throws<InvalidOperationException>("a container needs a title",
             () => inventory.CreateContainerAsync("   ", null, "China", null, null, null, null, null, null, null, null, null, 0m, 0m, null));
         await Throws<InvalidOperationException>("a payment with no supplier name is refused, not half-saved",
-            () => inventory.CreateContainerAsync("No supplier", null, "China", null, null, null, null, null, null, null, null, null, 100m, 50m, null));
+            () => inventory.CreateContainerAsync("No supplier", null, "China", DateTime.Today, null, null, null, null, null, null, null, null, 100m, 50m, null));
         await Throws<InvalidOperationException>("a payment of Rs 0.004 is refused rather than recorded as zero",
             () => inventory.PaySupplierAsync(container.Id, DateTime.Today, 0.004m, "Cash", null));
         await Throws<InvalidOperationException>("a zero container expense is refused",
@@ -589,6 +589,37 @@ public static class Program
             var again = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == landed.Id);
             Check("a save that never mentions the date keeps the date it found",
                 again.ArrivalDate == new DateTime(2026, 3, 20), "stored " + again.ArrivalDate);
+        }
+
+        Head("paying a supplier against a bill that was never written");
+        var unbilled = await inventory.CreateContainerAsync("Unbilled", "CNT-0003", "China",
+            new DateTime(2026, 4, 2), null, null, null, null, null, null, null, "Yiwu Trading", 0m, 0m, null);
+        Throws<InvalidOperationException>("money is not taken for a container with no bill on it",
+            () => inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 2), 500_000m, "TT", null));
+        await using (var dbNone = await factory.CreateDbContextAsync())
+            Check("and the refusal left nothing behind in the book",
+                (await dbNone.SupplierPayments.Where(p => p.ContainerId == unbilled.Id).ToListAsync()).Count == 0);
+        await inventory.UpdateImportDetailsAsync(unbilled.Id, "Yiwu Trading", 500_000m, null, null);
+        await inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 2), 500_000m, "TT", null);
+        var settledRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == unbilled.Id);
+        Check("the same payment is taken once the bill is written, and the container reads settled",
+            settledRow.Label.EndsWith("settled"), settledRow.Label);
+        await inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 3), 100_000m, "TT", null);
+        var advanceRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == unbilled.Id);
+        Check("money past a bill that does exist is still an advance, and says so",
+            advanceRow.Label.Contains("Paid extra " + Money.Pkr(100_000m)), advanceRow.Label);
+
+        // The other way the shop could end up owing nothing and seeing "paid extra": the same payment
+        // reaching the till twice. Every payment posts one line, and no line exists without a payment.
+        await using (var dbAll = await factory.CreateDbContextAsync())
+        {
+            var pays = (await dbAll.SupplierPayments.AsNoTracking().ToListAsync()).Select(p => p.Id).ToList();
+            var links = (await dbAll.CashBook.AsNoTracking()
+                .Where(e => e.Kind == CashBookKind.SupplierOut && e.SupplierPaymentId != null).ToListAsync())
+                .Select(e => e.SupplierPaymentId!.Value).ToList();
+            Check("one till line per supplier payment, no line without a payment, no payment without a line",
+                links.Count == pays.Count && links.Distinct().Count() == links.Count && pays.All(links.Contains),
+                pays.Count + " payments, " + links.Count + " till lines");
         }
 
         Head("scanning every money figure that ended up in the database");

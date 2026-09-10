@@ -84,6 +84,9 @@
                             SelectedDate="{Binding EditArrival}" />
               </Grid>
 
+              <TextBlock Classes="label" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                         IsVisible="{Binding ShowBillHint}" Text="{Binding EditBillHint}" Margin="0,0,0,10" />
+
               <Button Classes="primary" Content="Save" Command="{Binding SaveDetailsCommand}"
                       HorizontalAlignment="Left" Margin="0,0,0,2" />
             </StackPanel>

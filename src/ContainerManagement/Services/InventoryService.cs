@@ -45,6 +45,10 @@ public class InventoryService
             throw new InvalidOperationException("Amount paid cannot be negative.");
         if (paidNow > 0 && string.IsNullOrWhiteSpace(supplierName))
             throw new InvalidOperationException("Write the supplier name to record what was paid.");
+        if (paidNow > 0 && supplierAmount <= 0.009m)
+            throw new InvalidOperationException(
+                "You wrote money paid but no bill for it. Put the supplier bill in the box above it - "
+                + "the goods' cost is the usual figure - or leave the paid box empty.");
         // The paper form has an arrival date and so does this book: it is what the container page and
         // the lists print, and a shipment without it is a fact nobody can check later. Defaulting it to
         // today is harmless on the day and wrong whenever the entry is made afterwards, which is when
@@ -457,6 +461,14 @@ public class InventoryService
             throw new InvalidOperationException("Set the supplier name on this container first.");
         var supplier = await db.Suppliers.FindAsync(c.SupplierId.Value)
             ?? throw new InvalidOperationException("Supplier not found.");
+        // Taking the money with nothing to settle it against is how a container ends up looking like the
+        // supplier was overpaid: the payment is real, the bill is missing, and only one of those can be
+        // fixed from this page. So the page says what to write first rather than filing an explanation
+        // nobody asked for in the book.
+        if (c.SupplierAmount <= 0.009m)
+            throw new InvalidOperationException(
+                "This container has no supplier bill recorded, so there is nothing to pay against. Open "
+                + "the container, Edit import details, and write the bill.");
         var pay = new SupplierPayment
         {
             SupplierId = c.SupplierId.Value,

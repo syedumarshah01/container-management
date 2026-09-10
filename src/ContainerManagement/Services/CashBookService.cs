@@ -89,7 +89,8 @@ public class CashBookService
             .ToListAsync();
         return list.Select(c =>
         {
-            var owed = c.SupplierAmount - c.SupplierPayments.Sum(p => p.Amount);
+            var paid = c.SupplierPayments.Sum(p => p.Amount);
+            var owed = Money.Round(c.SupplierAmount - paid);
             var supplier = string.IsNullOrWhiteSpace(c.Supplier?.Name) ? "Supplier" : c.Supplier!.Name;
             return new SupplierPayTarget
             {
@@ -97,16 +98,28 @@ public class CashBookService
                 SupplierName = supplier,
                 ContainerTitle = c.Title,
                 Owed = owed,
-                Label = supplier + " · " + c.Title + " · " + OwedLabel(owed)
+                Bill = c.SupplierAmount,
+                Paid = paid,
+                Label = supplier + " · " + c.Title + " · "
+                    + (owed > 0.009m ? "owe " + Money.Pkr(owed)
+                       : owed < -0.009m ? ShortfallText(c.SupplierAmount, paid)
+                       : "settled")
             };
         }).ToList();
     }
 
-    private static string OwedLabel(decimal owed)
+    /// <summary>
+    /// The words for "more was paid than this container's bill says". Two quite different situations look
+    /// identical as a negative number - money sent beyond a bill that exists (an advance), and money paid
+    /// against a container nobody ever wrote a bill on (a hole in the record) - so the page has to tell
+    /// them apart instead of calling the second one a favour from the supplier. One method, three pages:
+    /// the list, the dropdown and the pay panel must not drift into telling three stories.
+    /// </summary>
+    public static string ShortfallText(decimal bill, decimal paid, bool terse = false)
     {
-        if (owed > 0.009m) return "owe " + Money.Pkr(owed);
-        if (owed < -0.009m) return "paid extra " + Money.Pkr(-owed);
-        return "settled";
+        if (bill <= 0.009m)
+            return terse ? "no bill recorded" : "No bill recorded - " + Money.Pkr(paid) + " paid";
+        return (terse ? "paid extra " : "Paid extra ") + Money.Pkr(Money.Round(paid - bill));
     }
 
     public static void PostCustomerPayment(AppDbContext db, Payment pay, string customerName)
@@ -266,5 +279,12 @@ public class SupplierPayTarget
     public string SupplierName { get; set; } = "";
     public string ContainerTitle { get; set; } = "";
     public decimal Owed { get; set; }
+
+    /// <summary>The container's own bill, kept beside the balance so a shortfall can be explained.</summary>
+    public decimal Bill { get; set; }
+
+    /// <summary>Everything recorded as paid against this container, by any route.</summary>
+    public decimal Paid { get; set; }
+
     public string Label { get; set; } = "";
 }
