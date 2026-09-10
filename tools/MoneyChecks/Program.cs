@@ -304,7 +304,7 @@ public static class Program
         var refundsBefore = await RefundedTotalAsync(factory);
         var paidLine = payBill.Lines.Single(l => l.ProductId == bulbs.ProductId);
         var back1 = await sales.ReturnItemsAsync(payBill.Id,
-            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.125m } }, true);
+            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.125m } });
         Eq("0.125 kg of a settled bill is credited at the price it sold for", 181.31m, back1);
         Eq("the till paid out exactly that, and nothing else moved", 181.31m, await RefundedTotalAsync(factory) - refundsBefore);
         Eq("their balance does not change, because the money is genuinely back in their hand", balBefore,
@@ -322,12 +322,14 @@ public static class Program
                 adj.Sum(e => e.Debit - e.Credit));
         }
 
-        // The rest of the same bill, with the box unticked: the money is held, not handed over.
+        // The rest of the same bill. There is no second switch any more: the bill is settled, so what came
+        // back was money handed over, and the rule says it goes back.
         var back2 = await sales.ReturnItemsAsync(payBill.Id,
-            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.250m } }, false);
-        Eq("unticked, the return is credited and nothing is paid out", 0m, back2);
-        Eq("and the till is left at the one refund it already made", 181.31m, await RefundedTotalAsync(factory));
-        Eq("the customer now holds the rest as credit", balBefore - 362.63m, await ledger.GetBalanceAsync(customer.Id));
+            new List<SaleReturnInput> { new() { SaleLineId = paidLine.Id, Quantity = 0.250m } });
+        Eq("the rest of a settled bill is paid from the cashbook too", 362.63m, back2);
+        Eq("and the till has now paid the whole bill back", 543.94m, await RefundedTotalAsync(factory));
+        Eq("while their balance never moved, because the goods line and the cash line cancel",
+            balBefore, await ledger.GetBalanceAsync(customer.Id));
 
         // And a bill that is still outstanding: the return is relief from a debt, never a cash movement.
         var third = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
@@ -336,10 +338,10 @@ public static class Program
         }, 1_000m, "Cash", null, 0m, null);
         var thirdLine = third.Lines.Single(l => l.ProductId == chargers.ProductId);
         var back3 = await sales.ReturnItemsAsync(third.Id,
-            new List<SaleReturnInput> { new() { SaleLineId = thirdLine.Id, Quantity = 1m } }, true);
-        Eq("a ticked refund pays nothing out when the bill is still owed", 0m, back3);
+            new List<SaleReturnInput> { new() { SaleLineId = thirdLine.Id, Quantity = 1m } });
+        Eq("a return on a bill they still owe pays nothing out, however small the payment was", 0m, back3);
         Eq("the return comes off what they owe instead", 999.99m, await sales.RemainingOnInvoiceAsync(third.Id));
-        Eq("and the till still holds only the one refund of the settled bill", 181.31m, await RefundedTotalAsync(factory));
+        Eq("and the till still holds only the two refunds from the settled bill", 543.94m, await RefundedTotalAsync(factory));
 
         // The case the first cut of this could not express: money was received for the bill, but not
         // all of it, so the return is part relief and part cash.
@@ -349,11 +351,11 @@ public static class Program
         }, 1_500m, "Cash", null, 0m, null);
         var fourthLine = fourth.Lines.Single(l => l.ProductId == chargers.ProductId);
         var back4 = await sales.ReturnItemsAsync(fourth.Id,
-            new List<SaleReturnInput> { new() { SaleLineId = fourthLine.Id, Quantity = 1m } }, true);
+            new List<SaleReturnInput> { new() { SaleLineId = fourthLine.Id, Quantity = 1m } });
         Eq("a Rs 1,999.99 return on a Rs 1,500 payment hands back the payment, not the whole return",
             1_500m, back4);
         Eq("and nothing is left owing on that bill", 0m, await sales.RemainingOnInvoiceAsync(fourth.Id));
-        Eq("the till has paid out the two refunds, and no more than was ever received", 1_681.31m,
+        Eq("the till has paid out every refund, and no more than those bills ever brought in", 2_043.94m,
             await RefundedTotalAsync(factory));
 
         // What the Main ledger's fourth card is built from: the goods, not the cash.
@@ -634,7 +636,7 @@ public static class Program
                 pays.Count + " payments, " + links.Count + " till lines");
         }
 
-        Head("the return ask: the figure on the button is the figure in the book");
+        Head("the return rule: their debt first, the cash for what is left over");
         var askBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
         {
             new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
@@ -642,17 +644,22 @@ public static class Program
         var askLine = askBill.Lines.Single(l => l.ProductId == chargers.ProductId);
         var asked = new List<SaleReturnInput> { new() { SaleLineId = askLine.Id, Quantity = 1m } };
         var preview = await sales.PreviewReturnAsync(askBill.Id, asked);
-        Eq("the ledger takes the value of the goods back", 1_999.99m, preview.Credit);
-        Eq("and the till would hand over what is left after the debt is relieved", 1_499.99m, preview.Cash);
-        var ledgerOnly = await sales.ReturnItemsAsync(askBill.Id, asked, refundInCash: false);
-        Eq("choosing the ledger alone moves no cash at all", 0m, ledgerOnly);
+        Eq("the goods are credited back on their ledger", 1_999.99m, preview.Credit);
+        Eq("and only what the debt cannot absorb is paid from the cashbook", 1_499.99m, preview.Cash);
+        Check("so the page can say both halves, in rupees, before anything is pressed",
+            SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("Rs 500.00 comes off")
+            && SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("paid out of the cashbook"),
+            SalesService.DescribeReturn(preview.Credit, preview.Cash));
+        var posted = await sales.ReturnItemsAsync(askBill.Id, asked);
+        Eq("and posting pays out exactly what that line promised", preview.Cash, posted);
         await using (var dbAsk = await factory.CreateDbContextAsync())
         {
-            var till = await dbAsk.CashBook.ToListAsync();
-            Check("and nothing was written to the till for it",
-                !till.Any(e => e.Kind == CashBookKind.RefundOut && e.SaleId == askBill.Id));
-            var led = await dbAsk.LedgerEntries.Where(e => e.SaleId == askBill.Id && e.Type == LedgerType.Return).ToListAsync();
-            Eq("their ledger carries the credit the button named", 1_999.99m, led.Sum(e => e.Credit - e.Debit));
+            var led = await dbAsk.LedgerEntries.Where(e => e.SaleId == askBill.Id).ToListAsync();
+            Eq("their ledger shows the goods coming back", 1_999.99m,
+                led.Where(e => e.Type == LedgerType.Return).Sum(e => e.Credit - e.Debit));
+            Eq("and the cash going out, as its own line", 1_499.99m,
+                led.Where(e => e.Type == LedgerType.Adjustment).Sum(e => e.Debit - e.Credit));
+            Eq("while the bill itself is closed", 0m, await sales.RemainingOnInvoiceAsync(askBill.Id));
         }
 
         var second = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
@@ -662,13 +669,13 @@ public static class Program
         var secondLine = second.Lines.Single(l => l.ProductId == chargers.ProductId);
         var secondAsk = new List<SaleReturnInput> { new() { SaleLineId = secondLine.Id, Quantity = 1m } };
         var preview2 = await sales.PreviewReturnAsync(second.Id, secondAsk);
-        var paidOut = await sales.ReturnItemsAsync(second.Id, secondAsk, refundInCash: true);
-        Eq("and choosing cash pays out exactly the figure the button showed", preview2.Cash, paidOut);
+        var paidOut = await sales.ReturnItemsAsync(second.Id, secondAsk);
+        Eq("the same shape of bill settles the same way, to the paisa", preview2.Cash, paidOut);
         Check("the same figures again on a second bill, so the preview is not a promise the posting breaks",
             preview2.Credit == preview.Credit && preview2.Cash == paidOut,
             "preview " + preview2.Cash + ", posted " + paidOut);
         await using (var dbAsk2 = await factory.CreateDbContextAsync())
-            Check("asking and previewing wrote nothing on its own: one return per bill",
+            Check("looking at a return wrote nothing on its own: one return per bill",
                 (await dbAsk2.SaleReturns.Where(r => r.SaleId == askBill.Id).ToListAsync()).Count == 1);
 
         Head("the order the book is read in");

@@ -105,6 +105,22 @@ public class SalesService
         return await SaveSaleAsync(saleId, customerId, date, lines, paidNow, paymentMethod, notes, discount, dueDate);
     }
 
+    /// <summary>
+    /// The sentence the sale page shows about a return, built from the same two figures the posting
+    /// produces. It lives beside the rule rather than beside the button so the two cannot disagree about
+    /// what is about to happen to the till.
+    /// </summary>
+    public static string DescribeReturn(decimal credit, decimal cash)
+    {
+        var relief = Money.Round(credit - cash);
+        if (relief > 0.009m && cash > 0.009m)
+            return Money.Pkr(relief) + " comes off what they owe us, and " + Money.Pkr(cash)
+                + " is paid out of the cashbook.";
+        if (cash > 0.009m)
+            return "Nothing is owed on this bill, so " + Money.Pkr(cash) + " is paid out of the cashbook.";
+        return Money.Pkr(credit) + " is adjusted in their ledger - no cash moves.";
+    }
+
     public async Task CancelSaleAsync(int saleId)
     {
         await using var db = await _factory.CreateDbContextAsync();
@@ -158,9 +174,16 @@ public class SalesService
         await tx.CommitAsync();
     }
 
-    public async Task<decimal> ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs, bool refundInCash = false)
+    /// <summary>
+    /// Take goods back. The shop's rule settles them, so nobody has to choose how: if the customer still
+    /// owes us for this bill, the return is adjusted in their ledger and no cash moves; if they owe us
+    /// nothing, the return is their money sitting in our till, so it is paid from the cashbook. A bill
+    /// paid in part splits the same way - what they owe absorbs the return first, the rest is cash.
+    /// Returns Rs 0 when nothing left the till, otherwise the amount that did.
+    /// </summary>
+    public async Task<decimal> ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
     {
-        var (cash, _) = await SettleReturnAsync(saleId, inputs, refundInCash, post: true);
+        var (cash, _) = await SettleReturnAsync(saleId, inputs, post: true);
         return cash;
     }
 
@@ -172,12 +195,12 @@ public class SalesService
     /// </summary>
     public async Task<(decimal Credit, decimal Cash)> PreviewReturnAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
     {
-        var (cash, credit) = await SettleReturnAsync(saleId, inputs, refundInCash: true, post: false);
+        var (cash, credit) = await SettleReturnAsync(saleId, inputs, post: false);
         return (credit, cash);
     }
 
     private async Task<(decimal Cash, decimal Credit)> SettleReturnAsync(
-        int saleId, IReadOnlyList<SaleReturnInput> inputs, bool refundInCash, bool post)
+        int saleId, IReadOnlyList<SaleReturnInput> inputs, bool post)
     {
         var wanted = inputs.Where(x => x.Quantity > 0).ToList();
         if (wanted.Count == 0)
@@ -254,8 +277,17 @@ public class SalesService
         if (ret.Amount + returnedSoFar - sale.TotalAmount > 0.009m)
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
 
+        // What they still owe on this bill is measured before anything is written, because the same
+        // figures decide both the split and what the page offers on its button. Never more cash leaves
+        // than is left over after the debt is relieved - so a bill nobody has paid hands back nothing,
+        // which is what keeps the till and the drawer the same number.
+        var received = (await db.Payments.Where(x => x.SaleId == sale.Id).ToListAsync()).Sum(x => x.Amount);
+        var outstanding = sale.TotalAmount - received;
+        var relief = outstanding > 0 ? Math.Min(ret.Amount, outstanding) : 0m;
+        var back = Money.Round(ret.Amount - relief);
+
         if (!post)
-            return (0m, ret.Amount);
+            return (back, ret.Amount);
 
         db.SaleReturns.Add(ret);
         await db.SaveChangesAsync();
@@ -271,42 +303,30 @@ public class SalesService
             SaleId = sale.Id
         });
 
-        // The credit above takes the return off what they still owe. Where there is nothing left to take
-        // it off - the bill was paid, or this return is bigger than what remains - the difference is
-        // money the shop hands back, and money that leaves the till has to be in the till's book: an
-        // outflow on the main ledger, and a matching debit on their ledger so the two still agree. A
-        // cancelled sale already does exactly this; a return does it a piece at a time.
-        //
-        // It is never more than was received for this bill, because the relief is taken first.
-        var back = 0m;
-        if (refundInCash)
+        // The credit above is what came back off their bill. Where the return was worth more than they
+        // still owed, the difference was handed over in cash - and money that leaves the till has to be
+        // in the till's book: an outflow there, and a matching debit in their ledger so the two agree.
+        if (back > 0.009m)
         {
-            var paid = (await db.Payments.Where(x => x.SaleId == sale.Id).ToListAsync()).Sum(x => x.Amount);
-            var outstanding = sale.TotalAmount - paid;
-            var relief = outstanding > 0 ? Math.Min(ret.Amount, outstanding) : 0m;
-            back = Money.Round(ret.Amount - relief);
-            if (back > 0)
+            db.LedgerEntries.Add(new LedgerEntry
             {
-                db.LedgerEntries.Add(new LedgerEntry
-                {
-                    CustomerId = sale.CustomerId,
-                    Date = DateTime.Now,
-                    Type = LedgerType.Adjustment,
-                    Debit = back,
-                    Credit = 0,
-                    Description = $"Cash returned — return on sale #{sale.Id}",
-                    SaleId = sale.Id
-                });
-                db.CashBook.Add(new CashBookEntry
-                {
-                    Date = DateTime.Today,
-                    Kind = CashBookKind.RefundOut,
-                    Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.Id}",
-                    AmountIn = 0,
-                    AmountOut = back,
-                    SaleId = sale.Id
-                });
-            }
+                CustomerId = sale.CustomerId,
+                Date = DateTime.Now,
+                Type = LedgerType.Adjustment,
+                Debit = back,
+                Credit = 0,
+                Description = $"Cash paid on return - sale #{sale.Id}",
+                SaleId = sale.Id
+            });
+            db.CashBook.Add(new CashBookEntry
+            {
+                Date = DateTime.Today,
+                Kind = CashBookKind.RefundOut,
+                Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.Id}",
+                AmountIn = 0,
+                AmountOut = back,
+                SaleId = sale.Id
+            });
         }
 
         await db.SaveChangesAsync();

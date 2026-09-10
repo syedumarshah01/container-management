@@ -41,13 +41,12 @@ public partial class SaleDetailViewModel : ViewModelBase
     [ObservableProperty] private bool isCancelled;
 
     /// <summary>
-    /// A return is settled one of two ways, and both are on the card so the choice is in front of the
-    /// shop before anything is written: the figure stays in the customer's ledger as credit, or it is paid
-    /// out of the cashbook. The amounts on the two buttons come from the service's own arithmetic, run
-    /// with writing switched off, so a button never promises a figure the book will not write.
+    /// The shop does not choose how a return is settled - the rule does: what they still owe us absorbs it,
+    /// and only what is left over is paid from the cashbook. What the page shows is that outcome, in
+    /// rupees, before the button is pressed - the figures come from the posting's own arithmetic run with
+    /// writing switched off, so the line cannot promise something the book then contradicts.
     /// </summary>
-    [ObservableProperty] private string returnLedgerText = "Adjust in their ledger";
-    [ObservableProperty] private string returnCashText = "Pay from cashbook";
+    [ObservableProperty] private string returnOutcome = "";
     [ObservableProperty] private bool canSettleReturn;
 
     public ObservableCollection<SaleLineRow> Lines { get; } = new();
@@ -124,12 +123,7 @@ public partial class SaleDetailViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task ReturnOnLedger() => SettleReturnAsync(inCash: false);
-
-    [RelayCommand]
-    private Task ReturnInCashbook() => SettleReturnAsync(inCash: true);
-
-    private async Task SettleReturnAsync(bool inCash)
+    private async Task ReturnItemsAsync()
     {
         var inputs = ReturnInputs();
         if (inputs.Count == 0)
@@ -139,23 +133,22 @@ public partial class SaleDetailViewModel : ViewModelBase
         }
         try
         {
-            var back = await _sales.ReturnItemsAsync(_id, inputs, inCash);
+            var back = await _sales.ReturnItemsAsync(_id, inputs);
             _shell.Notify(back > 0.009m
-                ? "Returned to the same container. " + Money.Pkr(back) + " paid from the cashbook, and "
-                  + "the rest of the amount sits in their ledger."
-                : "Returned to the same container. The amount is adjusted in their ledger - nothing moved "
-                  + "in the cashbook.");
+                ? "Returned to the same container. " + Money.Pkr(back) + " left the cashbook, and their "
+                  + "ledger shows the goods back and the cash out, so their balance is where it was."
+                : "Returned to the same container. The amount is adjusted in their ledger - no cash moved.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
     /// <summary>
-    /// The figures on the buttons, refreshed as the quantities are typed. The preview is the posting's own
-    /// arithmetic with writing off, so what a button offers is what pressing it will do - including the
-    /// rule that a return of everything left on a bill credits the whole remaining figure, which a second
-    /// calculation beside the first would get wrong. Errors are swallowed here: a half-typed quantity is
-    /// not a message to show, and the posting itself will say plainly what it refused.
+    /// The outcome line, refreshed as the quantities are typed. The preview is the posting's own
+    /// arithmetic with writing off, so what the line states is what pressing the button will do - including
+    /// the rule that a return of everything left on a bill credits the whole remaining figure, which a
+    /// second calculation beside the first would get wrong. Errors are swallowed here: a half-typed
+    /// quantity is not a message to show, and the posting says plainly what it refuses.
     /// </summary>
     private async Task RefreshReturnPreviewAsync()
     {
@@ -163,22 +156,19 @@ public partial class SaleDetailViewModel : ViewModelBase
         if (inputs.Count == 0)
         {
             CanSettleReturn = false;
-            ReturnLedgerText = "Adjust in their ledger";
-            ReturnCashText = "Pay from cashbook";
+            ReturnOutcome = "";
             return;
         }
         try
         {
             var settle = await _sales.PreviewReturnAsync(_id, inputs);
             CanSettleReturn = true;
-            ReturnLedgerText = "Adjust " + Money.Pkr(settle.Credit) + " in their ledger";
-            ReturnCashText = settle.Cash > 0.009m
-                ? "Pay " + Money.Pkr(settle.Cash) + " from cashbook"
-                : "Pay from cashbook - Rs 0, nothing of theirs to give back";
+            ReturnOutcome = SalesService.DescribeReturn(settle.Credit, settle.Cash);
         }
         catch
         {
             CanSettleReturn = false;
+            ReturnOutcome = "";
         }
     }
 

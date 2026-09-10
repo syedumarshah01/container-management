@@ -22,7 +22,7 @@ shift a figure on screen.
 | paying | paying the printed bill settles it; one paisa more is refused |
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
-| returns | a full return credits the bill paisa for paisa; over-returning is refused; a return on a bill that was paid hands the cash back through the till once, and holds it as credit when told to |
+| returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
 | the supplier | one cash-book line per payment, never two, and every payment has one |
@@ -30,7 +30,7 @@ shift a figure on screen.
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
-| the return options | both are on the card before anything is written - "Adjust in their ledger" and "Pay from cashbook" - each carrying the figure the book will write, taken from the posting's own arithmetic run with writing off |
+| the return outcome | the page states, in rupees and before the button is pressed, what the rule will do - and the figures it names are the posting's own arithmetic, run with writing switched off, so the line can promise nothing the book does not write |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
@@ -132,11 +132,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
    date in the past and the list should show exactly that day; a wrong one can be corrected under
    "Edit import details". The figure written in "We owe them (Rs)" is what the We Owe page should show as
    owed - not that figure less the paid-now money, which is the mistake this rule removes.
-3c. Type a quantity on a bill the customer has partly paid and both options should appear with their own
-   figures: "Adjust Rs 1,999.99 in their ledger" and "Pay Rs 1,499.99 from cashbook". Take the ledger
-   choice and the till should gain no line at all; take the cashbook choice on the next one and the till
-   should gain exactly the figure the button named. With nothing paid on the bill, the second button reads
-   "Pay from cashbook - Rs 0, nothing of theirs to give back" - still a choice, still no money moved.
+3c. Type a quantity on a return and one line should say what will happen, in rupees: on a bill they still
+   owe, "... is adjusted in their ledger - no cash moves"; on a settled bill, "Nothing is owed on this bill,
+   so Rs X is paid out of the cashbook"; on a part-paid bill where the return is bigger than the debt,
+   both halves at once. Press it and the till should move by exactly the figure the line named - or not at
+   all, where the debt absorbed the return. Their own balance changes only by the relief, never twice.
 3d. On a customer's page, the ledger should count up by day and by writing order with a "No." column, and
    the latest entry should sit at the top with the balance the page shows beside it. Print the statement:
    it should read the other way round, opening balance at the top, because that is how paper is read.
