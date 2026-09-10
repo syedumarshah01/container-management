@@ -99,6 +99,7 @@
         <TextBlock Classes="h2" Text="Ledger" />
         <DataGrid ItemsSource="{Binding Ledger}" x:CompileBindings="False">
           <DataGrid.Columns>
+            <DataGridTextColumn Header="No." Binding="{Binding Step}" Width="70" />
             <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
             <DataGridTextColumn Header="Particulars" Binding="{Binding Description}" Width="*" />
             <DataGridTemplateColumn Header="Sold" Width="120">

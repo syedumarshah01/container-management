@@ -62,7 +62,7 @@
       <StackPanel>
           <TextBlock Classes="h2" Text="Return items" />
           <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
-                     Text="Stock goes back into the same container. The amount always comes off this customer’s ledger - then say whether the till hands over anything as well." />
+                     Text="Stock goes back into the same container. Then choose: the amount stands as credit in their ledger, or it is paid out of the cashbook." />
         <ItemsControl ItemsSource="{Binding Lines}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SaleLineRow">
@@ -83,15 +83,11 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowReturnButton}">
-          <Button Classes="gold" Content="Return these items" Command="{Binding ReturnItemsCommand}" />
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding AskReturnHow}">
-          <Button Classes="gold" Content="{Binding ReturnCashText}" Command="{Binding ReturnInCashCommand}"
-                  IsEnabled="{Binding CanHandCash}" />
-          <Button Content="{Binding ReturnLedgerText}" Command="{Binding ReturnOnLedgerCommand}" />
-          <Button Content="Not now" Command="{Binding DropReturnChoiceCommand}" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="gold" Content="{Binding ReturnLedgerText}" Command="{Binding ReturnOnLedgerCommand}"
+                  IsEnabled="{Binding CanSettleReturn}" />
+          <Button Content="{Binding ReturnCashText}" Command="{Binding ReturnInCashbookCommand}"
+                  IsEnabled="{Binding CanSettleReturn}" />
         </StackPanel>
       </StackPanel>
     </Border>

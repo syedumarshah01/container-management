@@ -673,11 +673,18 @@ public static class Program
 
         Head("the order the book is read in");
         var customerLedger = await ledger.GetLedgerAsync(customer.Id);
-        Check("a customer's ledger shows the newest entry first",
-            customerLedger.Count > 1 && customerLedger[0].Date >= customerLedger[^1].Date,
+        Check("the book hands a customer's lines over in the order they were made - by day, and within a day in writing order",
+            customerLedger.Zip(customerLedger.Skip(1), (a, b) => a.Date.Date < b.Date.Date
+                || (a.Date.Date == b.Date.Date && a.Id < b.Id)).All(x => x),
             customerLedger.Count + " lines");
-        Eq("and its top line carries the balance the page puts at the head",
-            await ledger.GetBalanceAsync(customer.Id), customerLedger[0].RunningBalance);
+        Check("and numbers them step by step from the first line of the account",
+            customerLedger.First().Step == 1 && customerLedger[^1].Step == customerLedger.Count,
+            "steps " + customerLedger.First().Step + " to " + customerLedger[^1].Step);
+        Eq("so the last line's running figure is the balance at the head of the page",
+            await ledger.GetBalanceAsync(customer.Id), customerLedger[^1].RunningBalance);
+        Check("and every line in between adds up to it, one step at a time",
+            customerLedger.Skip(1).Zip(customerLedger, (now, before) =>
+                now.RunningBalance - before.RunningBalance == now.Debit - now.Credit).All(x => x));
         var tillRows = await cash.ListAsync();
         Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
             tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),

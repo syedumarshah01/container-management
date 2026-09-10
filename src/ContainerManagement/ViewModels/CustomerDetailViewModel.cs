@@ -74,7 +74,11 @@ public partial class CustomerDetailViewModel : ViewModelBase
         EditAddress = c.Address ?? "";
         EditNotes = c.Notes ?? "";
 
-        var rows = await _ledger.GetLedgerAsync(_id);
+        // Newest entry on top, with each line still carrying the balance the book had reached at that
+        // moment - the figures are worked out in time order first, so the column reads correctly from the
+        // foot of the page upward. The printout underneath uses the same rows in time order, which is how
+        // a statement is read on paper.
+        var rows = (await _ledger.GetLedgerAsync(_id)).AsEnumerable().Reverse().ToList();
         Ledger.Clear();
         foreach (var r in rows)
             Ledger.Add(r);

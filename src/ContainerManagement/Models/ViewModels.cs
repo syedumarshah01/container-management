@@ -225,6 +225,10 @@ public class LedgerRow
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public decimal RunningBalance { get; set; }
+
+    /// <summary>Which line this is in the order the money moved, so a day of entries reads as a sequence.</summary>
+    public int Step { get; set; }
+
     public int? SaleId { get; set; }
     public int? PaymentId { get; set; }
     public string DateText => Date.ToString("dd MMM yyyy");

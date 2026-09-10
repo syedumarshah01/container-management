@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Data;
@@ -40,21 +41,14 @@ public partial class SaleDetailViewModel : ViewModelBase
     [ObservableProperty] private bool isCancelled;
 
     /// <summary>
-    /// Whether this return is being paid back in cash. It comes on by default when the bill has nothing
-    /// left on the ledger - a returned item on a settled bill is money going out of the till, not a debt
-    /// being reduced - and off while they still owe, where the return is absorbed as relief. Untick it to
-    /// hold the money as their credit instead; the amount is never posted as cash in that case.
+    /// A return is settled one of two ways, and both are on the card so the choice is in front of the
+    /// shop before anything is written: the figure stays in the customer's ledger as credit, or it is paid
+    /// out of the cashbook. The amounts on the two buttons come from the service's own arithmetic, run
+    /// with writing switched off, so a button never promises a figure the book will not write.
     /// </summary>
-    // The page asks how a return is to be settled rather than deciding on its own: cash out of the till,
-    // or a figure standing in the customer's ledger. The two buttons carry the exact amounts, taken from
-    // the same arithmetic the posting uses.
-    [ObservableProperty] private bool askReturnHow;
-    [ObservableProperty] private bool canHandCash = true;
-    [ObservableProperty] private string returnCashText = "";
-    [ObservableProperty] private string returnLedgerText = "";
-    private List<SaleReturnInput>? _pendingReturn;
-    public bool ShowReturnButton => !AskReturnHow;
-    partial void OnAskReturnHowChanged(bool value) => OnPropertyChanged(nameof(ShowReturnButton));
+    [ObservableProperty] private string returnLedgerText = "Adjust in their ledger";
+    [ObservableProperty] private string returnCashText = "Pay from cashbook";
+    [ObservableProperty] private bool canSettleReturn;
 
     public ObservableCollection<SaleLineRow> Lines { get; } = new();
 
@@ -102,9 +96,10 @@ public partial class SaleDetailViewModel : ViewModelBase
                 ReturnQty = null
             });
         }
+        foreach (var l in Lines)
+            l.PropertyChanged += OnReturnQtyChanged;
         CanReturn = !IsCancelled && Lines.Any(l => l.CanReturnLine);
-        AskReturnHow = false;
-        _pendingReturn = null;
+        _ = RefreshReturnPreviewAsync();
     }
 
     [RelayCommand]
@@ -128,62 +123,74 @@ public partial class SaleDetailViewModel : ViewModelBase
             _shell.EditSale(_id);
     }
 
-    /// <summary>
-    /// The ask, not the posting: nothing is written until the shop says which way the return is settled.
-    /// Both figures come from the service's own arithmetic, so a button never promises a number the book
-    /// will not write.
-    /// </summary>
     [RelayCommand]
-    private async Task ReturnItemsAsync()
-    {
-        try
-        {
-            var inputs = Lines
-                .Where(l => (l.ReturnQty ?? 0) > 0)
-                .Select(l => new SaleReturnInput { SaleLineId = l.SaleLineId, Quantity = l.ReturnQty ?? 0 })
-                .ToList();
-            var settle = await _sales.PreviewReturnAsync(_id, inputs);
-            _pendingReturn = inputs;
-            ReturnLedgerText = settle.Credit > 0.009m
-                ? "Adjust " + Money.Pkr(settle.Credit) + " in their ledger"
-                : "Adjust in their ledger";
-            CanHandCash = settle.Cash > 0.009m;
-            ReturnCashText = CanHandCash
-                ? "Hand over " + Money.Pkr(settle.Cash) + " from the till"
-                : "Nothing to hand over - this bill is still unpaid by that amount";
-            AskReturnHow = true;
-        }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
-    }
-
-    [RelayCommand] private Task ReturnInCash() => SettleReturnAsync(true);
-
-    [RelayCommand] private Task ReturnOnLedger() => SettleReturnAsync(false);
+    private Task ReturnOnLedger() => SettleReturnAsync(inCash: false);
 
     [RelayCommand]
-    private void DropReturnChoice()
-    {
-        AskReturnHow = false;
-        _pendingReturn = null;
-    }
+    private Task ReturnInCashbook() => SettleReturnAsync(inCash: true);
 
     private async Task SettleReturnAsync(bool inCash)
     {
-        var inputs = _pendingReturn;
-        AskReturnHow = false;
-        _pendingReturn = null;
-        if (inputs is null) return;
+        var inputs = ReturnInputs();
+        if (inputs.Count == 0)
+        {
+            _shell.Notify("Type how many of each item came back.", true);
+            return;
+        }
         try
         {
             var back = await _sales.ReturnItemsAsync(_id, inputs, inCash);
-            _shell.Notify(inCash && back > 0
-                ? "Returned to the same container. " + Money.Pkr(back) + " left the till, and the rest came off their ledger."
-                : inCash
-                    ? "Returned to the same container. Nothing was owed back in cash; the amount came off their ledger."
-                    : "Returned to the same container. The amount sits in their ledger as credit - no cash moved.");
+            _shell.Notify(back > 0.009m
+                ? "Returned to the same container. " + Money.Pkr(back) + " paid from the cashbook, and "
+                  + "the rest of the amount sits in their ledger."
+                : "Returned to the same container. The amount is adjusted in their ledger - nothing moved "
+                  + "in the cashbook.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    /// <summary>
+    /// The figures on the buttons, refreshed as the quantities are typed. The preview is the posting's own
+    /// arithmetic with writing off, so what a button offers is what pressing it will do - including the
+    /// rule that a return of everything left on a bill credits the whole remaining figure, which a second
+    /// calculation beside the first would get wrong. Errors are swallowed here: a half-typed quantity is
+    /// not a message to show, and the posting itself will say plainly what it refused.
+    /// </summary>
+    private async Task RefreshReturnPreviewAsync()
+    {
+        var inputs = ReturnInputs();
+        if (inputs.Count == 0)
+        {
+            CanSettleReturn = false;
+            ReturnLedgerText = "Adjust in their ledger";
+            ReturnCashText = "Pay from cashbook";
+            return;
+        }
+        try
+        {
+            var settle = await _sales.PreviewReturnAsync(_id, inputs);
+            CanSettleReturn = true;
+            ReturnLedgerText = "Adjust " + Money.Pkr(settle.Credit) + " in their ledger";
+            ReturnCashText = settle.Cash > 0.009m
+                ? "Pay " + Money.Pkr(settle.Cash) + " from cashbook"
+                : "Pay from cashbook - Rs 0, nothing of theirs to give back";
+        }
+        catch
+        {
+            CanSettleReturn = false;
+        }
+    }
+
+    private List<SaleReturnInput> ReturnInputs() => Lines
+        .Where(l => (l.ReturnQty ?? 0) > 0)
+        .Select(l => new SaleReturnInput { SaleLineId = l.SaleLineId, Quantity = l.ReturnQty ?? 0 })
+        .ToList();
+
+    private void OnReturnQtyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SaleLineRow.ReturnQty))
+            _ = RefreshReturnPreviewAsync();
     }
 
     [RelayCommand]

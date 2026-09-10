@@ -74,11 +74,13 @@ public class LedgerService
             .AsNoTracking()
             .Where(e => e.CustomerId == customerId)
             .ToListAsync();
+        // Day by day in the order the money moved, and inside a day in the order the lines were written.
+        // Grouping every line of one bill together reads tidily for a moment and then lies about the
+        // sequence - a payment made last month against an older bill appearing above this month's return
+        // - and the sequence is the one thing a ledger exists to show. The opening line leads its day.
         entries = entries
             .OrderBy(e => e.Date.Date)
             .ThenBy(e => e.Type == LedgerType.Opening ? 0 : 1)
-            .ThenBy(e => e.SaleId ?? e.Id)
-            .ThenBy(e => LedgerRank(e.Type))
             .ThenBy(e => e.Id)
             .ToList();
 
@@ -96,11 +98,14 @@ public class LedgerService
                 Debit = e.Debit,
                 Credit = e.Credit,
                 RunningBalance = running,
+                Step = rows.Count + 1,
                 SaleId = e.SaleId,
                 PaymentId = e.PaymentId
             });
         }
-        rows.Reverse();
+        // Not reversed here: the printed statement reads top down from the opening balance, which is this
+        // order, while the page wants the newest line under the reader's eye. The page reverses; the book
+        // stays in the order it happened.
         return rows;
     }
 
@@ -277,15 +282,6 @@ public class LedgerService
             .ThenBy(r => r.Name)
             .ToList();
     }
-
-    private static int LedgerRank(LedgerType type) => type switch
-    {
-        LedgerType.Opening => 0,
-        LedgerType.Sale => 1,
-        LedgerType.Payment => 2,
-        LedgerType.Return => 3,
-        _ => 4
-    };
 
     private static string AgingLabel(DateTime? oldestDue, decimal balance)
     {
