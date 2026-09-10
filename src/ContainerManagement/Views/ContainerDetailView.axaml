@@ -56,7 +56,7 @@
             <StackPanel Spacing="14">
               <TextBlock Classes="h2" Text="Import details" />
 
-              <Grid ColumnDefinitions="110,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <Grid ColumnDefinitions="110,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                 <TextBlock Classes="label" Text="Supplier" VerticalAlignment="Center" Margin="0" />
                 <TextBox Grid.Column="1" Width="460" Margin="0,6" Text="{Binding EditSupplier}"
                          Watermark="as on the invoice" />
@@ -78,6 +78,10 @@
                 <TextBlock Grid.Row="3" Classes="label" Text="Weight (kg)" VerticalAlignment="Center" Margin="0" />
                 <NumericUpDown Grid.Row="3" Grid.Column="1" Width="140" Margin="0,6" Minimum="0"
                                Value="{Binding EditWeight}" />
+
+                <TextBlock Grid.Row="4" Classes="label" Text="Arrived on" VerticalAlignment="Center" Margin="0" />
+                <DatePicker Grid.Row="4" Grid.Column="1" Width="200" Margin="0,6" HorizontalAlignment="Left"
+                            SelectedDate="{Binding EditArrival}" />
               </Grid>
 
               <Button Classes="primary" Content="Save" Command="{Binding SaveDetailsCommand}"

@@ -570,6 +570,27 @@ public static class Program
     /// <summary>The invariant the whole app leans on: no money figure in the database has a third decimal.</summary>
     private static async Task EverythingIsExactMoney(IDbContextFactory<AppDbContext> factory)
     {
+        Head("the day the goods actually landed");
+        Throws<InvalidOperationException>("a container is not created on a guessed arrival date",
+            () => inventory.CreateContainerAsync("No date", null, "China", null, null, null, null, null, null, null, null, null, 0m, 0m, null));
+        var landed = await inventory.CreateContainerAsync("Back-dated", "CNT-0002", "China",
+            new DateTime(2026, 3, 14), null, null, null, null, null, null, null, null, 0m, 0m, null);
+        Check("a date in the past is kept exactly as written, not pushed to today",
+            landed.ArrivalDate == new DateTime(2026, 3, 14), "stored " + landed.ArrivalDate);
+        await inventory.UpdateImportDetailsAsync(landed.Id, null, landed.SupplierAmount, null, null,
+            new DateTime(2026, 3, 20));
+        await using (var dbDate = await factory.CreateDbContextAsync())
+        {
+            var corrected = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == landed.Id);
+            Check("and the container page can put the day right afterwards",
+                corrected.ArrivalDate == new DateTime(2026, 3, 20), "stored " + corrected.ArrivalDate);
+            // a save that does not show the date must not lose it
+            await inventory.UpdateImportDetailsAsync(landed.Id, null, corrected.SupplierAmount, null, null);
+            var again = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == landed.Id);
+            Check("a save that never mentions the date keeps the date it found",
+                again.ArrivalDate == new DateTime(2026, 3, 20), "stored " + again.ArrivalDate);
+        }
+
         Head("scanning every money figure that ended up in the database");
         var bad = new List<string>();
         await using var db = await factory.CreateDbContextAsync();

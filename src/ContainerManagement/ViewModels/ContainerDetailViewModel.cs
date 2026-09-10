@@ -52,6 +52,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
     /// </summary>
     [ObservableProperty] private decimal? editPaidSoFar;
+    [ObservableProperty] private DateTimeOffset? editArrival;
 
     [ObservableProperty] private bool isClosed;
     [ObservableProperty] private bool isOwner;
@@ -79,11 +80,13 @@ public partial class ContainerDetailViewModel : ViewModelBase
         }
 
         Title = c.Title;
-        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival {c.ArrivalDate:dd MMM yyyy}";
+        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival "
+            + (c.ArrivalDate is DateTime when ? when.ToString("dd MMM yyyy") : "not recorded");
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
         EditSupplierAmount = c.SupplierAmount;
         EditPaidSoFar = await _inventory.PaidSoFarAsync(_id);
+        EditArrival = c.ArrivalDate;
         IsClosed = c.Status == ContainerStatus.Closed;
 
         _loadingSelection = true;
@@ -272,7 +275,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.UpdateImportDetailsAsync(
-                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditWeight);
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditWeight, EditArrival?.DateTime);
             _shell.MarkChanged();
             _shell.Notify("Import details saved.");
             await LoadAsync();

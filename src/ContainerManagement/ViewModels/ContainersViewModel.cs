@@ -28,7 +28,9 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private string newTitle = "";
     [ObservableProperty] private string newNumber = "";
     [ObservableProperty] private string newOrigin = "China";
-    [ObservableProperty] private DateTimeOffset? newArrival = DateTimeOffset.Now;
+    // Deliberately no default: the arrival date is a fact about the shipment, not about the day the
+    // entry happens to be typed in, so the form asks and waits rather than filling itself in.
+    [ObservableProperty] private DateTimeOffset? newArrival;
     [ObservableProperty] private string newNotes = "";
     [ObservableProperty] private string newSupplier = "";
     [ObservableProperty] private decimal? newSupplierAmount;
@@ -63,6 +65,11 @@ public partial class ContainersViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateAsync()
     {
+        if (NewArrival is null)
+        {
+            _shell.Notify("When did it arrive? Select the date.", true);
+            return;
+        }
         try
         {
             var c = await _inventory.CreateContainerAsync(
@@ -91,6 +98,7 @@ public partial class ContainersViewModel : ViewModelBase
             _shell.Notify(what);
             NewTitle = "";
             NewNumber = "";
+            NewArrival = null;
             NewNotes = "";
             NewSupplier = "";
             NewSupplierAmount = 0;

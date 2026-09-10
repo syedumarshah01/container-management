@@ -31,14 +31,18 @@
         <TextBlock Classes="h2" Text="Add a container" />
         <TextBlock Classes="label" Text="Title" />
         <TextBox Text="{Binding NewTitle}" Watermark="e.g. Yiwu electronics — March" />
-        <Grid ColumnDefinitions="*,*">
+        <Grid ColumnDefinitions="*,*,Auto">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Container number" />
             <TextBox Text="{Binding NewNumber}" />
           </StackPanel>
-          <StackPanel Grid.Column="1">
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Origin" />
             <TextBox Text="{Binding NewOrigin}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Width="200">
+            <TextBlock Classes="label" Text="Arrived on" />
+            <DatePicker SelectedDate="{Binding NewArrival}" HorizontalAlignment="Stretch" />
           </StackPanel>
         </Grid>
         <Grid ColumnDefinitions="2*,*,*,180">

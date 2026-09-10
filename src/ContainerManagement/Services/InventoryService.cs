@@ -45,6 +45,12 @@ public class InventoryService
             throw new InvalidOperationException("Amount paid cannot be negative.");
         if (paidNow > 0 && string.IsNullOrWhiteSpace(supplierName))
             throw new InvalidOperationException("Write the supplier name to record what was paid.");
+        // The paper form has an arrival date and so does this book: it is what the container page and
+        // the lists print, and a shipment without it is a fact nobody can check later. Defaulting it to
+        // today is harmless on the day and wrong whenever the entry is made afterwards, which is when
+        // the mistake gets noticed. So the date has to be given, like the title.
+        if (arrival is null)
+            throw new InvalidOperationException("Select the date the container arrived.");
 
         await using var db = await _factory.CreateDbContextAsync();
         var c = new CargoContainer
@@ -134,7 +140,8 @@ public class InventoryService
     /// leaves the payments alone: an empty box is "not now", never "nothing".
     /// </summary>
     public async Task UpdateImportDetailsAsync(
-        int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar, decimal? weight)
+        int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar, decimal? weight,
+        DateTime? arrival = null)
     {
         supplierAmount = Money.Round(supplierAmount);
         if (paidSoFar is decimal typed && typed < 0)
@@ -172,6 +179,11 @@ public class InventoryService
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
+        // A date can be added or corrected here - a container recorded without one, or with the wrong
+        // day, needs a way to be put right without touching the database. An empty picker clears nothing:
+        // clearing a date is not something this form offers, so it must not do it by accident.
+        if (arrival is DateTime when)
+            c.ArrivalDate = when;
 
         if (target > paid)
         {

@@ -27,7 +27,8 @@ shift a figure on screen.
 | the customer | bills − payments − returns equals the ledger's own entries |
 | the supplier | the bill less every payment, and one cash-book line per payment, never two |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
-| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill |
+| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date |
+| the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
 | storage size | how large an amount survives in a text column versus a float one |
@@ -123,7 +124,10 @@ rather than assuming it. Say the word and I will move those columns to text for 
    has paid should move no cash at all - but it must still show as a red "goods back" figure for
    that month on the Main ledger, since that page answers "how does the book look today".
 4. Create a container with a part payment, then pay the rest on We owe with a note: the note should be
-   on the Main ledger line, and "Paid to this supplier" should show both payments.
+   on the Main ledger line, and "Paid to this supplier" should show both payments. The arrival date
+   should be blank when the form opens - not today - and Create should refuse until you pick one. Pick a
+   date in the past and the list should show exactly that day; a wrong one can be corrected under
+   "Edit import details".
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
