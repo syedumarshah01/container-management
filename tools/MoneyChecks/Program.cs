@@ -163,11 +163,14 @@ public static class Program
             // below watch them to be sure that form does not erase what it does not display.
             "PKR", 1, null, 1_200m, 8.5m, null,
             "Yiwu Trading", 10_000_000.005m, 3_000_000.004m, "TT");
-        Eq("the supplier bill is kept to the paisa", 10_000_000.01m, container.SupplierAmount);
-        Eq("paid 3,000,000.004 was taken as 3,000,000.00, so 7,000,000.01 is owed",
-            7_000_000.01m, await inventory.SupplierBalanceAsync(container.Id));
+        // The shop typed "we owe 10,000,000.01" and "paid 3,000,000.004 now". The box is the balance, so
+        // the stored bill is that balance plus the money handed over - to the paisa each.
+        Eq("the bill is stored as the figure typed plus what was paid at creation", 13_000_000.01m,
+            container.SupplierAmount);
+        Eq("so what is owed on the page is the figure typed, not that figure netted down again",
+            10_000_000.01m, await inventory.SupplierBalanceAsync(container.Id));
         var targets = await cash.SupplierContainersAsync();
-        Eq("the We owe page reads the same figure", 7_000_000.01m, targets.Single(t => t.Id == container.Id).Owed);
+        Eq("the We owe page reads the same figure", 10_000_000.01m, targets.Single(t => t.Id == container.Id).Owed);
         var payments = (await cash.SupplierPaymentsAsync()).Where(p => p.ContainerId == container.Id).ToList();
         Check("the payment made on the container form is recorded, once", payments.Count == 1, payments.Count + " rows");
         Eq("at the amount typed", 3_000_000m, payments.Count > 0 ? payments[0].Amount : -1m);
@@ -366,7 +369,8 @@ public static class Program
         Head("paying the supplier: two payments, two ledger lines, no double counting");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 1_000_000.004m, "LC", "part payment, HBL ref 99");
         await inventory.PaySupplierAsync(container.Id, DateTime.Today, 500_000m, "Cash", null);
-        Eq("owed is the bill less all three payments", 5_500_000.01m, await inventory.SupplierBalanceAsync(container.Id));
+        Eq("owed is the figure on the box less what the page has paid since", 8_500_000.01m,
+            await inventory.SupplierBalanceAsync(container.Id));
         book = await cash.ListAsync();
         await using (var db = await factory.CreateDbContextAsync())
         {
@@ -389,8 +393,8 @@ public static class Program
                 newest.Date.ToString("dd MMM yyyy"));
             Eq("paid so far is the figure typed, not the figure typed less rounding", 4_700_000.01m,
                 await inventory.PaidSoFarAsync(container.Id));
-            Eq("so what is owed fell by exactly that payment", 5_300_000.00m,
-                await inventory.SupplierBalanceAsync(container.Id));
+            Eq("and what is owed stays the figure on the box - paying moves the bill, not the balance",
+                10_000_000.01m, await inventory.SupplierBalanceAsync(container.Id));
         }
         await using (var db = await factory.CreateDbContextAsync())
         {
@@ -410,22 +414,25 @@ public static class Program
                 pays.Count + " payments: " + string.Join(", ", pays.Select(p => Money.Pkr(p.Amount))));
             Eq("leaving exactly the figure typed", 4_150_000m, pays.Sum(p => p.Amount));
             Eq("the trimmed payment keeps its own cash line at the trimmed amount", 150_000m, pays[2].Amount);
-            Eq("and the bill's side of the story agrees", 5_850_000.01m, await inventory.SupplierBalanceAsync(container.Id));
+            Eq("the owed figure is still what the box said after taking payments back too", 10_000_000.01m,
+                await inventory.SupplierBalanceAsync(container.Id));
             var outLines = (await db.CashBook.ToListAsync()).Where(e => e.Kind == CashBookKind.SupplierOut).ToList();
             Check("no payment is left without a cash line, and no cash line without a payment",
                 pays.Count == outLines.Count && pays.All(p => outLines.Any(e => e.SupplierPaymentId == p.Id)),
                 pays.Count + " payments, " + outLines.Count + " cash lines");
         }
-        await Throws<InvalidOperationException>("paid cannot be more than the bill",
-            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 5_000_000m, 5_000_000.01m, null));
-        await Throws<InvalidOperationException>("the bill cannot be lowered below what has already been paid",
-            () => inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 4_000_000m, null, null));
+        // The balance box below what has been paid is not a contradiction to refuse - it is a settled
+        // container, which is the ordinary shape of goods bought and paid for.
+        await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 4_000_000m, null, null);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
-            Eq("a refused edit wrote nothing: the bill is still what it was", 10_000_000.01m, c.SupplierAmount);
-            Check("and no half-recorded payment was left behind",
-                (await db.SupplierPayments.ToListAsync()).Count == 3, "payments: " + (await db.SupplierPayments.CountAsync()));
+            Eq("the bill becomes the balance typed plus every payment on the container", 8_150_000m, c.SupplierAmount);
+            Eq("and the page owes exactly the figure that was written", 4_000_000m,
+                await inventory.SupplierBalanceAsync(container.Id));
+            Check("while a save that only moved the balance leaves the payment pile alone",
+                (await db.SupplierPayments.ToListAsync()).Count == 3,
+                "payments: " + (await db.SupplierPayments.CountAsync()));
         }
         await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 999m);
         await using (var db = await factory.CreateDbContextAsync())
@@ -438,17 +445,21 @@ public static class Program
             Eq("while the weight still saves", 999m, c.WeightKg ?? 0m);
         }
 
-        // What the We owe page allows - a payment larger than what is left - must not turn this form
-        // into a brick. The pile is honest; the form keeps working on everything else.
-        await inventory.PaySupplierAsync(container.Id, DateTime.Today, 6_000_000m, "TT", "over the bill, on purpose");
+        // A payment larger than the figure on the container is refused on the page, the same way a
+        // customer is never allowed to pay a bill by one paisa more.
+        await Throws<InvalidOperationException>("one paisa past what the container says is owed is refused",
+            () => inventory.PaySupplierAsync(container.Id, DateTime.Today, 10_000_000.02m, "TT", null));
+        Eq("and the refusal wrote no payment at all", 4_150_000m, await inventory.PaidSoFarAsync(container.Id));
+        await inventory.PaySupplierAsync(container.Id, DateTime.Today, 4_000_000m, "TT", "what the box said");
         await inventory.UpdateImportDetailsAsync(container.Id, "Yiwu Trading", 10_000_000.01m, null, 888m);
         await using (var db = await factory.CreateDbContextAsync())
         {
             var c = await db.Containers.SingleAsync(x => x.Id == container.Id);
-            Eq("a container already over its bill still saves an untouched field", 888m, c.WeightKg ?? 0m);
-            Eq("and the overpayment the page recorded is left exactly as it was", 10_150_000m,
+            Eq("a paying container still saves an untouched field, and the bill grows with it",
+                18_150_000.01m, c.SupplierAmount);
+            Eq("the payment the page recorded is left exactly as it was", 8_150_000m,
                 await inventory.PaidSoFarAsync(container.Id));
-            Eq("which is what the owed figure then says, negative and all", -150_000m,
+            Eq("and the owed figure is the box, whatever the pile under it looks like", 10_000_000.01m,
                 await inventory.SupplierBalanceAsync(container.Id));
         }
 
@@ -591,26 +602,27 @@ public static class Program
                 again.ArrivalDate == new DateTime(2026, 3, 20), "stored " + again.ArrivalDate);
         }
 
-        Head("paying a supplier against a bill that was never written");
-        var unbilled = await inventory.CreateContainerAsync("Unbilled", "CNT-0003", "China",
-            new DateTime(2026, 4, 2), null, null, null, null, null, null, null, "Yiwu Trading", 0m, 0m, null);
-        Throws<InvalidOperationException>("money is not taken for a container with no bill on it",
-            () => inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 2), 500_000m, "TT", null));
-        await using (var dbNone = await factory.CreateDbContextAsync())
-            Check("and the refusal left nothing behind in the book",
-                (await dbNone.SupplierPayments.Where(p => p.ContainerId == unbilled.Id).ToListAsync()).Count == 0);
-        await inventory.UpdateImportDetailsAsync(unbilled.Id, "Yiwu Trading", 500_000m, null, null);
-        await inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 2), 500_000m, "TT", null);
-        var settledRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == unbilled.Id);
-        Check("the same payment is taken once the bill is written, and the container reads settled",
-            settledRow.Label.EndsWith("settled"), settledRow.Label);
-        await inventory.PaySupplierAsync(unbilled.Id, new DateTime(2026, 4, 3), 100_000m, "TT", null);
-        var advanceRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == unbilled.Id);
-        Check("money past a bill that does exist is still an advance, and says so",
-            advanceRow.Label.Contains("Paid extra " + Money.Pkr(100_000m)), advanceRow.Label);
+        Head("the figure typed on the container form is what the shop owes");
+        // "Goods worth 20 lac, 20 lac handed over now" is typed as: we owe 20 lac, paid 20 lac. The paid
+        // figure is a payment, not a reduction of the shopkeeper's own number, so the page must still say
+        // 20 lac owed - which is the whole rule, tested at the number.
+        var typed = await inventory.CreateContainerAsync("Typed balance", "CNT-0003", "China",
+            new DateTime(2026, 4, 2), null, null, null, null, null, null, null, "Yiwu Trading",
+            500_000m, 500_000m, "Cash");
+        Eq("the bill is stored as that figure plus the money handed over", 1_000_000m, typed.SupplierAmount);
+        var typedRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == typed.Id);
+        Eq("and We owe shows the figure that was typed", 500_000m, typedRow.Owed);
+        Check("in the shop's words, not in a netted-down one",
+            typedRow.Label.Contains("owe " + Money.Pkr(500_000m)), typedRow.Label);
+        await inventory.PaySupplierAsync(typed.Id, new DateTime(2026, 4, 3), 500_000m, "Cash", null);
+        Check("paying that figure settles the container",
+            (await cash.SupplierContainersAsync()).Single(t => t.Id == typed.Id).Label.EndsWith("settled"));
+        await Throws<InvalidOperationException>("and a paisa more is refused, because nothing is owed",
+            () => inventory.PaySupplierAsync(typed.Id, new DateTime(2026, 4, 4), 0.01m, "Cash", null));
 
-        // The other way the shop could end up owing nothing and seeing "paid extra": the same payment
-        // reaching the till twice. Every payment posts one line, and no line exists without a payment.
+        // The other half: the money handed over at creation must reach the supplier's list and the till
+        // exactly once. A payment filed twice is the other way a container starts owing nothing and
+        // reading as overpaid.
         await using (var dbAll = await factory.CreateDbContextAsync())
         {
             var pays = (await dbAll.SupplierPayments.AsNoTracking().ToListAsync()).Select(p => p.Id).ToList();

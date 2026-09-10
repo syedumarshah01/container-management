@@ -45,10 +45,6 @@ public class InventoryService
             throw new InvalidOperationException("Amount paid cannot be negative.");
         if (paidNow > 0 && string.IsNullOrWhiteSpace(supplierName))
             throw new InvalidOperationException("Write the supplier name to record what was paid.");
-        if (paidNow > 0 && supplierAmount <= 0.009m)
-            throw new InvalidOperationException(
-                "You wrote money paid but no bill for it. Put the supplier bill in the box above it - "
-                + "the goods' cost is the usual figure - or leave the paid box empty.");
         // The paper form has an arrival date and so does this book: it is what the container page and
         // the lists print, and a shipment without it is a fact nobody can check later. Defaulting it to
         // today is harmless on the day and wrong whenever the entry is made afterwards, which is when
@@ -67,10 +63,15 @@ public class InventoryService
             Currency = string.IsNullOrWhiteSpace(currency) ? "PKR" : currency.Trim().ToUpperInvariant(),
             ExchangeRate = rate is > 0 ? rate.Value : 1,
             BlNumber = TrimOrNull(bl),
+            // The figure in the "we owe" box is what the We owe page must show, so it is read as the
+            // balance - what is still owed after the money handed over here. The bill is therefore the
+            // balance plus that money, and the payment below cancels itself out of the owed figure
+            // instead of shaving the shopkeeper's own number a second time. Writing "goods 20 lac, paid
+            // 20 lac, still owe 20 lac" is exactly right under this rule: the box is what they owe.
             Cartons = cartons,
             Cbm = cbm,
             WeightKg = weight,
-            SupplierAmount = supplierAmount
+            SupplierAmount = Money.Round(supplierAmount + paidNow)
         };
         if (!string.IsNullOrWhiteSpace(supplierName))
             c.SupplierId = await FindOrCreateSupplierId(db, supplierName, null);
@@ -101,39 +102,13 @@ public class InventoryService
         return c;
     }
 
-    public async Task UpdateContainerAsync(
-        int id, string title, string? number, string origin, DateTime? arrival, string? notes,
-        ContainerStatus status, string currency, decimal rate, string? bl,
-        decimal? cartons, decimal? cbm, decimal? weight,
-        string? supplierName, decimal supplierAmount)
-    {
-        await using var db = await _factory.CreateDbContextAsync();
-        var c = await db.Containers.FindAsync(id)
-            ?? throw new InvalidOperationException("Container not found.");
-        if (string.IsNullOrWhiteSpace(title))
-            throw new InvalidOperationException("Container title is required.");
-        c.Title = title.Trim();
-        c.ContainerNumber = TrimOrNull(number);
-        c.Origin = string.IsNullOrWhiteSpace(origin) ? "China" : origin.Trim();
-        c.ArrivalDate = arrival;
-        c.Notes = notes?.Trim();
-        c.Status = status;
-        c.Currency = string.IsNullOrWhiteSpace(currency) ? "PKR" : currency.Trim().ToUpperInvariant();
-        c.ExchangeRate = rate > 0 ? rate : 1;
-        c.BlNumber = TrimOrNull(bl);
-        c.Cartons = cartons;
-        c.Cbm = cbm;
-        c.WeightKg = weight;
-        c.SupplierAmount = Money.Round(supplierAmount);
-        c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
-            ? null
-            : await FindOrCreateSupplierId(db, supplierName, null);
-        await db.SaveChangesAsync();
-    }
-
     /// <summary>
-    /// The import editor: the supplier, their bill, the freight figures - and what has actually been
-    /// handed over, since that number belongs beside the bill it is taken from.
+    /// The container's own form: the supplier, what is still owed, what has been paid, the weight and the
+    /// day it arrived. The boxes are read as the shop reads them, so "we owe" here is the balance left to
+    /// pay, not the invoice total - which is why the bill this table stores is built from the two money
+    /// boxes together: what is owed, plus everything paid against this container. That is what keeps the
+    /// We owe page showing the figure typed here. A payment is money moving; it is not a licence to
+    /// shave the shopkeeper's own number down behind their back.
     ///
     /// What has been paid is not a figure written on the container, it is the pile of payments against
     /// it, so editing it edits the pile. Typing more records one more payment, dated today, marked as
@@ -150,6 +125,8 @@ public class InventoryService
         supplierAmount = Money.Round(supplierAmount);
         if (paidSoFar is decimal typed && typed < 0)
             throw new InvalidOperationException("Amount paid cannot be negative.");
+        if (supplierAmount < 0)
+            throw new InvalidOperationException("The amount owed cannot be negative.");
 
         await using var db = await _factory.CreateDbContextAsync();
         var c = await db.Containers.FindAsync(id)
@@ -162,24 +139,17 @@ public class InventoryService
         var paid = payments.Sum(p => p.Amount);
         var target = paidSoFar is decimal entered ? Money.Round(entered) : paid;
 
-        // Both guards look only at what this save is actually changing. A guard that fires on a field
-        // nobody touched would freeze the form: an unrelated weight edit would refuse to save on
-        // account of a payment record from last month, and the fix would look like a broken button.
-        if (paidSoFar is decimal && target > supplierAmount)
-            throw new InvalidOperationException(
-                "Paid cannot be more than the bill of " + Money.Pkr(supplierAmount)
-                + ". Record the extra against the next container, not this one.");
-        if (supplierAmount != c.SupplierAmount && paid > supplierAmount)
-            throw new InvalidOperationException(
-                Money.Pkr(paid) + " has already been paid against this container, so the bill cannot "
-                + "be set below that. Correct the payments first.");
+        // There is no guard here between the two boxes, and there should not be one: the bill is built
+        // from both of them (the balance typed plus the payments recorded), so they cannot contradict
+        // each other. A figure below what was paid is not an error to refuse - it is what settles a
+        // container, which is the ordinary case for goods paid for in full.
 
         await using var tx = await db.Database.BeginTransactionAsync();
 
         // Only what the form shows. Cartons and CBM stay as they were set at creation, because a save
         // that writes nulls nobody can see or cancel is how figures quietly disappear from a book.
         c.WeightKg = weight;
-        c.SupplierAmount = supplierAmount;
+        c.SupplierAmount = Money.Round(supplierAmount + target);
         c.SupplierId = string.IsNullOrWhiteSpace(supplierName)
             ? null
             : await FindOrCreateSupplierId(db, supplierName, null);
@@ -461,14 +431,21 @@ public class InventoryService
             throw new InvalidOperationException("Set the supplier name on this container first.");
         var supplier = await db.Suppliers.FindAsync(c.SupplierId.Value)
             ?? throw new InvalidOperationException("Supplier not found.");
-        // Taking the money with nothing to settle it against is how a container ends up looking like the
-        // supplier was overpaid: the payment is real, the bill is missing, and only one of those can be
-        // fixed from this page. So the page says what to write first rather than filing an explanation
-        // nobody asked for in the book.
-        if (c.SupplierAmount <= 0.009m)
-            throw new InvalidOperationException(
-                "This container has no supplier bill recorded, so there is nothing to pay against. Open "
-                + "the container, Edit import details, and write the bill.");
+        // What the shop owes a container is the figure on the container, less what has been paid. Money
+        // sent past that is not this container's business - an advance belongs to the next shipment, and
+        // a bill that was under-recorded belongs on the container form - so the page says which box to
+        // fix instead of filing a negative nobody asked for. Same rule the customer side already holds:
+        // a payment is never more than the bill.
+        var paid = (await db.SupplierPayments.AsNoTracking()
+            .Where(x => x.ContainerId == containerId).ToListAsync()).Sum(x => x.Amount);
+        var owed = Money.Round(c.SupplierAmount - paid);
+        if (amount > owed)
+            throw new InvalidOperationException(owed > 0.009m
+                ? "This container is owed " + Money.Pkr(owed) + ". Record " + Money.Pkr(amount - owed)
+                  + " against the next shipment, or put the right figure on the container form."
+                : "Nothing is owed on this container - " + Money.Pkr(paid) + " has been paid against a "
+                  + "figure of " + Money.Pkr(c.SupplierAmount) + ". Put the real amount owed on the "
+                  + "container form first.");
         var pay = new SupplierPayment
         {
             SupplierId = c.SupplierId.Value,

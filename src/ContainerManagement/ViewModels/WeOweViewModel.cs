@@ -52,18 +52,14 @@ public partial class WeOweViewModel : ViewModelBase
                 ContainerId = t.Id,
                 SupplierName = t.SupplierName,
                 ContainerTitle = t.ContainerTitle,
-                Owed = t.Owed,
-                Bill = t.Bill,
-                Paid = t.Paid
+                Owed = t.Owed
             });
             Containers.Add(new PayContainerOption
             {
                 Id = t.Id,
                 Label = t.Label,
                 SupplierName = t.SupplierName,
-                Owed = t.Owed,
-                Bill = t.Bill,
-                Paid = t.Paid
+                Owed = t.Owed
             });
         }
 
@@ -103,7 +99,7 @@ public partial class WeOweViewModel : ViewModelBase
         if (owed > 0.009m)
             WeOweThem = Money.Pkr(owed);
         else if (owed < -0.009m)
-            WeOweThem = CashBookService.ShortfallText(PayContainer.Bill, PayContainer.Paid);
+            WeOweThem = CashBookService.PaidExtraText(-owed);
         else
             WeOweThem = Money.Pkr(0);
     }
@@ -142,10 +138,8 @@ public class WeOweRow
     public string SupplierName { get; set; } = "";
     public string ContainerTitle { get; set; } = "";
     public decimal Owed { get; set; }
-    public decimal Bill { get; set; }
-    public decimal Paid { get; set; }
     public string OwedText => Owed < -0.009m
-        ? CashBookService.ShortfallText(Bill, Paid, terse: true)
+        ? CashBookService.PaidExtraText(-Owed, terse: true)
         : Money.Pkr(Owed);
 }
 
@@ -155,7 +149,5 @@ public class PayContainerOption
     public string Label { get; set; } = "";
     public string SupplierName { get; set; } = "";
     public decimal Owed { get; set; }
-    public decimal Bill { get; set; }
-    public decimal Paid { get; set; }
     public override string ToString() => Label;
 }

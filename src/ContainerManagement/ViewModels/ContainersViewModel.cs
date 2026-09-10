@@ -89,12 +89,17 @@ public partial class ContainersViewModel : ViewModelBase
                 NewPaid ?? 0,
                 NewPaidMethod);
             var paid = NewPaid ?? 0;
-            var still = (NewSupplierAmount ?? 0) - paid;
+            // The box is read as what is still owed, so the paid-now money never nets it down: this line
+            // has to say the same thing the We owe page will say a second later.
+            var owed = Money.Round(NewSupplierAmount ?? 0);
             var what = $"Container '{c.Title}' created.";
-            if (paid <= 0) what += " Add items on the next screen.";
-            else if (still > 0.009m) what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(still)} still owed.";
-            else if (still < -0.009m) what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(-still)} extra.";
-            else what += $" {Money.Pkr(paid)} paid by {NewPaidMethod}, supplier settled.";
+            if (paid > 0)
+                what += owed > 0.009m
+                    ? $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(owed)} still owed."
+                    : $" {Money.Pkr(paid)} paid by {NewPaidMethod}, supplier settled.";
+            else if (owed > 0.009m)
+                what += $" {Money.Pkr(owed)} owed on this container.";
+            what += " Add items on the next screen.";
             _shell.Notify(what);
             NewTitle = "";
             NewNumber = "";

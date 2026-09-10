@@ -25,10 +25,10 @@ shift a figure on screen.
 | returns | a full return credits the bill paisa for paisa; over-returning is refused; a return on a bill that was paid hands the cash back through the till once, and holds it as credit when told to |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
-| the supplier | the bill less every payment, and one cash-book line per payment, never two |
-| paying with no bill | money is not taken against a container whose bill was never written, and a shortfall is called an advance only when a bill exists to be exceeded |
+| the supplier | one cash-book line per payment, never two, and every payment has one |
+| the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
-| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying a bill-less container |
+| guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
@@ -128,12 +128,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
    on the Main ledger line, and "Paid to this supplier" should show both payments. The arrival date
    should be blank when the form opens - not today - and Create should refuse until you pick one. Pick a
    date in the past and the list should show exactly that day; a wrong one can be corrected under
-   "Edit import details". Try the paid box with no bill in the box above it: it should refuse and tell you
-   to write the bill, not file the payment.
-4b. On a container with goods entered but no bill, We Owe should read "no bill recorded - Rs X paid", not
-   "paid extra". Open its Edit import details: the bill should be pre-filled with the cost of the goods,
-   with one line saying that is what happened; save, and We Owe should read settled. Paying 100,000 more
-   than the bill now reads "Paid extra Rs 1,00,000" - an advance, said as one.
+   "Edit import details". The figure written in "We owe them (Rs)" is what the We Owe page should show as
+   owed - not that figure less the paid-now money, which is the mistake this rule removes.
+4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
+   and it should be refused, naming the figure that is owed. A container left over from before this rule,
+   with money paid past its figure, shows nothing owed and says so in one line on the container form.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
@@ -145,8 +144,9 @@ rather than assuming it. Say the word and I will move those columns to text for 
    weight box should still step. Cartons and CBM are not in this form any more - they keep whatever the
    container was created with, and a check makes sure saving here does not erase them. Raise
    "Paid (Rs)" by 1,000 and save. We Owe should
-   show one more payment, dated today, marked "Recorded on the container form", the owed figure 1,000
-   lower, and one more line in the cash book. Type the old figure back: that payment and that cash line
+   show one more payment, dated today, marked "Recorded on the container form", one more line in the cash
+   book, and the owed figure exactly where the "We owe (Rs)" box says it is. Type the old figure back: that payment and that cash line
    should disappear, and the trimmed neighbour should read exactly what it did before. Then try to set
-   "We owe" below what has been paid - it should refuse, naming the paid figure. "We owe" here is the whole bill for this container, not what is left - what is left lives on
-   the We Owe page.
+   "We owe" to 0 while payments stand against the container: the container settles, it does not refuse -
+   "We owe" here is what is left to pay, and the bill is that figure plus every payment. The words line
+   and this box must say the same amount, since both are the same money.

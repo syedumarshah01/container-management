@@ -86,36 +86,23 @@ public partial class ContainerDetailViewModel : ViewModelBase
             + (c.ArrivalDate is DateTime when ? when.ToString("dd MMM yyyy") : "not recorded");
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
-        EditSupplierAmount = c.SupplierAmount;
-        EditPaidSoFar = await _inventory.PaidSoFarAsync(_id);
+        var paidNow = await _inventory.PaidSoFarAsync(_id);
+        // The box asks what is still owed, because that is the figure the container form asked for and
+        // the figure the We owe page shows. The stored number is the bill - what is owed plus everything
+        // paid - so the two are exactly one subtraction apart, done here and nowhere else.
+        var owedNow = Money.Round(c.SupplierAmount - paidNow);
+        EditPaidSoFar = paidNow;
+        EditSupplierAmount = owedNow > 0.009m ? owedNow : 0m;
         EditArrival = c.ArrivalDate;
-
-        // A container whose goods were entered but whose bill was never written looks like the supplier
-        // was overpaid by whatever was paid to them. The goods' cost is the usual invoice figure, so the
-        // form starts there instead of at zero and lets the owner correct it - the number is put in front
-        // of them, not written behind their back. And never a pre-fill the form would then refuse to
-        // save: a suggestion that trips the guard on the paid figure reads as a broken button.
-        var goods = Money.Round(c.Items.Sum(i => i.QuantityReceived * i.UnitCost));
-        var paidIn = EditPaidSoFar ?? 0;
-        if (c.SupplierAmount <= 0.009m && goods > 0.009m && goods >= paidIn)
-        {
-            EditSupplierAmount = goods;
-            EditBillHint = "No bill was recorded on this container, so the " + Money.Pkr(goods)
-                + " of goods on it is filled in as the bill. Change it if the invoice differs, then save.";
-            ShowBillHint = true;
-        }
-        else if (c.SupplierAmount <= 0.009m && paidIn > 0.009m)
-        {
-            EditBillHint = Money.Pkr(paidIn) + " was paid to this supplier against a container with no bill "
-                + "written on it, while the goods on it come to " + Money.Pkr(goods) + ". Write the real "
-                + "bill in above - it cannot be less than what has been paid.";
-            ShowBillHint = true;
-        }
-        else
-        {
-            EditBillHint = "";
-            ShowBillHint = false;
-        }
+        // Money paid past the figure on a container can only be left over from the earlier rule: the pay
+        // page refuses it now, and a box that cannot show a negative shows nothing owed. So the form says
+        // what the clamp hides rather than pretending the two figures agree.
+        ShowBillHint = owedNow < -0.009m;
+        EditBillHint = ShowBillHint
+            ? "This container has " + Money.Pkr(-owedNow) + " paid past the figure written on it, from "
+              + "before this rule. Saving it as it stands counts that money towards the bill; moving the "
+              + "extra to the next shipment is the tidier fix."
+            : "";
         IsClosed = c.Status == ContainerStatus.Closed;
 
         _loadingSelection = true;
