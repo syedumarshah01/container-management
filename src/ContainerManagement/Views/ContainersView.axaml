@@ -40,9 +40,11 @@
             <TextBlock Classes="label" Text="Origin" />
             <TextBox Text="{Binding NewOrigin}" />
           </StackPanel>
-          <StackPanel Grid.Column="2" Width="200">
-            <TextBlock Classes="label" Text="Arrived on" />
-            <DatePicker SelectedDate="{Binding NewArrival}" HorizontalAlignment="Stretch" />
+          <!-- The cell is Auto and the picker is not stretched, so the column is exactly as wide as the
+               control asks for: nothing here can clip it, whatever the theme decides a date box needs. -->
+          <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+            <TextBlock Classes="label" Text="Arrived on" HorizontalAlignment="Right" />
+            <DatePicker SelectedDate="{Binding NewArrival}" HorizontalAlignment="Right" />
           </StackPanel>
         </Grid>
         <Grid ColumnDefinitions="2*,*,*,180">

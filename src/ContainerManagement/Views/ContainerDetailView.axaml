@@ -80,7 +80,7 @@
                                Value="{Binding EditWeight}" />
 
                 <TextBlock Grid.Row="4" Classes="label" Text="Arrived on" VerticalAlignment="Center" Margin="0" />
-                <DatePicker Grid.Row="4" Grid.Column="1" Width="200" Margin="0,6" HorizontalAlignment="Left"
+                <DatePicker Grid.Row="4" Grid.Column="1" Margin="0,6" HorizontalAlignment="Left"
                             SelectedDate="{Binding EditArrival}" />
               </Grid>
 
