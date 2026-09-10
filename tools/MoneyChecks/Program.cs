@@ -634,6 +634,55 @@ public static class Program
                 pays.Count + " payments, " + links.Count + " till lines");
         }
 
+        Head("the return ask: the figure on the button is the figure in the book");
+        var askBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
+        }, 3_499.98m, "Cash", null, 0m, null);
+        var askLine = askBill.Lines.Single(l => l.ProductId == chargers.ProductId);
+        var asked = new List<SaleReturnInput> { new() { SaleLineId = askLine.Id, Quantity = 1m } };
+        var preview = await sales.PreviewReturnAsync(askBill.Id, asked);
+        Eq("the ledger takes the value of the goods back", 1_999.99m, preview.Credit);
+        Eq("and the till would hand over what is left after the debt is relieved", 1_499.99m, preview.Cash);
+        var ledgerOnly = await sales.ReturnItemsAsync(askBill.Id, asked, refundInCash: false);
+        Eq("choosing the ledger alone moves no cash at all", 0m, ledgerOnly);
+        await using (var dbAsk = await factory.CreateDbContextAsync())
+        {
+            var till = await dbAsk.CashBook.ToListAsync();
+            Check("and nothing was written to the till for it",
+                !till.Any(e => e.Kind == CashBookKind.RefundOut && e.SaleId == askBill.Id));
+            var led = await dbAsk.LedgerEntries.Where(e => e.SaleId == askBill.Id && e.Type == LedgerType.Return).ToListAsync();
+            Eq("their ledger carries the credit the button named", 1_999.99m, led.Sum(e => e.Credit - e.Debit));
+        }
+
+        var second = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
+        }, 3_499.98m, "Cash", null, 0m, null);
+        var secondLine = second.Lines.Single(l => l.ProductId == chargers.ProductId);
+        var secondAsk = new List<SaleReturnInput> { new() { SaleLineId = secondLine.Id, Quantity = 1m } };
+        var preview2 = await sales.PreviewReturnAsync(second.Id, secondAsk);
+        var paidOut = await sales.ReturnItemsAsync(second.Id, secondAsk, refundInCash: true);
+        Eq("and choosing cash pays out exactly the figure the button showed", preview2.Cash, paidOut);
+        Check("the same figures again on a second bill, so the preview is not a promise the posting breaks",
+            preview2.Credit == preview.Credit && preview2.Cash == paidOut,
+            "preview " + preview2.Cash + ", posted " + paidOut);
+        await using (var dbAsk2 = await factory.CreateDbContextAsync())
+            Check("asking and previewing wrote nothing on its own: one return per bill",
+                (await dbAsk2.SaleReturns.Where(r => r.SaleId == askBill.Id).ToListAsync()).Count == 1);
+
+        Head("the order the book is read in");
+        var customerLedger = await ledger.GetLedgerAsync(customer.Id);
+        Check("a customer's ledger shows the newest entry first",
+            customerLedger.Count > 1 && customerLedger[0].Date >= customerLedger[^1].Date,
+            customerLedger.Count + " lines");
+        Eq("and its top line carries the balance the page puts at the head",
+            await ledger.GetBalanceAsync(customer.Id), customerLedger[0].RunningBalance);
+        var tillRows = await cash.ListAsync();
+        Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
+            tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),
+            tillRows.Count + " lines");
+
         Head("scanning every money figure that ended up in the database");
         var bad = new List<string>();
         await using var db = await factory.CreateDbContextAsync();

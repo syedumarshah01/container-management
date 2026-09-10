@@ -92,10 +92,14 @@ public partial class MainLedgerViewModel : ViewModelBase
         var monthRows = _all.Where(r => r.Date >= start && r.Date < end).ToList();
         decimal running = prior.Sum(r => r.AmountIn - r.AmountOut);
 
-        Rows.Clear();
+        // The rows are put together oldest first, because that is the only order in which a running
+        // balance means anything: each figure has to be the book as it stood once that entry was made.
+        // The page then shows them the other way round, latest on top - the shop opens this page to see
+        // what happened last, and reading the column upwards is what a day book is for.
+        var built = new List<CashBookRowVm>();
         if (prior.Count > 0)
         {
-            Rows.Add(new CashBookRowVm
+            built.Add(new CashBookRowVm
             {
                 Date = start,
                 Description = "Balance brought forward",
@@ -108,7 +112,7 @@ public partial class MainLedgerViewModel : ViewModelBase
         foreach (var r in monthRows)
         {
             running += r.AmountIn - r.AmountOut;
-            Rows.Add(new CashBookRowVm
+            built.Add(new CashBookRowVm
             {
                 Date = r.Date,
                 Description = r.Description,
@@ -117,6 +121,10 @@ public partial class MainLedgerViewModel : ViewModelBase
                 Running = running
             });
         }
+
+        Rows.Clear();
+        for (var i = built.Count - 1; i >= 0; i--)
+            Rows.Add(built[i]);
 
         MonthIn = Money.Pkr(monthRows.Sum(r => r.AmountIn));
         MonthOut = Money.Pkr(monthRows.Sum(r => r.AmountOut));

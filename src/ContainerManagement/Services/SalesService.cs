@@ -160,6 +160,25 @@ public class SalesService
 
     public async Task<decimal> ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs, bool refundInCash = false)
     {
+        var (cash, _) = await SettleReturnAsync(saleId, inputs, refundInCash, post: true);
+        return cash;
+    }
+
+    /// <summary>
+    /// What returning these quantities would do, worked out without writing a thing: the credit it takes
+    /// off the customer's ledger, and the cash it would take out of the till. The sale page shows these
+    /// two figures on its two buttons, so they must come from the same arithmetic as the posting - a
+    /// promise of Rs 1,999.99 against a book entry of Rs 1,999.98 is an evening of counting for somebody.
+    /// </summary>
+    public async Task<(decimal Credit, decimal Cash)> PreviewReturnAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
+    {
+        var (cash, credit) = await SettleReturnAsync(saleId, inputs, refundInCash: true, post: false);
+        return (credit, cash);
+    }
+
+    private async Task<(decimal Cash, decimal Credit)> SettleReturnAsync(
+        int saleId, IReadOnlyList<SaleReturnInput> inputs, bool refundInCash, bool post)
+    {
         var wanted = inputs.Where(x => x.Quantity > 0).ToList();
         if (wanted.Count == 0)
             throw new InvalidOperationException("Type how many of each item came back.");
@@ -209,7 +228,8 @@ public class SalesService
 
             var item = await db.ContainerItems.FindAsync(line.ContainerItemId)
                 ?? throw new InvalidOperationException("Stock lot missing.");
-            item.QuantityRemaining += input.Quantity;
+            if (post)
+                item.QuantityRemaining += input.Quantity;
 
             var amount = Money.Round(input.Quantity * line.UnitPrice * factor);
             ret.Lines.Add(new SaleReturnLine
@@ -233,6 +253,9 @@ public class SalesService
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
         if (ret.Amount + returnedSoFar - sale.TotalAmount > 0.009m)
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
+
+        if (!post)
+            return (0m, ret.Amount);
 
         db.SaleReturns.Add(ret);
         await db.SaveChangesAsync();
@@ -288,7 +311,7 @@ public class SalesService
 
         await db.SaveChangesAsync();
         await tx.CommitAsync();
-        return back;
+        return (back, ret.Amount);
     }
 
     private async Task<Sale> SaveSaleAsync(

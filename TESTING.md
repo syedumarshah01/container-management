@@ -29,6 +29,8 @@ shift a figure on screen.
 | the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
+| the order of the book | a customer's ledger and the till both put the latest entry on top, and every line still carries the balance the book had reached at that moment |
+| the return ask | the page asks which way to settle a return, and the figure printed on the button is the figure the book writes; choosing the ledger leaves the till untouched |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
 | the whole database | scanned: no money value anywhere has a third decimal |
@@ -130,6 +132,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
    date in the past and the list should show exactly that day; a wrong one can be corrected under
    "Edit import details". The figure written in "We owe them (Rs)" is what the We Owe page should show as
    owed - not that figure less the paid-now money, which is the mistake this rule removes.
+3c. Press Return on a bill the customer has partly paid: the page should stop and ask, with the two
+   buttons naming their own amounts - "Hand over Rs 14,999.99 from the till" and "Adjust Rs 19,999.99 in
+   their ledger". Take the ledger choice and the till should gain no line at all; take the cash choice on
+   the next one and the till should gain exactly the figure the button named. On a bill nobody has paid,
+   the cash button should read "Nothing to hand over" and be dead, because there is no money to give back.
 4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
    and it should be refused, naming the figure that is owed. A container left over from before this rule,
    with money paid past its figure, shows nothing owed and says so in one line on the container form.

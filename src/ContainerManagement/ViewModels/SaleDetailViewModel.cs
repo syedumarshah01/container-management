@@ -45,7 +45,16 @@ public partial class SaleDetailViewModel : ViewModelBase
     /// being reduced - and off while they still owe, where the return is absorbed as relief. Untick it to
     /// hold the money as their credit instead; the amount is never posted as cash in that case.
     /// </summary>
-    [ObservableProperty] private bool refundInCash;
+    // The page asks how a return is to be settled rather than deciding on its own: cash out of the till,
+    // or a figure standing in the customer's ledger. The two buttons carry the exact amounts, taken from
+    // the same arithmetic the posting uses.
+    [ObservableProperty] private bool askReturnHow;
+    [ObservableProperty] private bool canHandCash = true;
+    [ObservableProperty] private string returnCashText = "";
+    [ObservableProperty] private string returnLedgerText = "";
+    private List<SaleReturnInput>? _pendingReturn;
+    public bool ShowReturnButton => !AskReturnHow;
+    partial void OnAskReturnHowChanged(bool value) => OnPropertyChanged(nameof(ShowReturnButton));
 
     public ObservableCollection<SaleLineRow> Lines { get; } = new();
 
@@ -94,12 +103,8 @@ public partial class SaleDetailViewModel : ViewModelBase
             });
         }
         CanReturn = !IsCancelled && Lines.Any(l => l.CanReturnLine);
-        // Anything received for this bill is money that can go back, so the tick comes on whenever
-        // something was paid - not only when the bill was fully settled. A credit bill the customer has
-        // not paid a rupee of stays off: there the return is relief from a debt, not cash.
-        var stillOwed = await _sales.RemainingOnInvoiceAsync(_id);
-        var received = Math.Max(0, _sale.TotalAmount - _sale.Returns.Sum(r => r.Amount) - stillOwed);
-        RefundInCash = !IsCancelled && received > 0.009m;
+        AskReturnHow = false;
+        _pendingReturn = null;
     }
 
     [RelayCommand]
@@ -123,6 +128,11 @@ public partial class SaleDetailViewModel : ViewModelBase
             _shell.EditSale(_id);
     }
 
+    /// <summary>
+    /// The ask, not the posting: nothing is written until the shop says which way the return is settled.
+    /// Both figures come from the service's own arithmetic, so a button never promises a number the book
+    /// will not write.
+    /// </summary>
     [RelayCommand]
     private async Task ReturnItemsAsync()
     {
@@ -132,10 +142,45 @@ public partial class SaleDetailViewModel : ViewModelBase
                 .Where(l => (l.ReturnQty ?? 0) > 0)
                 .Select(l => new SaleReturnInput { SaleLineId = l.SaleLineId, Quantity = l.ReturnQty ?? 0 })
                 .ToList();
-            var back = await _sales.ReturnItemsAsync(_id, inputs, RefundInCash);
-            _shell.Notify(back > 0
-                ? "Returned to the same container. " + Money.Pkr(back) + " came off their ledger and went back out of the till."
-                : "Returned to the same container. Amount taken off their ledger.");
+            var settle = await _sales.PreviewReturnAsync(_id, inputs);
+            _pendingReturn = inputs;
+            ReturnLedgerText = settle.Credit > 0.009m
+                ? "Adjust " + Money.Pkr(settle.Credit) + " in their ledger"
+                : "Adjust in their ledger";
+            CanHandCash = settle.Cash > 0.009m;
+            ReturnCashText = CanHandCash
+                ? "Hand over " + Money.Pkr(settle.Cash) + " from the till"
+                : "Nothing to hand over - this bill is still unpaid by that amount";
+            AskReturnHow = true;
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand] private Task ReturnInCash() => SettleReturnAsync(true);
+
+    [RelayCommand] private Task ReturnOnLedger() => SettleReturnAsync(false);
+
+    [RelayCommand]
+    private void DropReturnChoice()
+    {
+        AskReturnHow = false;
+        _pendingReturn = null;
+    }
+
+    private async Task SettleReturnAsync(bool inCash)
+    {
+        var inputs = _pendingReturn;
+        AskReturnHow = false;
+        _pendingReturn = null;
+        if (inputs is null) return;
+        try
+        {
+            var back = await _sales.ReturnItemsAsync(_id, inputs, inCash);
+            _shell.Notify(inCash && back > 0
+                ? "Returned to the same container. " + Money.Pkr(back) + " left the till, and the rest came off their ledger."
+                : inCash
+                    ? "Returned to the same container. Nothing was owed back in cash; the amount came off their ledger."
+                    : "Returned to the same container. The amount sits in their ledger as credit - no cash moved.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
