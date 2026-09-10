@@ -32,7 +32,6 @@ public partial class SaleDetailViewModel : ViewModelBase
     [ObservableProperty] private string subtitle = "";
     [ObservableProperty] private string billTotal = "—";
     [ObservableProperty] private string received = "—";
-    [ObservableProperty] private string onLedger = "—";
     [ObservableProperty] private string returnedText = "—";
     [ObservableProperty] private string discountText = "—";
     [ObservableProperty] private bool canEdit;
@@ -60,7 +59,6 @@ public partial class SaleDetailViewModel : ViewModelBase
             return;
         }
 
-        var remaining = await _sales.RemainingOnInvoiceAsync(_id);
         var returnedAmount = _sale.Returns.Sum(r => r.Amount);
         Heading = $"Sale #{_sale.Id}";
         Subtitle = $"{_sale.Date:dd MMM yyyy} · {_sale.Customer.Name}" +
@@ -70,7 +68,6 @@ public partial class SaleDetailViewModel : ViewModelBase
         DiscountText = _sale.DiscountAmount > 0 ? Money.Pkr(_sale.DiscountAmount) : "—";
         Received = Money.Pkr(_sale.PaidNow);
         ReturnedText = returnedAmount > 0 ? Money.Pkr(returnedAmount) : "—";
-        OnLedger = Money.Pkr(remaining);
         IsCancelled = _sale.Status == SaleStatus.Cancelled;
         CanEdit = !IsCancelled && _sale.Date.Date == DateTime.Today && _sale.Returns.Count == 0;
         CanCancel = !IsCancelled && _sale.Returns.Count == 0 && (_access.IsOwner || _sale.Date.Date == DateTime.Today);
