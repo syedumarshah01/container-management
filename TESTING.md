@@ -25,6 +25,7 @@ shift a figure on screen.
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
+| paying a customer back | a payout moves their ledger and the till by the same figure, never past what their own book says is held of theirs, is never counted as a refund of a bill or as an expense, and reaches their page under "Paid out" rather than under "Sold" |
 | the supplier | one cash-book line per payment, never two, and every payment has one |
 | the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
@@ -120,12 +121,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and the customer's balance should all move by the same figure the return credited.
 3. Set an item's cost from 0 to the real figure, press Back, and check the Containers list profit has
    moved without clicking the nav item again.
-3b. Take a bill the customer paid on the spot, return one piece with "Hand the money back in cash"
-   ticked, and check: the Main ledger gained one outflow of exactly the credited amount, their page
-   reads Settled rather than an advance, and cash in hand fell by that figure. Untick it on the next
-   return and the money should sit as credit with the till untouched. A return on a bill nobody
-   has paid should move no cash at all - but it must still show as a red "goods back" figure for
-   that month on the Main ledger, since that page answers "how does the book look today".
+3b. Take a bill the customer paid on the spot and return one piece: the Main ledger should have gained one
+   outflow of exactly the credited amount, cash in hand should be down by that figure, and their page should
+   read Settled rather than an advance. Return a piece of a bill nobody has paid instead and no cash should
+   move at all - but it must still show as a red "goods back" figure for that month on the Main ledger, since
+   that page answers "how does the book look today".
 4. Create a container with a part payment, then pay the rest on We owe with a note: the note should be
    on the Main ledger line, and "Paid to this supplier" should show both payments. The arrival date
    should be blank when the form opens - not today - and Create should refuse until you pick one. Pick a
@@ -143,6 +143,13 @@ rather than assuming it. Say the word and I will move those columns to text for 
 4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
    and it should be refused, naming the figure that is owed. A container left over from before this rule,
    with money paid past its figure, shows nothing owed and says so in one line on the container form.
+4c. On the We Owe page, a customer whose own ledger runs minus should be under "Customers we owe" - an advance
+   they left sitting with you, or the cash half of a return on a settled bill. Pay part of it: their page
+   should move towards nothing by exactly that figure, one line should stand in the Main ledger as money out,
+   and cash in hand should be lighter by the same amount - and the payout should read "Paid out" on their
+   ledger, never "Sold". Try one paisa past what their book holds and it should be refused: a pay form must
+   not be able to create a customer who owes the shop. Home's profit should not move at all, because handing
+   someone their own money back settles a debt, it is not an expense.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

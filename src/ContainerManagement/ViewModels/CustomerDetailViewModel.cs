@@ -86,7 +86,11 @@ public partial class CustomerDetailViewModel : ViewModelBase
         var bal = await _ledger.GetBalanceAsync(_id);
         BalanceText = Money.Pkr(bal);
         BalanceHint = bal > 0 ? "They owe you — money in the market" : bal < 0 ? "Advance / you owe them" : "Settled";
-        BilledText = Money.Pkr(rows.Sum(l => l.Debit - (l.Type == LedgerType.Return ? l.Credit : 0)));
+        // What we have charged them, less what came back. The lines that handed money over - a payout, or
+        // the cash half of a return - are not billing, and counting their debits here made a settled
+        // customer read as a larger account than the bills they were given.
+        BilledText = Money.Pkr(rows.Where(l => !l.IsPaidOut).Sum(l => l.Debit)
+                               - rows.Where(l => l.Type == LedgerType.Return).Sum(l => l.Credit));
         ReceivedText = Money.Pkr(rows.Where(l => l.Type != LedgerType.Return).Sum(l => l.Credit));
         OpeningAmount = rows.Where(r => r.Type == LedgerType.Opening).Sum(r => r.Debit - r.Credit);
 

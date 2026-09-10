@@ -216,6 +216,38 @@ public class ReceivableRow
     public string OldestDueText => OldestDue?.ToString("dd MMM yyyy") ?? "—";
 }
 
+/// <summary>
+/// A customer the shop is holding money for, worked out from their own ledger: negative balance, so the
+/// figure the We Owe page lists. Owed is never below zero, and a customer with a payout on record but
+/// nothing left owing still appears, with Owed at zero, so the money already handed over can be seen
+/// where it was paid.
+/// </summary>
+public class CustomerOwedRow
+{
+    public int CustomerId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public decimal Owed { get; set; }
+    public decimal PaidOut { get; set; }
+    public string OwedText => Owed > 0.009m ? Money.Pkr(Owed) : "Settled";
+    public string PaidOutText => PaidOut > 0.009m ? Money.Pkr(PaidOut) : "—";
+    public string Label => Name + " · " + (Owed > 0.009m ? "owe " + Money.Pkr(Owed) : "settled");
+    public override string ToString() => Label;
+}
+
+/// <summary>One payout the shop made to a customer, as the We Owe page lists them: newest first.</summary>
+public class CustomerPayoutRow
+{
+    public int CustomerId { get; set; }
+    public DateTime Date { get; set; }
+    public string Method { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string? Notes { get; set; }
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string AmountText => Money.Pkr(Amount);
+    public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
+}
+
 public class LedgerRow
 {
     public int Id { get; set; }
@@ -232,7 +264,14 @@ public class LedgerRow
     public int? SaleId { get; set; }
     public int? PaymentId { get; set; }
     public string DateText => Date.ToString("dd MMM yyyy");
-    public string SoldText => Debit == 0 ? "—" : Money.Pkr(Debit);
+    /// <summary>
+    /// A debit that handed money over rather than billing them: the cash half of a return, or a payout made
+    /// on the We Owe page. Their book has to carry it or their balance would lie, but it is not a sale, and
+    /// printing it under "Sold" would tell a customer they were charged for money they were given.
+    /// </summary>
+    public bool IsPaidOut => Debit > 0 && Type is LedgerType.Payout or LedgerType.Adjustment;
+    public string SoldText => Debit == 0 || IsPaidOut ? "—" : Money.Pkr(Debit);
+    public string PaidOutText => IsPaidOut ? Money.Pkr(Debit) : "—";
     public string ReturnedText => Type == LedgerType.Return && Credit != 0 ? Money.Pkr(Credit) : "—";
     public string ReceivedText => Type == LedgerType.Return || Credit == 0 ? "—" : Money.Pkr(Credit);
     public string DebitText => SoldText;

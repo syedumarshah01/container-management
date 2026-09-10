@@ -525,6 +525,25 @@ public static class Program
     }
 
     /// <summary>Everything the till has handed back, across the whole database.</summary>
+    /// <summary>Every rupee the shop has handed to a customer from the till, newest rule aside: this is
+    /// the figure the We Owe page's history panel and the Main ledger's outflow have to agree with.</summary>
+    private static async Task<decimal> PaidOutTotalAsync(IDbContextFactory<AppDbContext> factory)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var lines = await db.CashBook.AsNoTracking()
+            .Where(e => e.Kind == CashBookKind.CustomerOut)
+            .ToListAsync();
+        return lines.Sum(e => e.AmountOut);
+    }
+
+    /// <summary>Cash in hand as the Main ledger works it out - every line in, less every line out.</summary>
+    private static async Task<decimal> CashInHandAsync(IDbContextFactory<AppDbContext> factory)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var lines = await db.CashBook.AsNoTracking().ToListAsync();
+        return lines.Sum(e => e.AmountIn - e.AmountOut);
+    }
+
     private static async Task<decimal> RefundedTotalAsync(IDbContextFactory<AppDbContext> factory)
     {
         await using var db = await factory.CreateDbContextAsync();
@@ -678,6 +697,81 @@ public static class Program
             Check("looking at a return wrote nothing on its own: one return per bill",
                 (await dbAsk2.SaleReturns.Where(r => r.SaleId == askBill.Id).ToListAsync()).Count == 1);
 
+        Head("paying a customer back: their book first, and the till by the same figure");
+        var adv = await ledger.CreateCustomerAsync("Advance Cartage", "0344-1112233", null, null);
+        var owesUs = await ledger.CreateCustomerAsync("Still Owes Traders", null, null, null);
+        await ledger.SetOpeningBalanceAsync(adv.Id, -5_000m);      // money they left sitting with the shop
+        await ledger.SetOpeningBalanceAsync(owesUs.Id, 2_000m);     // money they still owe us
+        var inHandBefore = await CashInHandAsync(factory);
+        var refundsSoFar = await RefundedTotalAsync(factory);
+        var homeBefore = await reports.GetHomeMonthAsync();
+        Eq("an advance reads on We owe as what we owe them, without the minus sign",
+            5_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
+        Check("and a customer who still owes us is not on that page at all",
+            (await ledger.GetCustomerOwedAsync()).All(r => r.CustomerId != owesUs.Id));
+        await Throws<InvalidOperationException>(
+            "paying out to someone who owes us is refused outright, not netted against their debt",
+            () => ledger.PayCustomerAsync(owesUs.Id, DateTime.Today, 500m, "Cash", null));
+        Check("and the refusal wrote nothing", (await ledger.ListPayoutsAsync(owesUs.Id)).Count == 0);
+
+        await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 1_000.004m, "Cash", "part, handed at the shop");
+        var payoutSum = (await ledger.ListPayoutsAsync(adv.Id)).Sum(p => p.Amount);
+        Eq("a payout keeps the figure to the paisa, like every other money box", 1_000m, payoutSum);
+        Eq("their balance moves towards nothing by exactly that", -4_000m, await ledger.GetBalanceAsync(adv.Id));
+        Eq("the till is lighter by the same figure, and by nothing else",
+            inHandBefore - 1_000m, await CashInHandAsync(factory));
+        Eq("so what We owe shows is the four thousand left, not the five thousand it started at",
+            4_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
+        Eq("a payout is never counted as a refund of a bill, so the two figures stay separate",
+            refundsSoFar, await RefundedTotalAsync(factory));
+        var advRow = (await ledger.GetLedgerAsync(adv.Id)).Single(r => r.Type == LedgerType.Payout);
+        Check("their page keeps it out of \"Sold\" and shows it under \"Paid out\"",
+            advRow.SoldText == "\u2014" && advRow.PaidOutText == Money.Pkr(1_000m),
+            advRow.SoldText + " / " + advRow.PaidOutText);
+
+        await using (var dbOut = await factory.CreateDbContextAsync())
+        {
+            var till = await dbOut.CashBook.Where(e => e.Kind == CashBookKind.CustomerOut).ToListAsync();
+            Check("one till line, as money out, naming who was paid and how",
+                till.Count == 1 && till.Sum(e => e.AmountOut) == 1_000m && till.Sum(e => e.AmountIn) == 0m
+                && till.All(e => e.Description.Contains("Advance Cartage") && e.Description.Contains("Cash")),
+                till.Count + " till lines");
+            Check("it is not tied to a payment, so deleting one of their payments can never take it away",
+                till.All(e => e.PaymentId == null));
+            var led = await dbOut.LedgerEntries.Where(e => e.Type == LedgerType.Payout).ToListAsync();
+            Check("and their ledger carries it as a debit, which is what pulls their balance up",
+                led.Count == 1 && led.Sum(e => e.Debit - e.Credit) == 1_000m, led.Count + " lines");
+            Check("the We Owe page's note is on that line too",
+                led.Count == 1 && led.All(e => e.Description.Contains("part, handed at the shop")),
+                string.Join(" | ", led.Select(e => e.Description)));
+            Check("no payment row was invented, so nothing on their bills moved",
+                (await dbOut.Payments.Where(p => p.CustomerId == adv.Id).ToListAsync()).Count == 0);
+        }
+
+        await Throws<InvalidOperationException>("one paisa past what their book holds is refused",
+            () => ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000.01m, "Cash", null));
+        await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000m, "Bank Transfer", "cleared the advance");
+        Eq("paying the whole of it leaves nothing on either side", 0m, await ledger.GetBalanceAsync(adv.Id));
+        Check("so they are no longer owed, while the money handed over stays visible where it was paid",
+            (await ledger.GetCustomerOwedAsync()).Any(r => r.CustomerId == adv.Id
+                && r.Owed == 0m && r.PaidOut == 5_000m));
+        var payoutLines = await ledger.ListPayoutsAsync(adv.Id);
+        Check("both payouts are on the record, newest first, and add back to the advance",
+            payoutLines.Count == 2 && payoutLines[0].Amount == 4_000m && payoutLines[1].Amount == 1_000m
+            && payoutLines.Sum(p => p.Amount) == 5_000m,
+            payoutLines.Count + " rows, " + string.Join(" + ", payoutLines.Select(p => p.Amount.ToString("0.00"))));
+        Eq("the till has paid out the whole advance and no more", 5_000m, await PaidOutTotalAsync(factory));
+        await using (var dbAdv = await factory.CreateDbContextAsync())
+        {
+            var linesAdv = await dbAdv.LedgerEntries.Where(e => e.CustomerId == adv.Id).ToListAsync();
+            Eq("their account end to end: an advance in, two payouts out, the book at nothing",
+                0m, linesAdv.Sum(e => e.Debit - e.Credit));
+        }
+        var homeAfter = await reports.GetHomeMonthAsync();
+        Eq("money paid to a customer settles a debt, it is not an expense, so profit did not move",
+            homeBefore.Profit, homeAfter.Profit);
+        Eq("and the billed money Home shows is untouched either", homeBefore.Sales, homeAfter.Sales);
+
         Head("the order the book is read in");
         var customerLedger = await ledger.GetLedgerAsync(customer.Id);
         Check("the book hands a customer's lines over in the order they were made - by day, and within a day in writing order",
@@ -716,6 +810,7 @@ public static class Program
         Scan("SaleReturn", await db.SaleReturns.ToListAsync(), x => new[] { ("Amount", x.Amount) });
         Scan("SaleReturnLine", await db.SaleReturnLines.ToListAsync(), x => new[] { ("Amount", x.Amount), ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost) });
         Scan("SupplierPayment", await db.SupplierPayments.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+        Scan("CustomerPayout", await db.CustomerPayouts.ToListAsync(), x => new[] { ("Amount", x.Amount) });
         Scan("ContainerExpense", await db.Expenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
         Scan("ShopExpense", await db.ShopExpenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
         Scan("CashBookEntry", await db.CashBook.ToListAsync(), x => new[] { ("AmountIn", x.AmountIn), ("AmountOut", x.AmountOut) });

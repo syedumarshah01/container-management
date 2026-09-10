@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<ContainerExpense> Expenses => Set<ContainerExpense>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+    public DbSet<CustomerPayout> CustomerPayouts => Set<CustomerPayout>();
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
@@ -151,6 +152,14 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Supplier).WithMany(s => s.Payments).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Container).WithMany(c => c.SupplierPayments).HasForeignKey(x => x.ContainerId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        model.Entity<CustomerPayout>(e =>
+        {
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.Method).HasMaxLength(40);
+            e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.CustomerId, x.Date });
         });
 
         model.Entity<StockAdjustment>(e =>

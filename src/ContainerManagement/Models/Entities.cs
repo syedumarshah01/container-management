@@ -12,7 +12,9 @@ public enum LedgerType
     Payment = 1,
     Adjustment = 2,
     Opening = 3,
-    Return = 4
+    Return = 4,
+    /// <summary>Money the shop handed over to the customer, because their book was in their favour.</summary>
+    Payout = 5
 }
 
 public enum SaleStatus
@@ -189,6 +191,23 @@ public class Payment
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
 
+/// <summary>
+/// Money the shop paid out to a customer - an advance they no longer want back as goods, or a refund their
+/// ledger left owing them. Deliberately not a Payment with a negative amount: Payment means money the till
+/// received, and every page that adds payments up would then have to subtract a sign it cannot see. The
+/// payout keeps its own row, and its own line in the customer's book and in the till.
+/// </summary>
+public class CustomerPayout
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = "Cash";
+    public string? Notes { get; set; }
+}
+
 public class LedgerEntry
 {
     public int Id { get; set; }
@@ -201,6 +220,7 @@ public class LedgerEntry
     public string Description { get; set; } = string.Empty;
     public int? SaleId { get; set; }
     public int? PaymentId { get; set; }
+    public int? PayoutId { get; set; }
 }
 
 public class ContainerExpense
@@ -309,7 +329,9 @@ public enum CashBookKind
     CustomerIn = 1,
     SupplierOut = 2,
     ExpenseOut = 3,
-    RefundOut = 4
+    RefundOut = 4,
+    /// <summary>Cash given to a customer to settle what their own ledger says we are holding.</summary>
+    CustomerOut = 5
 }
 
 public class CashBookEntry
@@ -324,4 +346,5 @@ public class CashBookEntry
     public int? SupplierPaymentId { get; set; }
     public int? ShopExpenseId { get; set; }
     public int? SaleId { get; set; }
+    public int? PayoutId { get; set; }
 }

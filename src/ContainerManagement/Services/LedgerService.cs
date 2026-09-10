@@ -221,6 +221,141 @@ public class LedgerService
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Money handed to a customer to settle what their own book says we are holding of theirs. The mirror of
+    /// ReceivePaymentAsync in direction only: it is never a negative payment, because a payment is money the
+    /// till received and every other page adds those up as money in. So this writes three things in one
+    /// transaction - the payout itself, a debit on their ledger so their balance moves towards nothing, and
+    /// an outflow in the till so cash in hand falls by exactly the same figure.
+    ///
+    /// The ceiling is their ledger, not a guess: paying more than they are owed would leave the shop owed by
+    /// its own customer, which is a different thing and not something a pay form should be able to create
+    /// with a mistyped zero.
+    /// </summary>
+    public async Task<CustomerPayout> PayCustomerAsync(
+        int customerId, DateTime date, decimal amount, string method, string? notes)
+    {
+        amount = Money.Round(amount);
+        if (amount <= 0)
+            throw new InvalidOperationException("Payment amount must be greater than zero.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var customer = await db.Customers.FindAsync(customerId)
+            ?? throw new InvalidOperationException("Customer not found.");
+        var lines = await db.LedgerEntries.AsNoTracking()
+            .Where(e => e.CustomerId == customerId)
+            .ToListAsync();
+        var balance = lines.Sum(e => e.Debit - e.Credit);
+        var owed = Money.Round(-balance);
+        if (owed <= 0.009m)
+            throw new InvalidOperationException(balance > 0.009m
+                ? "Nothing is owed to them - their ledger shows " + Money.Pkr(balance) + " still due to us."
+                : "Nothing is owed to them - their ledger is settled.");
+        if (amount - owed > 0.009m)
+            throw new InvalidOperationException(
+                "Their ledger says we owe them " + Money.Pkr(owed) + ". Paying " + Money.Pkr(amount)
+                + " would leave us owed " + Money.Pkr(amount - owed) + " by this customer - take that in as "
+                + "a payment from them instead of paying it out.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var pay = new CustomerPayout
+        {
+            CustomerId = customerId,
+            Date = date,
+            Amount = amount,
+            Method = string.IsNullOrWhiteSpace(method) ? "Cash" : method.Trim(),
+            Notes = notes?.Trim()
+        };
+        db.CustomerPayouts.Add(pay);
+        await db.SaveChangesAsync();
+
+        db.LedgerEntries.Add(new LedgerEntry
+        {
+            CustomerId = customerId,
+            Date = date,
+            Type = LedgerType.Payout,
+            Debit = amount,
+            Credit = 0,
+            Description = string.IsNullOrWhiteSpace(notes)
+                ? $"{pay.Method} paid to {customer.Name}"
+                : notes.Trim(),
+            PayoutId = pay.Id
+        });
+        db.CashBook.Add(new CashBookEntry
+        {
+            Date = date,
+            Kind = CashBookKind.CustomerOut,
+            Description = "Paid to " + customer.Name + " · " + pay.Method
+                + (string.IsNullOrWhiteSpace(notes) ? "" : " — " + notes.Trim()),
+            AmountIn = 0,
+            AmountOut = amount,
+            PayoutId = pay.Id
+        });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return pay;
+    }
+
+    /// <summary>What has been handed to a customer, newest first, so a figure on the We Owe page can be
+    /// checked against its note. Read from the payout rows, not from the ledger: the ledger line is the
+    /// book, this is the record of the money.</summary>
+    public async Task<List<CustomerPayoutRow>> ListPayoutsAsync(int customerId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.CustomerPayouts.AsNoTracking()
+            .Where(p => p.CustomerId == customerId)
+            .ToListAsync();
+        return rows
+            .OrderByDescending(p => p.Date.Date).ThenByDescending(p => p.Id)
+            .Select(p => new CustomerPayoutRow
+            {
+                CustomerId = p.CustomerId,
+                Date = p.Date,
+                Method = p.Method,
+                Amount = p.Amount,
+                Notes = p.Notes
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// The customers whose own book is in their favour, so the shop is holding their money: an advance that
+    /// was never taken as goods, or a refund their settled bill left behind. Their balance is negative and
+    /// "we owe them" is that figure without the sign - the same sum their own page runs over the same
+    /// entries, so the two pages cannot tell two stories. Someone already paid back stays listed while a
+    /// payout of theirs exists to be seen, which is why the pay form keeps a settled name selected instead
+    /// of dropping the row the shop has just cleared.
+    /// </summary>
+    public async Task<List<CustomerOwedRow>> GetCustomerOwedAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var customers = await db.Customers.AsNoTracking().ToListAsync();
+        var entries = await db.LedgerEntries.AsNoTracking().ToListAsync();
+        var payouts = await db.CustomerPayouts.AsNoTracking().ToListAsync();
+
+        var rows = new List<CustomerOwedRow>();
+        foreach (var c in customers)
+        {
+            var lines = entries.Where(e => e.CustomerId == c.Id).ToList();
+            if (lines.Count == 0)
+                continue;
+            var owed = Money.Round(-lines.Sum(e => e.Debit - e.Credit));
+            var paidOut = Money.Round(payouts.Where(p => p.CustomerId == c.Id).Sum(p => p.Amount));
+            if (owed <= 0.009m && paidOut <= 0.009m)
+                continue;
+            rows.Add(new CustomerOwedRow
+            {
+                CustomerId = c.Id,
+                Name = c.Name,
+                Phone = c.Phone,
+                Owed = owed > 0 ? owed : 0m,
+                PaidOut = paidOut
+            });
+        }
+
+        return rows.OrderByDescending(r => r.Owed).ThenBy(r => r.Name).ToList();
+    }
+
     public async Task<List<ReceivableRow>> GetReceivablesAsync()
     {
         await using var db = await _factory.CreateDbContextAsync();

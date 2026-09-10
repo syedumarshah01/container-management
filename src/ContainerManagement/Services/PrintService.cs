@@ -59,7 +59,8 @@ public class PrintService
         Start(sb, shop, "Ledger — " + customer.Name);
         sb.Append($"<p>{H(customer.Phone)} {H(customer.Address)}</p>");
         sb.Append($"<p><b>Balance: {H(Money.Pkr(balance))}</b></p>");
-        sb.Append("<table><tr><th>No.</th><th>Date</th><th>Particulars</th><th>Sold</th><th>Received</th><th>Balance</th></tr>");
+        sb.Append("<table><tr><th>No.</th><th>Date</th><th>Particulars</th><th>Sold</th><th>Received</th>"
+            + "<th>Paid out</th><th>Balance</th></tr>");
         // The rows arrive in the order the money moved, and a paper statement is read that way: opening
         // line at the top, the balance running down to the figure printed above it. The screen puts the
         // newest entry under the reader's eye; this page must not, or the statement contradicts the book
@@ -72,6 +73,7 @@ public class PrintService
             sb.Append($"<td>{H(r.Description)}</td>");
             sb.Append($"<td>{H(r.DebitText)}</td>");
             sb.Append($"<td>{H(r.CreditText)}</td>");
+            sb.Append($"<td>{H(r.PaidOutText)}</td>");
             sb.Append($"<td>{H(r.RunningText)}</td>");
             sb.Append("</tr>");
         }

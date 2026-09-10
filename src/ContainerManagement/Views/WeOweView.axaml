@@ -6,12 +6,13 @@
   <StackPanel>
     <TextBlock Classes="h1" Text="We owe" />
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
-               Text="What is still due to suppliers in China. Paying here takes the money off cash in the Main ledger." />
+               Text="What is still due to suppliers in China, and to customers whose own ledger is in their favour. Paying here takes the money off cash in the Main ledger." />
 
     <Border Classes="statcard" Margin="0,0,0,16">
       <StackPanel>
         <TextBlock Classes="label" Text="Still to pay" />
         <TextBlock Classes="stat bad" Text="{Binding TotalOwed}" />
+        <TextBlock Classes="muted" Text="{Binding OwedSplit}" Margin="0,4,0,0" />
       </StackPanel>
     </Border>
 
@@ -62,6 +63,64 @@
       <StackPanel>
         <TextBlock Classes="h2" Text="Paid to this supplier" />
         <DataGrid ItemsSource="{Binding Payments}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="150" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="170" />
+            <DataGridTextColumn Header="Note" Binding="{Binding NoteText}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Customers we owe" />
+        <DataGrid ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Customer" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="160" />
+            <DataGridTextColumn Header="We owe them" Binding="{Binding OwedText}" Width="180" />
+            <DataGridTextColumn Header="Paid out" Binding="{Binding PaidOutText}" Width="170" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Pay a customer" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Their ledger is in their favour, so this is their money in our till. Paying it takes the figure off cash and off what we owe them - it is not an expense." />
+        <TextBlock Classes="label" Text="Customer" />
+        <ComboBox ItemsSource="{Binding PayOptions}" SelectedItem="{Binding PayCustomer}" />
+        <TextBlock Classes="label" Text="We owe them" />
+        <TextBlock Classes="stat" Text="{Binding CustomerOwedText}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,240,200">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Date" />
+            <DatePicker SelectedDate="{Binding PayCustomerDate}" HorizontalAlignment="Left" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Amount (Rs)" />
+            <NumericUpDown Value="{Binding PayCustomerAmount}" Minimum="0" HorizontalAlignment="Stretch" />
+            <TextBlock Classes="words" Text="{Binding PayCustomerAmount, Converter={StaticResource WordsConv}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Paid by" />
+            <ComboBox ItemsSource="{Binding CustomerMethods}" SelectedItem="{Binding PayCustomerMethod}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="label" Text="Note (optional)" />
+        <TextBox Text="{Binding PayCustomerNotes}" Watermark="e.g. cash handed at the shop, advance returned" />
+        <Button Classes="primary" Content="Pay" Command="{Binding PayCustomerCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowPayouts}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Paid to this customer" />
+        <DataGrid ItemsSource="{Binding Payouts}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
             <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="150" />

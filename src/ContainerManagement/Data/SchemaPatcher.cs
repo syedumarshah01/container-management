@@ -33,6 +33,9 @@ public static class SchemaPatcher
         AddColumn(con, "Containers", "SupplierId", "INTEGER");
         AddColumn(con, "Containers", "SupplierAmount", "REAL NOT NULL DEFAULT 0");
 
+        AddColumn(con, "LedgerEntries", "PayoutId", "INTEGER");
+        AddColumn(con, "CashBook", "PayoutId", "INTEGER");
+
         Exec(con, """
             CREATE TABLE IF NOT EXISTS Suppliers (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +132,21 @@ public static class SchemaPatcher
                 SaleId INTEGER
             );
             """);
+
+        // Money the shop paid out to a customer, because their own ledger was in their favour.
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS CustomerPayouts (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CustomerId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Amount TEXT NOT NULL,
+                Method TEXT,
+                Notes TEXT,
+                FOREIGN KEY (CustomerId) REFERENCES Customers(Id)
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_CustomerPayouts_CustomerId ON CustomerPayouts(CustomerId, Date);");
 
         Exec(con, """
             UPDATE ContainerItems
