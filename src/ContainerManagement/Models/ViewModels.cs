@@ -245,6 +245,8 @@ public class CustomerOwedRow
 public class TillYearRow
 {
     public int Month { get; set; }
+    public bool IsTotal { get; set; }
+    public string? Label { get; set; }
     public decimal CashIn { get; set; }
     public decimal CashOut { get; set; }
     public decimal Returns { get; set; }
@@ -257,6 +259,24 @@ public class TillYearRow
     public string ClosingText => Money.Pkr(Closing);
     internal static string MonthName(int month)
         => new DateTime(2000, Math.Min(12, Math.Max(1, month)), 1).ToString("MMMM");
+
+    /// <summary>The year's own line at the foot of the table, so the twelve months add up where the reader
+    /// can see it and the page needs no sentence saying what they add up to. One builder for the screen and
+    /// the paper both - a total worked out twice is a total that can disagree with itself.</summary>
+    public static TillYearRow Totals(int year, IReadOnlyList<TillYearRow> rows)
+    {
+        var months = rows.Where(r => !r.IsTotal).ToList();
+        return new TillYearRow
+        {
+            Month = 12,
+            IsTotal = true,
+            Label = year.ToString(),
+            CashIn = Money.Round(months.Sum(r => r.CashIn)),
+            CashOut = Money.Round(months.Sum(r => r.CashOut)),
+            Returns = Money.Round(months.Sum(r => r.Returns)),
+            Closing = months.Count > 0 ? months[^1].Closing : 0m
+        };
+    }
 }
 
 /// <summary>
@@ -268,6 +288,8 @@ public class TillYearRow
 public class SalesYearRow
 {
     public int Month { get; set; }
+    public bool IsTotal { get; set; }
+    public string? Label { get; set; }
     public int Bills { get; set; }
     public decimal Sold { get; set; }
     public decimal Cogs { get; set; }
@@ -275,13 +297,33 @@ public class SalesYearRow
     public decimal Returned { get; set; }
     public decimal StillOwed { get; set; }
     public decimal Profit => Money.Round(Sold - Cogs);
-    public string MonthText => TillYearRow.MonthName(Month);
+    public string MonthText => Label ?? TillYearRow.MonthName(Month);
     public string BillsText => Bills == 0 ? "\u2014" : Bills.ToString();
     public string SoldText => Sold == 0 ? "\u2014" : Money.Pkr(Sold);
     public string ReceivedText => Received == 0 ? "\u2014" : Money.Pkr(Received);
     public string ReturnedText => Returned == 0 ? "\u2014" : Money.Pkr(Returned);
     public string StillOwedText => StillOwed == 0 ? "\u2014" : Money.Pkr(StillOwed);
     public string ProfitText => Sold == 0 && Cogs == 0 ? "\u2014" : Money.Pkr(Profit);
+
+    /// <summary>The year's line under the months. Profit is the year's sold money less the year's cost,
+    /// which is the same figure as the twelve months' profits added together - so the column at the foot
+    /// can be checked against the column above it, paisa for paisa.</summary>
+    public static SalesYearRow Totals(int year, IReadOnlyList<SalesYearRow> rows)
+    {
+        var months = rows.Where(r => !r.IsTotal).ToList();
+        return new SalesYearRow
+        {
+            Month = 12,
+            IsTotal = true,
+            Label = year.ToString(),
+            Bills = months.Sum(r => r.Bills),
+            Sold = Money.Round(months.Sum(r => r.Sold)),
+            Cogs = Money.Round(months.Sum(r => r.Cogs)),
+            Received = Money.Round(months.Sum(r => r.Received)),
+            Returned = Money.Round(months.Sum(r => r.Returned)),
+            StillOwed = Money.Round(months.Sum(r => r.StillOwed))
+        };
+    }
 }
 
 /// <summary>One month of shop costs. The count travels with the figure so an empty month cannot be
@@ -289,11 +331,27 @@ public class SalesYearRow
 public class ExpenseYearRow
 {
     public int Month { get; set; }
+    public bool IsTotal { get; set; }
+    public string? Label { get; set; }
     public int Count { get; set; }
     public decimal Amount { get; set; }
-    public string MonthText => TillYearRow.MonthName(Month);
+    public string MonthText => Label ?? TillYearRow.MonthName(Month);
     public string CountText => Count == 0 ? "\u2014" : Count.ToString();
     public string AmountText => Amount == 0 ? "\u2014" : Money.Pkr(Amount);
+
+    /// <summary>The year's line under its months, with the count of entries beside the money.</summary>
+    public static ExpenseYearRow Totals(int year, IReadOnlyList<ExpenseYearRow> rows)
+    {
+        var months = rows.Where(r => !r.IsTotal).ToList();
+        return new ExpenseYearRow
+        {
+            Month = 12,
+            IsTotal = true,
+            Label = year.ToString(),
+            Count = months.Sum(r => r.Count),
+            Amount = Money.Round(months.Sum(r => r.Amount))
+        };
+    }
 }
 
 /// <summary>One payout the shop made to a customer, as the We Owe page lists them: newest first.</summary>

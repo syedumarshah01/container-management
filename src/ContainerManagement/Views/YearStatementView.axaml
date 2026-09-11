@@ -4,34 +4,23 @@
              x:Class="ContainerManagement.Views.YearStatementView"
              x:DataType="vm:YearStatementViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Year statement" />
-    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
-               Text="One year, month by month, in the three books: the till, the selling, and the shop's costs. Every figure is the one that page already shows - nothing here is counted a second way." />
-
-    <Grid ColumnDefinitions="*,*">
-      <Border Classes="statcard" Margin="0,0,8,16">
-        <StackPanel>
-          <TextBlock Classes="label" Text="{Binding YearLabel, StringFormat='Left after costs in {0}'}" />
-          <TextBlock Classes="stat" Text="{Binding AfterCosts}" />
-          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding AfterCostsHow}" />
-        </StackPanel>
-      </Border>
-      <Border Classes="card" Grid.Column="1" Margin="8,0,0,16">
-        <Grid ColumnDefinitions="*,Auto">
-          <StackPanel Margin="0,0,16,0">
-            <TextBlock Classes="label" Text="Year" />
-            <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
-          </StackPanel>
-          <Button Grid.Column="1" Classes="primary" Content="Print the year"
-                  Command="{Binding PrintCommand}" VerticalAlignment="Bottom" />
-        </Grid>
-      </Border>
+    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Classes="h1" Text="Year statement" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Classes="label" Text="After costs" />
+        <TextBlock Classes="stat" Text="{Binding AfterCosts}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
+        <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" MinWidth="120" />
+        <Button Classes="primary" Content="Print" Command="{Binding PrintCommand}" />
+      </StackPanel>
     </Grid>
 
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Main ledger" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding TillTape}" />
         <DataGrid ItemsSource="{Binding Till}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
@@ -48,7 +37,6 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Sales" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding SalesTape}" />
         <DataGrid ItemsSource="{Binding Sales}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
@@ -66,7 +54,6 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Shop costs" />
-        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding CostTape}" />
         <DataGrid ItemsSource="{Binding Costs}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />

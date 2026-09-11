@@ -138,6 +138,10 @@ public class CashBookService
             row.Closing = Money.Round(running);
             rows.Add(row);
         }
+        // The year's own line goes on the end of the rows, so every page that lists them ends the same way
+        // and none of them has to add the twelve up for itself.
+        var totals = TillYearRow.Totals(year, rows);
+        rows.Add(totals);
         return rows;
     }
 

@@ -191,6 +191,7 @@ public class ReportService
                     - returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount))))
             });
         }
+        rows.Add(SalesYearRow.Totals(year, rows));
         return rows;
     }
 

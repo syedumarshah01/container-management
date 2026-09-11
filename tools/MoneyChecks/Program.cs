@@ -898,7 +898,10 @@ public static class Program
         }, 900m, "Cash", null, 0m, null);
 
         var y26 = await cash.GetYearCashAsync(2026);
-        Check("a year is twelve rows, quiet months and all", y26.Count == 12, y26.Count + " rows");
+        Check("a year is twelve months and one line for the year itself", y26.Count == 13, y26.Count + " rows");
+        Check("the last line is named for the year, not for a month, so it cannot be read as one more month",
+            y26[^1].IsTotal && y26[^1].MonthText == "2026" && y26[11].MonthText == "December",
+            y26[^1].MonthText + " / " + y26[11].MonthText);
         Eq("January's money in is the January bill's payment, and nothing else", 2_000m, y26[0].CashIn);
         Eq("and January closed on what the year brought in plus that", 3_000m, y26[0].Closing);
         Eq("February counts the advance the day it arrived", 3_500m, y26[1].CashIn);
@@ -908,10 +911,12 @@ public static class Program
         Eq("while the goods that came back the same month are shown beside it, added to neither column",
             2_500m, y26[5].Returns);
         Eq("so June closed on the money that is actually left", 2_500m, y26[5].Closing);
-        Eq("the year in: two thousand and the advance", 5_500m, y26.Sum(r => r.CashIn));
-        Eq("the year out: the rent and one payout", 4_000m, y26.Sum(r => r.CashOut));
-        Eq("and the year's closing figure is the thousand it was handed plus the difference it made",
-            1_000m, y26[11].Closing - (y26.Sum(r => r.CashIn) - y26.Sum(r => r.CashOut)));
+        Eq("the year in: two thousand and the advance", 5_500m, y26[^1].CashIn);
+        Eq("the year out: the rent and one payout", 4_000m, y26[^1].CashOut);
+        Eq("and the year's own line is the twelve months added up, not a second figure worked out aside",
+            y26.Where(r => !r.IsTotal).Sum(r => r.CashIn), y26[^1].CashIn);
+        Eq("so the year's closing is the thousand it was handed, plus the difference it made",
+            1_000m, y26[^1].Closing - (y26[^1].CashIn - y26[^1].CashOut));
         Eq("December did not reach into the next year's January", 0m, y26[11].CashIn);
         Eq("and the year's closing is not cash in hand, because 2027 has money in it",
             2_500m, y26[11].Closing);
@@ -938,18 +943,24 @@ public static class Program
         Eq("December sold two pumps at 1,100", 2_200m, s26[11].Sold);
         Eq("and its unpaid bill is still owed, as a figure of its own", 2_200m, s26[11].StillOwed);
         Eq("so December made 200 of them", 200m, s26[11].Profit);
-        Eq("sold across the year, returns and all", 4_700m, s26.Sum(r => r.Sold));
-        Eq("profit across the year", 1_700m, s26.Sum(r => r.Profit));
-        Eq("money that arrived across the year", 5_500m, s26.Sum(r => r.Received));
-        Eq("and what their bills still have owing at the end of it", 2_700m, s26.Sum(r => r.StillOwed));
+        Eq("sold across the year, returns and all", 4_700m, s26[^1].Sold);
+        Eq("profit across the year", 1_700m, s26[^1].Profit);
+        Eq("money that arrived across the year", 5_500m, s26[^1].Received);
+        Eq("and what their bills still have owing at the end of it", 2_700m, s26[^1].StillOwed);
+        Eq("the year's profit being the twelve months' profits, added, and its sold money less their cost",
+            Money.Round(s26.Where(r => !r.IsTotal).Sum(r => r.Profit)), s26[^1].Profit);
+        Eq("so the foot of the table can be checked against the column above it",
+            Money.Round(s26[^1].Sold - s26[^1].Cogs), s26[^1].Profit);
         Eq("while that same customer's own book stands at nothing, the payout having cleared it",
             0m, await ledger.GetBalanceAsync(buyer.Id));
         var c26 = await shop.GetYearAsync(2026);
         Eq("the rent is March's", 1_000m, c26[2].Amount);
         Check("and a quiet month says so with a count, not only a dash", c26[3].Count == 0 && c26[2].Count == 1);
-        Eq("the year's costs", 1_000m, c26.Sum(r => r.Amount));
+        Eq("the year's costs", 1_000m, c26[^1].Amount);
+        Eq("and the count of lines with them, so an empty year cannot look like a year of zero-cost lines",
+            1, c26[^1].Count);
         Eq("so what stands at the end of the year is the profit on those goods, less the costs",
-            700m, s26.Sum(r => r.Profit) - c26.Sum(r => r.Amount));
+            700m, s26[^1].Profit - c26[^1].Amount);
 
         var paper = print.YearStatementHtml(2026, y26, s26, c26, new ShopSettings());
         Check("the printed year gives every month its own row under each of the three books, and no month twice",

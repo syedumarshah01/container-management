@@ -41,6 +41,7 @@ public class ShopExpenseService
                 Amount = Money.Round(month.Sum(e => e.Amount))
             });
         }
+        rows.Add(ExpenseYearRow.Totals(year, rows));
         return rows;
     }
 

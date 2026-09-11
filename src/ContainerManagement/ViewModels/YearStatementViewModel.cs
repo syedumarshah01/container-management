@@ -8,11 +8,11 @@ using ContainerManagement.Services;
 namespace ContainerManagement.ViewModels;
 
 /// <summary>
-/// One year, in the three books a year is asked about: the till, the selling, and the costs. Nothing here
-/// is worked out a second time - the months are grouped from the same rows the Main ledger, Sales and
-/// Expenses pages stand on, so the year a statement prints is the year those pages show. A month with
-/// nothing in it still gets its row: twelve rows is a year, and a statement that skips the quiet months is
-/// how a quiet month gets forgotten.
+/// One year, in the three books a year is asked about: the till, the selling, and the costs. The months come
+/// from the same rows the Main ledger, Sales and Expenses pages stand on, with the year's own line under
+/// each table, so nothing is added up twice and the page has no sentence to explain what it means - the
+/// figures add up in front of the reader instead. A month with nothing in it still gets its row, because
+/// twelve rows is a year, and a statement that skips the quiet months is how a quiet month gets forgotten.
 /// </summary>
 public partial class YearStatementViewModel : ViewModelBase
 {
@@ -41,12 +41,7 @@ public partial class YearStatementViewModel : ViewModelBase
     public ObservableCollection<ExpenseYearRow> Costs { get; } = new();
 
     [ObservableProperty] private YearChoice? selectedYear;
-    [ObservableProperty] private string yearLabel = "";
     [ObservableProperty] private string afterCosts = Money.Pkr(0);
-    [ObservableProperty] private string afterCostsHow = "";
-    [ObservableProperty] private string tillTape = "";
-    [ObservableProperty] private string salesTape = "";
-    [ObservableProperty] private string costTape = "";
 
     partial void OnSelectedYearChanged(YearChoice? value)
     {
@@ -65,7 +60,6 @@ public partial class YearStatementViewModel : ViewModelBase
             Years.Insert(0, new YearChoice(y));
 
         var year = SelectedYear?.Year ?? DateTime.Today.Year;
-        YearLabel = year.ToString();
 
         Till.Clear();
         foreach (var r in await _cash.GetYearCashAsync(year))
@@ -77,34 +71,18 @@ public partial class YearStatementViewModel : ViewModelBase
         foreach (var r in await _expenses.GetYearAsync(year))
             Costs.Add(r);
 
-        var inSum = Money.Round(Till.Sum(r => r.CashIn));
-        var outSum = Money.Round(Till.Sum(r => r.CashOut));
-        var back = Money.Round(Till.Sum(r => r.Returns));
-        var closing = Till.Count > 0 ? Till[^1].Closing : 0m;
-        TillTape = "In " + Money.Pkr(inSum) + " · Out " + Money.Pkr(outSum)
-                   + " · goods back " + Money.Pkr(back) + " · cash at the year's end " + Money.Pkr(closing);
-
-        var bills = Sales.Sum(r => r.Bills);
-        var sold = Money.Round(Sales.Sum(r => r.Sold));
-        var gotIn = Money.Round(Sales.Sum(r => r.Received));
-        var owed = Money.Round(Sales.Sum(r => r.StillOwed));
-        var profit = Money.Round(Sales.Sum(r => r.Profit));
-        SalesTape = bills + (bills == 1 ? " bill · " : " bills · ") + "Sold " + Money.Pkr(sold)
-                    + " · money in " + Money.Pkr(gotIn) + " · still owed " + Money.Pkr(owed)
-                    + " · profit " + Money.Pkr(profit);
-
-        var lines = Costs.Sum(r => r.Count);
-        var costSum = Money.Round(Costs.Sum(r => r.Amount));
-        CostTape = lines + (lines == 1 ? " line · " : " lines · ") + Money.Pkr(costSum);
-
-        AfterCosts = Money.Pkr(Money.Round(profit - costSum));
-        AfterCostsHow = Money.Pkr(profit) + " of selling profit, less " + Money.Pkr(costSum) + " of costs";
+        // The one figure the three tables cannot say between them: the profit on the year's goods, after
+        // its costs. Its two halves are the last line of the table above it and the last line of the one
+        // below, so it can be checked by hand without a word of explanation.
+        var profit = Sales.FirstOrDefault(r => r.IsTotal)?.Profit ?? 0m;
+        var cost = Costs.FirstOrDefault(r => r.IsTotal)?.Amount ?? 0m;
+        AfterCosts = Money.Pkr(Money.Round(profit - cost));
     }
 
     /// <summary>
-    /// The same rows, on paper, with totals under each table. Printed rather than exported, because a year
-    /// statement is a document someone asks for - the bank, the tax file, a partner - and it has to say
-    /// which figures are cash and which are goods.
+    /// The same rows, on paper. Printed rather than exported, because a year statement is a document
+    /// someone asks for - the bank, the tax file, a partner - and it has to say which figures are cash and
+    /// which are goods, which is the one thing a screen can leave to memory.
     /// </summary>
     [RelayCommand]
     private void Print()
