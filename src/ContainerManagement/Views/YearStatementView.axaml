@@ -33,7 +33,7 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Main ledger" />
-        <DataGrid ItemsSource="{Binding Till}" x:CompileBindings="False">
+        <DataGrid Classes="tall" ItemsSource="{Binding Till}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="Month" Width="140">
               <DataGridTemplateColumn.CellTemplate>
@@ -102,7 +102,7 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Sales" />
-        <DataGrid ItemsSource="{Binding Sales}" x:CompileBindings="False">
+        <DataGrid Classes="tall" ItemsSource="{Binding Sales}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="Month" Width="140">
               <DataGridTemplateColumn.CellTemplate>
@@ -181,7 +181,7 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Shop costs" />
-        <DataGrid ItemsSource="{Binding Costs}" x:CompileBindings="False">
+        <DataGrid Classes="tall" ItemsSource="{Binding Costs}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="Month" Width="140">
               <DataGridTemplateColumn.CellTemplate>

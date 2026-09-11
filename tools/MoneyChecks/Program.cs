@@ -959,6 +959,15 @@ public static class Program
         var c26 = await shop.GetYearAsync(2026);
         Eq("the rent is March's", 1_000m, c26[2].Amount);
         Check("and a quiet month says so with a count, not only a dash", c26[3].Count == 0 && c26[2].Count == 1);
+        // The failure this guards against is the quiet one: a year line whose heading is not read, so it
+        // falls back on a month's number and arrives at the foot of the table claiming to be December.
+        var yMonths = y26.Where(r => !r.IsTotal).Select(r => r.MonthText).ToList();
+        var sMonths = s26.Where(r => !r.IsTotal).Select(r => r.MonthText).ToList();
+        var cMonths = c26.Where(r => !r.IsTotal).Select(r => r.MonthText).ToList();
+        Check("no year line in any of the three books can be read as one of the months",
+            !yMonths.Contains(y26[^1].MonthText) && !sMonths.Contains(s26[^1].MonthText)
+            && !cMonths.Contains(c26[^1].MonthText),
+            y26[^1].MonthText + " / " + s26[^1].MonthText + " / " + c26[^1].MonthText);
         Check("the selling table and the costs table each mark out one line only, their own",
             s26.Count(r => r.Tint) == 1 && c26.Count(r => r.Tint) == 1
             && s26[^1].MonthText == "Total 2026" && c26[^1].MonthText == "Total 2026",
@@ -980,8 +989,9 @@ public static class Program
             && paper.Contains(Money.Pkr(2_700m)) && paper.Contains(Money.Pkr(2_500m))
             && paper.Contains(Money.Pkr(5_500m)) && paper.Contains(Money.Pkr(1_000m)));
         Check("the paper marks the same line out under a rule, once per table, and heads it the same way",
-            Count(paper, "tr class='total'") == 3 && Count(paper, "Total 2026") == 3,
-            Count(paper, "tr class='total'") + " total rows, " + Count(paper, "Total 2026") + " headings");
+            Count(paper, "tr class='total'") == 3 && Count(paper, "<th>Total 2026</th>") == 3
+            && Count(paper, "<td>Total 2026</td>") == 0,
+            Count(paper, "tr class='total'") + " total rows, " + Count(paper, "<th>Total 2026</th>") + " headings");
         Check("it says, on paper, what the year was carrying when it opened",
             paper.Contains("Brought into the year: " + Money.Pkr(1_000m)), paper);
     }

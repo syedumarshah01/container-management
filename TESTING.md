@@ -152,14 +152,17 @@ rather than assuming it. Say the word and I will move those columns to text for 
    ledger, never "Sold". Try one paisa past what their book holds and it should be refused: a pay form must
    not be able to create a customer who owes the shop. Home's profit should not move at all, because handing
    someone their own money back settles a debt, it is not an expense.
-4d. Open **Year statement** and pick a year the shop traded in. The page is three tables and no prose: each
-   one ends with the year's own line - headed "Total {year}", tinted and set bolder than the months - so add
-   a column's twelve months by hand and the figure at the foot should be it - and the "After costs" figure at the top should be the last line of the Sales table less the
-   last line of the costs table, which is the only arithmetic on the page that crosses two tables. The
-   till's December closing should equal what the Main ledger page holds if the year is the current one, and
-   should *not* if it is a year in the past - that difference is what a closing balance is for. A month with
-   nothing in it should be a row of dashes, not a missing row. Press Print and the paper should carry the same
-   figures, the same twelve-plus-total shape, and one line saying what the year was carrying when it opened.
+4d. Open **Year statement** and pick a year the shop traded in. The page is three tables and no prose, and
+   each table shows all thirteen of its lines at once - the year's own line is the last one in the card, not
+   something below a scroll bar. It is headed "Total {year}" in all three tables, including the main ledger,
+   where a bare "December" would read as a thirteenth month; it is tinted and set bolder than the months.
+   Add a column's twelve months by hand and the figure at the foot should be it. The "After costs" figure at
+   the top should be the last line of the Sales table less the last line of the costs table, which is the
+   only arithmetic on the page that crosses two tables. The till's December closing should equal what the
+   Main ledger page holds if the year is the current one, and should *not* if it is a year in the past -
+   that difference is what a closing balance is for. A month with nothing in it should be a row of dashes,
+   not a missing row. Press Print and the paper should carry the same figures, the same twelve-plus-total
+   shape, and one line saying what the year was carrying when it opened.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

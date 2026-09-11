@@ -256,7 +256,7 @@ public class TillYearRow
     public decimal CashOut { get; set; }
     public decimal Returns { get; set; }
     public decimal Closing { get; set; }
-    public string MonthText => MonthName(Month);
+    public string MonthText => Label ?? MonthName(Month);
     public string InText => CashIn == 0 ? "\u2014" : Money.Pkr(CashIn);
     public string OutText => CashOut == 0 ? "\u2014" : Money.Pkr(CashOut);
     public string NetText => Money.Pkr(CashIn - CashOut);
@@ -267,7 +267,9 @@ public class TillYearRow
 
     /// <summary>The year's own line at the foot of the table, so the twelve months add up where the reader
     /// can see it and the page needs no sentence saying what they add up to. One builder for the screen and
-    /// the paper both - a total worked out twice is a total that can disagree with itself.</summary>
+    /// the paper both - a total worked out twice is a total that can disagree with itself.
+    /// Month stays 12 as a fallback only: the line is named by Label, and a total that had to borrow a
+    /// month's name would read as a thirteenth December rather than as what it is.</summary>
     public static TillYearRow Totals(int year, IReadOnlyList<TillYearRow> rows)
     {
         var months = rows.Where(r => !r.IsTotal).ToList();
