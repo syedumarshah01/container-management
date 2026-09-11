@@ -20,6 +20,7 @@ shift a figure on screen.
 | the amount readback | a shifted zero never reads back the same words (200,000 random amounts) |
 | a bill | `TotalAmount` equals its own line totals minus the discount, and every figure is stored exactly as printed |
 | paying | paying the printed bill settles it; one paisa more is refused |
+| an invoice's standing | the "previous ledger balance" on a printed bill is what their ledger held up to that bill's own line, not today's total with the bill subtracted from it - so re-printing a bill says the same thing about that day whatever has happened since, the money paid after it shows on its own line as today's figure, and the next bill's previous balance carries on from this one through whatever came between |
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
@@ -62,6 +63,13 @@ and paying that 543.94 was **rejected** as more than the bill. Money is now norm
 at every input, a line's amount is rounded where it is defined, and the bill total is the sum of the
 printed lines. Reports read the same line amounts, so the shelf, the bill, the ledger and the
 reports cannot drift apart.
+
+**Fixed - a reprint of a bill rewrote its own history.** The invoice's "previous ledger balance" was not
+read from the ledger at all: it was today's total, less what is left on that bill today. On a bill printed
+the day it was written that is the right figure by luck, and the three lines added up - which is why it
+survived looking at. Re-print it after the customer pays anything, or after you bill them again, and the
+paper says they owed that before the bill existed. The standing now comes from the ledger, cut at the bill's
+own line, and what has happened since is a second figure, labelled as today's.
 
 **Fixed - the order sheet rounded later than the rest.** The sheet's one expense figure and its
 yen rate were taken as typed while you worked, and rounded only on the way to the database. A sheet
@@ -193,6 +201,13 @@ rather than assuming it. Say the word and I will move those columns to text for 
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
    match what you last saw.
+6b. Print a bill you wrote *last month*, then take a payment against it and print it again. Its "Previous
+   ledger balance, as at ..." line and its "This invoice balance" should not have moved a paisa: they are
+   statements about that day. What should move is the muted line at the bottom, "Outstanding on their book
+   today", which only appears once anything has happened since the bill - a bill printed on its own day has
+   one total and no such line. If the first two had moved, the paper would be claiming that money was owed
+   before the bill was written, and its arithmetic would still have looked right, because the figure was
+   found by subtracting one today's number from another.
 7. On a container's **Edit import details**: one line per field, label at the left, the words and the
    "still owe" figure after the box, nothing overlapping - a grid cell that was never named puts two
    inputs on top of each other, and the app compiles and passes every money check regardless. The two

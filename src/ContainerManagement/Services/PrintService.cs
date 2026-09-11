@@ -7,7 +7,8 @@ namespace ContainerManagement.Services;
 
 public class PrintService
 {
-    public string InvoiceHtml(Sale sale, ShopSettings shop, decimal previousBalance, decimal invoiceBalance, decimal totalDue)
+    public string InvoiceHtml(Sale sale, ShopSettings shop, decimal previousBalance, decimal invoiceBalance,
+        decimal totalDue, decimal dueToday)
     {
         var sb = new StringBuilder();
         Start(sb, shop, $"Invoice #{sale.Id}");
@@ -43,9 +44,14 @@ public class PrintService
         sb.Append($"<b>Total: {H(Money.Pkr(sale.TotalAmount))}</b><br/>");
         sb.Append($"Received: {H(Money.Pkr(sale.PaidNow))}</p>");
         sb.Append("<p>");
-        sb.Append($"Previous ledger balance: {H(Money.Pkr(previousBalance))}<br/>");
+        // The date is named on the paper because these are the figures the book held then, not now: a bill
+        // reprinted next month says so in the line itself rather than leaving the reader to guess which
+        // side of the month they are reading.
+        sb.Append($"Previous ledger balance, as at {H(sale.Date.ToString("dd MMM yyyy"))}: {H(Money.Pkr(previousBalance))}<br/>");
         sb.Append($"This invoice balance: {H(Money.Pkr(invoiceBalance))}<br/>");
         sb.Append($"<b>Total balance due: {H(Money.Pkr(totalDue))}</b>");
+        if (dueToday != totalDue)
+            sb.Append($"<br/><span class='muted'>Outstanding on their book today, {H(DateTime.Now.ToString("dd MMM yyyy"))}: {H(Money.Pkr(dueToday))}</span>");
         sb.Append("</p>");
         if (!string.IsNullOrWhiteSpace(sale.Notes))
             sb.Append($"<p class='muted'>{H(sale.Notes)}</p>");

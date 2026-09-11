@@ -39,6 +39,7 @@ public static class Program
             await Flows(dir);
             await YearStatement(dir);
             await MonthReceipts(dir);
+            await InvoiceStanding(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -1138,6 +1139,82 @@ public static class Program
         Check("and the goods that came back stand in their own column on paper, with nothing beside them - "
               "they were never sold and never paid",
             stmt.Contains(backRow), backRow);
+    }
+
+    private static async Task InvoiceStanding(string dir)
+    {
+        var file = Path.Combine(dir, "invoice.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var ledger = new LedgerService(f);
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var print = new PrintService();
+
+        Head("an invoice's standing: what the book said when the bill was written, and only that");
+        var buyer = await ledger.CreateCustomerAsync("Standing buyer", null, null, null);
+        var box = await inventory.CreateContainerAsync("STANDING container", "CNT-S1", "China",
+            new DateTime(2026, 1, 5), null, "PKR", 1, null, null, null, null, null, 0m, 0m, null);
+        var part = await inventory.AddGoodsAsync(box.Id, "Fan belt", "pcs", "FB-9", 10m, 600m,
+            null, null, null, null, null);
+        await ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 1, 20), 400m, "Cash", "an advance left with the shop");
+        await ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 1, 31, 22, 0, 0), 100m, "Cash", "the evening before the bill");
+        var bill = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 2, 5, 14, 30, 0),
+            new List<NewSaleLineInput>
+            {
+                new() { ContainerId = box.Id, ContainerItemId = part.Id, ProductId = part.ProductId, ProductName = "Fan belt", Unit = "pcs", Quantity = 1m, UnitPrice = 1_000m }
+            }, 250m, "Cash", null, 0m, null);
+
+        var at = await ledger.GetInvoiceStandingAsync(bill.Id);
+        Eq("the previous balance is what the book held up to the bill's own line", -500m, at.Previous);
+        Eq("this invoice's balance is the bill less what it was handed with it", 750m, at.ThisInvoice);
+        Eq("and the two add to what they owed when the paper came out of the printer", 250m, at.DueThatDay);
+        Eq("while what they owe today is a separate figure, which is the same one while nothing has moved",
+            250m, at.DueToday);
+
+        // Money against this bill, entered afterwards. A previous balance back-derived from today's total
+        // moves with it, and then the paper says the customer already owed this before the bill was written.
+        await ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 2, 20), 500m, "Cash", "part, a fortnight later", bill.Id);
+        var again = await ledger.GetInvoiceStandingAsync(bill.Id);
+        Eq("a payment against the bill does not move the standing printed on it", at.Previous, again.Previous);
+        Eq("nor the bill's own balance", at.ThisInvoice, again.ThisInvoice);
+        Eq("while the figure the paper adds as a line does move, to what the book holds now",
+            -250m, again.DueToday);
+
+        var next = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 2, 25),
+            new List<NewSaleLineInput>
+            {
+                new() { ContainerId = box.Id, ContainerItemId = part.Id, ProductId = part.ProductId, ProductName = "Fan belt", Unit = "pcs", Quantity = 1m, UnitPrice = 300m }
+            }, 0m, "Cash", null, 0m, null);
+        var nextAt = await ledger.GetInvoiceStandingAsync(next.Id);
+        Eq("and the next bill's previous balance carries this one on: what this bill left due, less the "
+           "payment made between them", again.DueThatDay - 500m, nextAt.Previous);
+
+        await sales.CancelSaleAsync(next.Id);
+        var cancelled = await ledger.GetInvoiceStandingAsync(next.Id);
+        Eq("a cancelled bill leaves no balance of its own on the paper", 0m, cancelled.ThisInvoice);
+        Eq("so its total due is the standing it opened with, and nothing else",
+            cancelled.Previous, cancelled.DueThatDay);
+
+        var paper = print.InvoiceHtml(await sales.GetSaleAsync(bill.Id)!, new ShopSettings(),
+            again.Previous, again.ThisInvoice, again.DueThatDay, again.DueToday);
+        Check("the paper names the day these figures belong to, and the day it is speaking about now",
+            paper.Contains("Previous ledger balance, as at 05 Feb 2026")
+            && paper.Contains("Outstanding on their book today,"), paper);
+        Check("and it carries the four figures the book was asked for, in order, with nothing added",
+            paper.Contains(Money.Pkr(again.Previous)) && paper.Contains(Money.Pkr(again.ThisInvoice))
+            && paper.Contains(Money.Pkr(again.DueThatDay)) && paper.Contains(Money.Pkr(again.DueToday)), paper);
+        var quiet = print.InvoiceHtml(await sales.GetSaleAsync(bill.Id)!, new ShopSettings(),
+            at.Previous, at.ThisInvoice, at.DueThatDay, at.DueToday);
+        Check("while a bill printed on its own day keeps one total, and no apology about today",
+            !quiet.Contains("Outstanding on their book today"), quiet);
     }
 
     /// <summary>Which one of a line's four money columns is filled: the dash is this app's own "nothing

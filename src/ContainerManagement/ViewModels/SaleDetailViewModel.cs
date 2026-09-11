@@ -102,13 +102,12 @@ public partial class SaleDetailViewModel : ViewModelBase
     private async Task PrintAsync()
     {
         if (_sale is null) return;
-        var invoiceBalance = _sale.Status == SaleStatus.Cancelled
-            ? 0
-            : await _sales.RemainingOnInvoiceAsync(_id);
-        var totalDue = await _ledger.GetBalanceAsync(_sale.CustomerId);
-        var previous = totalDue - invoiceBalance;
+        // Every figure on this paper is the book's own answer, read from one place: the standing at the
+        // moment the bill was written, and - because a reprint is also a way of chasing money - what is
+        // outstanding today. Nothing here is worked out by subtracting one from the other.
+        var (previous, thisInvoice, dueThatDay, dueToday) = await _ledger.GetInvoiceStandingAsync(_id);
         _print.OpenHtml(
-            _print.InvoiceHtml(_sale, ShopSettings.Load(), previous, invoiceBalance, totalDue),
+            _print.InvoiceHtml(_sale, ShopSettings.Load(), previous, thisInvoice, dueThatDay, dueToday),
             $"invoice-{_sale.Id}.html");
     }
 

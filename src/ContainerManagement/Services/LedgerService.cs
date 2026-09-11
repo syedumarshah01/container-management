@@ -212,6 +212,39 @@ public class LedgerService
     }
 
     /// <summary>
+    /// The standing an invoice should print: what the customer's book held up to that bill's own line, what
+    /// the bill left unpaid when it was written, and the two added together. Not today's figures. An invoice
+    /// is a document about the day it was written, and a previous balance back-derived from what the book
+    /// happens to hold now moves every time this customer pays or is billed again - so re-printing last
+    /// month's bill would claim that money was already owed before it, and its arithmetic would still look
+    /// right because the plug is what makes it add up. The cut is this bill's line in the order the ledger
+    /// keeps, which takes in whatever the book holds for that day - including a line corrected or added
+    /// afterwards with an earlier date - and leaves out everything that came after it. Today's outstanding
+    /// travels with it, one figure, so the paper can still be used to chase the money.
+    /// </summary>
+    public async Task<(decimal Previous, decimal ThisInvoice, decimal DueThatDay, decimal DueToday)>
+        GetInvoiceStandingAsync(int saleId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var sale = await db.Sales.FindAsync(saleId)
+            ?? throw new InvalidOperationException("Invoice not found.");
+
+        var rows = await GetLedgerAsync(sale.CustomerId);
+        var at = rows.FirstOrDefault(r => r.Type == LedgerType.Sale && r.SaleId == saleId)
+            ?? throw new InvalidOperationException(
+                "This bill has no line in the customer's ledger, so its standing cannot be printed.");
+
+        // The row carries the balance the book had reached at that line - it is added before the row is
+        // built - so the figure before the bill is that line's own movement taken back off it. No summing
+        // over a range of dates, which is where a day boundary or a backdated entry gets missed.
+        var previous = Money.Round(at.RunningBalance - (at.Debit - at.Credit));
+        var thisInvoice = sale.Status == SaleStatus.Cancelled
+            ? 0m
+            : Money.Round(sale.TotalAmount - sale.PaidNow);
+        return (previous, thisInvoice, Money.Round(previous + thisInvoice), await GetBalanceAsync(sale.CustomerId));
+    }
+
+    /// <summary>
     /// What a customer handed over, in one month - or in the whole book when no month is given - together
     /// with the lines that make it up. The adding is done here rather than by the page so that the figure
     /// beside a month's rows *is* those rows: a receipts list whose headline was worked out separately is a
