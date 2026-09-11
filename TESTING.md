@@ -25,6 +25,7 @@ shift a figure on screen.
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
+| the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
 | paying a customer back | a payout moves their ledger and the till by the same figure, never past what their own book says is held of theirs, is never counted as a refund of a bill or as an expense, and reaches their page under "Paid out" rather than under "Sold" |
@@ -142,6 +143,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
 3d. On a customer's page, the ledger should count up by day and by writing order with a "No." column, and
    the latest entry should sit at the top with the balance the page shows beside it. Print the statement:
    it should read the other way round, opening balance at the top, because that is how paper is read.
+   "Receive money" has a date box at the head of its row, open on today. Set it to a day in a past month
+   and record: the money should appear in *that* month on the Main ledger page and on the year statement,
+   the ledger line should read that date with the running figure counting up through it, and the bill
+   should be the same amount lighter. Only which month the money moved in depends on the date - the
+   balance, the bill and the words under the box are all untouched by it.
 4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
    and it should be refused, naming the figure that is owed. A container left over from before this rule,
    with money paid past its figure, shows nothing owed and says so in one line on the container form.

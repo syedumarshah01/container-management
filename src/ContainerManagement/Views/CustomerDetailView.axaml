@@ -39,11 +39,14 @@
         <TextBlock Classes="h2" Text="Receive money" />
         <TextBlock Classes="label" Text="Against invoice (optional)" />
         <ComboBox ItemsSource="{Binding Unpaid}" SelectedItem="{Binding SelectedUnpaid}" />
-        <Grid ColumnDefinitions="160,160,*,Auto">
-          <NumericUpDown Value="{Binding PayAmount}" Minimum="0" Margin="0,0,8,12" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding Methods}" SelectedItem="{Binding PayMethod}" Margin="0,0,8,12" />
-          <TextBox Grid.Column="2" Text="{Binding PayNotes}" Watermark="Note (optional)" Margin="0,0,8,12" />
-          <Button Grid.Column="3" Classes="primary" Content="Record" Command="{Binding ReceiveCommand}" Margin="0,0,0,12" />
+        <!-- The picker takes an Auto column and is left to its own width, as everywhere else in the app:
+             a date box clipped to a column the page chose is a date that gets recorded wrong. -->
+        <Grid ColumnDefinitions="Auto,160,150,*,Auto">
+          <DatePicker SelectedDate="{Binding PayDate}" Margin="0,0,8,12" />
+          <NumericUpDown Grid.Column="1" Value="{Binding PayAmount}" Minimum="0" Margin="0,0,8,12" />
+          <ComboBox Grid.Column="2" ItemsSource="{Binding Methods}" SelectedItem="{Binding PayMethod}" Margin="0,0,8,12" />
+          <TextBox Grid.Column="3" Text="{Binding PayNotes}" Watermark="Note (optional)" Margin="0,0,8,12" />
+          <Button Grid.Column="4" Classes="primary" Content="Record" Command="{Binding ReceiveCommand}" Margin="0,0,0,12" />
         </Grid>
         <TextBlock Classes="words" Text="{Binding PayAmount, Converter={StaticResource WordsConv}}" />
       </StackPanel>
