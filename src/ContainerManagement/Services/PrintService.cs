@@ -142,7 +142,7 @@ public class PrintService
                 + $"<td class='num'>{H(r.OutText)}</td><td class='num'>{H(r.NetText)}</td>"
                 + $"<td class='num'>{H(r.ReturnsText)}</td><td class='num'>{H(r.ClosingText)}</td></tr>");
         }
-        sb.Append($"<tr><th>{year}</th><th class='num'>{H(Money.Pkr(cash.CashIn))}</th>"
+        sb.Append($"<tr class='total'><th>{H(cash.MonthText)}</th><th class='num'>{H(Money.Pkr(cash.CashIn))}</th>"
             + $"<th class='num'>{H(Money.Pkr(cash.CashOut))}</th>"
             + $"<th class='num'>{H(Money.Pkr(cash.CashIn - cash.CashOut))}</th>"
             + $"<th class='num'>{H(Money.Pkr(cash.Returns))}</th>"
@@ -163,7 +163,7 @@ public class PrintService
                 + $"<td class='num'>{H(r.ReturnedText)}</td><td class='num'>{H(r.StillOwedText)}</td>"
                 + $"<td class='num'>{H(r.ProfitText)}</td></tr>");
         }
-        sb.Append($"<tr><th>{year}</th><th class='num'>{sold.Bills}</th>"
+        sb.Append($"<tr class='total'><th>{H(sold.MonthText)}</th><th class='num'>{sold.Bills}</th>"
             + $"<th class='num'>{H(Money.Pkr(sold.Sold))}</th><th class='num'>{H(Money.Pkr(sold.Received))}</th>"
             + $"<th class='num'>{H(Money.Pkr(sold.Returned))}</th><th class='num'>{H(Money.Pkr(sold.StillOwed))}</th>"
             + $"<th class='num'>{H(Money.Pkr(sold.Profit))}</th></tr>");
@@ -178,7 +178,7 @@ public class PrintService
             sb.Append($"<tr><td>{H(r.MonthText)}</td><td class='num'>{H(r.CountText)}</td>"
                 + $"<td class='num'>{H(r.AmountText)}</td></tr>");
         }
-        sb.Append($"<tr><th>{year}</th><th class='num'>{cost.Count}</th>"
+        sb.Append($"<tr class='total'><th>{H(cost.MonthText)}</th><th class='num'>{cost.Count}</th>"
             + $"<th class='num'>{H(Money.Pkr(cost.Amount))}</th></tr>");
         sb.Append("</table>");
 
@@ -206,6 +206,7 @@ public class PrintService
             table{border-collapse:collapse;width:100%;margin:16px 0}
             th,td{border-bottom:1px solid #E5E7EB;padding:8px;text-align:left}
             th{font-size:12px;color:#6B7280}
+            tr.total th{font-size:14px;color:#1B2A4A;border-top:2px solid #1B2A4A;background:#F7F6F2}
             td.num,th.num{text-align:right;white-space:nowrap}
             @media print{button{display:none}}
             </style></head><body>

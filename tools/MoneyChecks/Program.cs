@@ -899,9 +899,12 @@ public static class Program
 
         var y26 = await cash.GetYearCashAsync(2026);
         Check("a year is twelve months and one line for the year itself", y26.Count == 13, y26.Count + " rows");
-        Check("the last line is named for the year, not for a month, so it cannot be read as one more month",
-            y26[^1].IsTotal && y26[^1].MonthText == "2026" && y26[11].MonthText == "December",
+        Check("the last line is headed as the year's total, not as a month that never happened",
+            y26[^1].IsTotal && y26[^1].MonthText == "Total 2026" && y26[11].MonthText == "December",
             y26[^1].MonthText + " / " + y26[11].MonthText);
+        Check("and it is the only line the page marks out, so a total cannot be mistaken for January's neighbour",
+            y26.Count(r => r.Tint) == 1 && y26.Count(r => r.Bold) == 1 && !y26[11].Tint && !y26[0].Bold,
+            y26.Count(r => r.Tint) + " tinted rows");
         Eq("January's money in is the January bill's payment, and nothing else", 2_000m, y26[0].CashIn);
         Eq("and January closed on what the year brought in plus that", 3_000m, y26[0].Closing);
         Eq("February counts the advance the day it arrived", 3_500m, y26[1].CashIn);
@@ -956,6 +959,10 @@ public static class Program
         var c26 = await shop.GetYearAsync(2026);
         Eq("the rent is March's", 1_000m, c26[2].Amount);
         Check("and a quiet month says so with a count, not only a dash", c26[3].Count == 0 && c26[2].Count == 1);
+        Check("the selling table and the costs table each mark out one line only, their own",
+            s26.Count(r => r.Tint) == 1 && c26.Count(r => r.Tint) == 1
+            && s26[^1].MonthText == "Total 2026" && c26[^1].MonthText == "Total 2026",
+            s26.Count(r => r.Tint) + " / " + c26.Count(r => r.Tint));
         Eq("the year's costs", 1_000m, c26[^1].Amount);
         Eq("and the count of lines with them, so an empty year cannot look like a year of zero-cost lines",
             1, c26[^1].Count);
@@ -972,6 +979,9 @@ public static class Program
             paper.Contains(Money.Pkr(4_700m)) && paper.Contains(Money.Pkr(1_700m))
             && paper.Contains(Money.Pkr(2_700m)) && paper.Contains(Money.Pkr(2_500m))
             && paper.Contains(Money.Pkr(5_500m)) && paper.Contains(Money.Pkr(1_000m)));
+        Check("the paper marks the same line out under a rule, once per table, and heads it the same way",
+            Count(paper, "tr class='total'") == 3 && Count(paper, "Total 2026") == 3,
+            Count(paper, "tr class='total'") + " total rows, " + Count(paper, "Total 2026") + " headings");
         Check("it says, on paper, what the year was carrying when it opened",
             paper.Contains("Brought into the year: " + Money.Pkr(1_000m)), paper);
     }

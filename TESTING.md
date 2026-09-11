@@ -153,8 +153,8 @@ rather than assuming it. Say the word and I will move those columns to text for 
    not be able to create a customer who owes the shop. Home's profit should not move at all, because handing
    someone their own money back settles a debt, it is not an expense.
 4d. Open **Year statement** and pick a year the shop traded in. The page is three tables and no prose: each
-   one ends with the year's own line, so add a column's twelve months by hand and the figure at the foot
-   should be it - and the "After costs" figure at the top should be the last line of the Sales table less the
+   one ends with the year's own line - headed "Total {year}", tinted and set bolder than the months - so add
+   a column's twelve months by hand and the figure at the foot should be it - and the "After costs" figure at the top should be the last line of the Sales table less the
    last line of the costs table, which is the only arithmetic on the page that crosses two tables. The
    till's December closing should equal what the Main ledger page holds if the year is the current one, and
    should *not* if it is a year in the past - that difference is what a closing balance is for. A month with

@@ -3,6 +3,18 @@
              xmlns:vm="using:ContainerManagement.ViewModels"
              x:Class="ContainerManagement.Views.YearStatementView"
              x:DataType="vm:YearStatementViewModel">
+  <UserControl.Styles>
+    <!--  The year's line at the foot of each table is a total, not a thirteenth month, and it is made to
+          look like one: the band runs edge to edge because the cell's own padding is pulled back with a
+          negative margin, so the tint does not break into chips between the columns.  -->
+    <Style Selector="Border.Tint">
+      <Setter Property="Background" Value="{StaticResource LineBrush}" />
+    </Style>
+    <Style Selector="TextBlock.Bold">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+    </Style>
+  </UserControl.Styles>
   <StackPanel>
     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
       <StackPanel VerticalAlignment="Center">
@@ -23,12 +35,65 @@
         <TextBlock Classes="h2" Text="Main ledger" />
         <DataGrid ItemsSource="{Binding Till}" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
-            <DataGridTextColumn Header="In" Binding="{Binding InText}" Width="150" />
-            <DataGridTextColumn Header="Out" Binding="{Binding OutText}" Width="150" />
-            <DataGridTextColumn Header="Net" Binding="{Binding NetText}" Width="150" />
-            <DataGridTextColumn Header="Goods back" Binding="{Binding ReturnsText}" Width="160" />
-            <DataGridTextColumn Header="Closing" Binding="{Binding ClosingText}" Width="160" />
+            <DataGridTemplateColumn Header="Month" Width="140">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="In" Width="150">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding InText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Out" Width="150">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding OutText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Net" Width="150">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding NetText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Goods back" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReturnsText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Closing" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ClosingText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>
@@ -39,13 +104,75 @@
         <TextBlock Classes="h2" Text="Sales" />
         <DataGrid ItemsSource="{Binding Sales}" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
-            <DataGridTextColumn Header="Bills" Binding="{Binding BillsText}" Width="90" />
-            <DataGridTextColumn Header="Sold" Binding="{Binding SoldText}" Width="160" />
-            <DataGridTextColumn Header="Received" Binding="{Binding ReceivedText}" Width="160" />
-            <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedText}" Width="160" />
-            <DataGridTextColumn Header="Still owed" Binding="{Binding StillOwedText}" Width="160" />
-            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="160" />
+            <DataGridTemplateColumn Header="Month" Width="140">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Bills" Width="100">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding BillsText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Sold" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding SoldText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Received" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReceivedText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Returned" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReturnedText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Still owed" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding StillOwedText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Profit" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ProfitText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>
@@ -56,9 +183,35 @@
         <TextBlock Classes="h2" Text="Shop costs" />
         <DataGrid ItemsSource="{Binding Costs}" x:CompileBindings="False">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
-            <DataGridTextColumn Header="Lines" Binding="{Binding CountText}" Width="90" />
-            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="160" />
+            <DataGridTemplateColumn Header="Month" Width="140">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Lines" Width="100">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding CountText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Amount" Width="160">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding AmountText}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>

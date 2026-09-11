@@ -247,6 +247,11 @@ public class TillYearRow
     public int Month { get; set; }
     public bool IsTotal { get; set; }
     public string? Label { get; set; }
+
+    /// <summary>Carried on the row rather than worked out by the page, so the tint and the weight a total
+    /// needs are one decision in one place, and the table of months and the printed statement agree.</summary>
+    public bool Bold => IsTotal;
+    public bool Tint => IsTotal;
     public decimal CashIn { get; set; }
     public decimal CashOut { get; set; }
     public decimal Returns { get; set; }
@@ -270,7 +275,7 @@ public class TillYearRow
         {
             Month = 12,
             IsTotal = true,
-            Label = year.ToString(),
+            Label = "Total " + year,
             CashIn = Money.Round(months.Sum(r => r.CashIn)),
             CashOut = Money.Round(months.Sum(r => r.CashOut)),
             Returns = Money.Round(months.Sum(r => r.Returns)),
@@ -290,6 +295,8 @@ public class SalesYearRow
     public int Month { get; set; }
     public bool IsTotal { get; set; }
     public string? Label { get; set; }
+    public bool Bold => IsTotal;
+    public bool Tint => IsTotal;
     public int Bills { get; set; }
     public decimal Sold { get; set; }
     public decimal Cogs { get; set; }
@@ -315,7 +322,7 @@ public class SalesYearRow
         {
             Month = 12,
             IsTotal = true,
-            Label = year.ToString(),
+            Label = "Total " + year,
             Bills = months.Sum(r => r.Bills),
             Sold = Money.Round(months.Sum(r => r.Sold)),
             Cogs = Money.Round(months.Sum(r => r.Cogs)),
@@ -333,6 +340,8 @@ public class ExpenseYearRow
     public int Month { get; set; }
     public bool IsTotal { get; set; }
     public string? Label { get; set; }
+    public bool Bold => IsTotal;
+    public bool Tint => IsTotal;
     public int Count { get; set; }
     public decimal Amount { get; set; }
     public string MonthText => Label ?? TillYearRow.MonthName(Month);
@@ -347,7 +356,7 @@ public class ExpenseYearRow
         {
             Month = 12,
             IsTotal = true,
-            Label = year.ToString(),
+            Label = "Total " + year,
             Count = months.Sum(r => r.Count),
             Amount = Money.Round(months.Sum(r => r.Amount))
         };
