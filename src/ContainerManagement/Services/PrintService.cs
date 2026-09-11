@@ -59,8 +59,14 @@ public class PrintService
         Start(sb, shop, "Ledger — " + customer.Name);
         sb.Append($"<p>{H(customer.Phone)} {H(customer.Address)}</p>");
         sb.Append($"<p><b>Balance: {H(Money.Pkr(balance))}</b></p>");
-        sb.Append("<table><tr><th>No.</th><th>Date</th><th>Particulars</th><th>Sold</th><th>Received</th>"
-            + "<th>Paid out</th><th>Balance</th></tr>");
+        // The columns are the ones the customer's page shows, in the same order, because a statement that
+        // leaves a column out leaves the reader with rows whose balance moves for no reason they can see.
+        // "Returned" is the one that was missing: a return is neither a sale nor money handed over, so it
+        // prints in none of the other three, and a paper ledger used to carry it as a line of dashes that
+        // still changed the balance. Money columns are right-aligned so the page adds up by its last digit.
+        sb.Append("<table><tr><th>No.</th><th>Date</th><th>Particulars</th>"
+            + "<th class='num'>Sold</th><th class='num'>Returned</th><th class='num'>Received</th>"
+            + "<th class='num'>Paid out</th><th class='num'>Balance</th></tr>");
         // The rows arrive in the order the money moved, and a paper statement is read that way: opening
         // line at the top, the balance running down to the figure printed above it. The screen puts the
         // newest entry under the reader's eye; this page must not, or the statement contradicts the book
@@ -71,10 +77,11 @@ public class PrintService
             sb.Append($"<td>{r.Step}</td>");
             sb.Append($"<td>{H(r.DateText)}</td>");
             sb.Append($"<td>{H(r.Description)}</td>");
-            sb.Append($"<td>{H(r.DebitText)}</td>");
-            sb.Append($"<td>{H(r.CreditText)}</td>");
-            sb.Append($"<td>{H(r.PaidOutText)}</td>");
-            sb.Append($"<td>{H(r.RunningText)}</td>");
+            sb.Append($"<td class='num'>{H(r.SoldText)}</td>");
+            sb.Append($"<td class='num'>{H(r.ReturnedText)}</td>");
+            sb.Append($"<td class='num'>{H(r.ReceivedText)}</td>");
+            sb.Append($"<td class='num'>{H(r.PaidOutText)}</td>");
+            sb.Append($"<td class='num'>{H(r.RunningText)}</td>");
             sb.Append("</tr>");
         }
         sb.Append("</table>");

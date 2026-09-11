@@ -24,7 +24,7 @@ shift a figure on screen.
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
-| the customer | bills − payments − returns equals the ledger's own entries |
+| the customer | bills − payments − returns equals the ledger's own entries, and every line of their book puts its money in exactly one column of the page and of the paper - a bill, a receipt, goods back, money handed over - so the four columns run the balance and nothing is counted twice or left out |
 | a customer's month | the receipts figure a month box shows is the payments dated in that month, and the lines under it are those payments - a payout to them and a return credit are not money collected, so neither is netted off it; five paisa is a month with five paisa in it, not an empty one; and fourteen months walked one at a time add back to the whole book, so no receipt can hide between two months or be counted twice |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
@@ -149,7 +149,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    all, where the debt absorbed the return. Their own balance changes only by the relief, never twice.
 3d. On a customer's page, the ledger should count up by day and by writing order with a "No." column, and
    the latest entry should sit at the top with the balance the page shows beside it. Print the statement:
-   it should read the other way round, opening balance at the top, because that is how paper is read.
+   it should read the other way round, opening balance at the top, because that is how paper is read. The
+   paper has the same columns as the grid, including "Returned": take goods back on a bill and the statement
+   should show a line with a figure under Returned and nothing in Sold, Received or Paid out - a return is
+   neither money in nor money out, and before it had its own column the line printed as a row of dashes whose
+   only trace was the balance moving. Add the four columns up over the whole page and they should land on
+   the balance printed at the head of it, paisa and all.
    "Receive money" has a date box at the head of its row, open on today. Set it to a day in a past month
    and record: the money should appear in *that* month on the Main ledger page and on the year statement,
    the ledger line should read that date with the running figure counting up through it, and the bill

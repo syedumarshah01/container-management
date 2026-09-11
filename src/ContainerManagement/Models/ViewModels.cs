@@ -404,8 +404,6 @@ public class LedgerRow
     public string PaidOutText => IsPaidOut ? Money.Pkr(Debit) : "—";
     public string ReturnedText => Type == LedgerType.Return && Credit != 0 ? Money.Pkr(Credit) : "—";
     public string ReceivedText => Type == LedgerType.Return || Credit == 0 ? "—" : Money.Pkr(Credit);
-    public string DebitText => SoldText;
-    public string CreditText => ReceivedText;
     public string RunningText => Money.Pkr(RunningBalance);
 }
 

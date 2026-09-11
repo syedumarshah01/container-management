@@ -1036,6 +1036,9 @@ public static class Program
         }
 
         var ledger = new LedgerService(f);
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var print = new PrintService();
 
         Head("one customer's month of receipts: the edges of a month, the time of day on it, and money that is not a receipt");
         var edge = await ledger.CreateCustomerAsync("Edge buyer", null, null, null);
@@ -1081,6 +1084,69 @@ public static class Program
 
         await Throws<ArgumentException>("a month without a year is refused, rather than quietly read as every month",
             () => ledger.GetReceiptsAsync(edge.Id, 2026, null));
+
+        // A bill and a return on it, with nothing paid on the bill, so the receipts above are untouched:
+        // this is here to give the customer's printed ledger a line of every kind it can carry.
+        var mbox = await inventory.CreateContainerAsync("RECEIPTS container", "CNT-R1", "China",
+            new DateTime(2026, 1, 5), null, "PKR", 1, null, null, null, null, null, 0m, 0m, null);
+        var part = await inventory.AddGoodsAsync(mbox.Id, "Fan belt", "pcs", "FB-1", 10m, 600m,
+            null, null, null, null, null);
+        var edgeBill = await sales.CreateSaleAsync(edge.Id, new DateTime(2026, 2, 5), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = mbox.Id, ContainerItemId = part.Id, ProductId = part.ProductId, ProductName = "Fan belt", Unit = "pcs", Quantity = 1m, UnitPrice = 1_000m }
+        }, 0m, "Cash", null, 0m, null);
+        await sales.ReturnItemsAsync(edgeBill.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = edgeBill.Lines.Single().Id, Quantity = 1m } });
+
+        var lines = await ledger.GetLedgerAsync(edge.Id);
+        Check("every line of their book puts its money in exactly one column, so nothing is counted twice or left out",
+            lines.All(r => new[] { r.SoldText, r.ReturnedText, r.ReceivedText, r.PaidOutText }
+                .Count(t => t != "\u2014") == 1),
+            lines.Count + " lines");
+        Check("a bill is Sold, money in is Received, goods back is Returned, money out is Paid out",
+            lines.Where(r => r.Type is LedgerType.Sale or LedgerType.Opening)
+                .All(r => Only(r.SoldText, r.ReturnedText, r.ReceivedText, r.PaidOutText, 0))
+            && lines.Where(r => r.Type == LedgerType.Payment)
+                .All(r => Only(r.SoldText, r.ReturnedText, r.ReceivedText, r.PaidOutText, 2))
+            && lines.Where(r => r.Type == LedgerType.Return)
+                .All(r => Only(r.SoldText, r.ReturnedText, r.ReceivedText, r.PaidOutText, 1))
+            && lines.Where(r => r.IsPaidOut)
+                .All(r => Only(r.SoldText, r.ReturnedText, r.ReceivedText, r.PaidOutText, 3)),
+            lines.Count(r => r.Type == LedgerType.Return) + " return lines, "
+            + lines.Count(r => r.IsPaidOut) + " paid-out lines");
+        Eq("and the four columns run the balance the page prints: billed, less goods back, less money in, "
+           "plus money handed over",
+            Money.Round(lines.Where(r => r.SoldText != "\u2014").Sum(r => r.Debit)
+                - lines.Where(r => r.ReturnedText != "\u2014").Sum(r => r.Credit)
+                - lines.Where(r => r.ReceivedText != "\u2014").Sum(r => r.Credit)
+                + lines.Where(r => r.PaidOutText != "\u2014").Sum(r => r.Debit)),
+            lines[^1].RunningBalance);
+
+        var stmt = print.StatementHtml(await ledger.GetCustomerAsync(edge.Id)!, lines,
+            await ledger.GetBalanceAsync(edge.Id), new ShopSettings());
+        Check("their printed ledger carries the column the page shows, in the page's order",
+            stmt.Contains("<th class='num'>Sold</th><th class='num'>Returned</th><th class='num'>Received</th>"
+                + "<th class='num'>Paid out</th>") && Count(stmt, "<th") == 8,
+            Count(stmt, "<th") + " headings");
+        // The column prints the credit on the ledger line, so the check is built from that line rather than
+        // from a figure assumed: a whole-bill return credits the bill, and nothing else, whatever it did to
+        // the cashbook.
+        var backCredit = lines.Single(r => r.Type == LedgerType.Return).Credit;
+        Eq("a return of the whole bill credits the bill's own figure on their ledger", 1_000m, backCredit);
+        var backRow = "<td class='num'>\u2014</td><td class='num'>" + Money.Pkr(backCredit)
+            + "</td><td class='num'>\u2014</td><td class='num'>\u2014</td>";
+        Check("and the goods that came back stand in their own column on paper, with nothing beside them - "
+              "they were never sold and never paid",
+            stmt.Contains(backRow), backRow);
+    }
+
+    /// <summary>Which one of a line's four money columns is filled: the dash is this app's own "nothing
+    /// here", so a check that exactly one is not a dash is a check that a figure cannot be counted twice
+    /// or vanish from the paper altogether.</summary>
+    private static bool Only(string sold, string returned, string received, string paidOut, int which)
+    {
+        var cells = new[] { sold, returned, received, paidOut };
+        return cells.Count(t => t != "\u2014") == 1 && cells[which] != "\u2014";
     }
 
     private static int Count(string haystack, string needle)
