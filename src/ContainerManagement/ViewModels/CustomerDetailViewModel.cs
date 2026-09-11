@@ -54,6 +54,42 @@ public partial class CustomerDetailViewModel : ViewModelBase
     public ObservableCollection<Payment> Payments { get; } = new();
     [ObservableProperty] private SaleListRow? selectedInvoice;
 
+    /// <summary>The months a customer's receipts can be read for, and the figure for the one that is
+    /// chosen. "Received" is the same word the year statement uses for the same measure - receipts dated in
+    /// the month - so the two pages can be checked against each other. It is not the "Collected so far"
+    /// figure at the top of this page, which is their whole ledger and counts the opening balance an advance
+    /// left in the book before this software was keeping it.</summary>
+    public ObservableCollection<CustomerMonth> Months { get; } = new();
+    [ObservableProperty] private CustomerMonth? selectedMonth;
+    [ObservableProperty] private string monthReceivedText = "—";
+
+    // The month box drives the list under it, so picking a month has to reload; a reload must not do it
+    // again while the page is being built, which is what this flag is for.
+    private bool _buildingMonths;
+
+    // And a click on the box can land while the page is still loading, so two reads are in the air: the
+    // older one may answer last and put March's lines under a box reading April, which is worse than a
+    // slow list. A stale read is thrown away instead of shown.
+    private int _monthRead;
+
+    partial void OnSelectedMonthChanged(CustomerMonth? value)
+    {
+        if (!_buildingMonths) _ = LoadMonthAsync();
+    }
+
+    private async Task LoadMonthAsync()
+    {
+        var read = ++_monthRead;
+        var m = SelectedMonth ?? CustomerMonth.All;
+        var (amount, _, rows) = await _ledger.GetReceiptsAsync(_id, m.Year, m.Month);
+        if (read != _monthRead)
+            return;
+        Payments.Clear();
+        foreach (var p in rows)
+            Payments.Add(p);
+        MonthReceivedText = Money.Pkr(amount);
+    }
+
     public override async Task LoadAsync()
     {
         IsOwner = _access.IsOwner;
@@ -100,9 +136,44 @@ public partial class CustomerDetailViewModel : ViewModelBase
             Unpaid.Add(u);
         SelectedUnpaid = Unpaid[0];
 
-        Payments.Clear();
-        foreach (var p in await _ledger.ListPaymentsAsync(_id))
-            Payments.Add(p);
+        // The months on offer are the months this customer's receipts span, with the current month always
+        // among them. A month where nothing came in is the fact someone most wants to confirm, so it is not
+        // left out; months nobody has traded in yet are, and the span follows the dates rather than the
+        // clock, because a receipt can be dated ahead now that the date is set by hand.
+        var every = await _ledger.GetReceiptsAsync(_id, null, null);
+        var seen = every.Rows.Select(p => (p.Date.Year, p.Date.Month)).ToHashSet();
+        seen.Add((DateTime.Today.Year, DateTime.Today.Month));
+        var from = new DateTime(seen.Min().Item1, seen.Min().Item2, 1);
+        var to = new DateTime(seen.Max().Item1, seen.Max().Item2, 1);
+        var wanted = new List<CustomerMonth> { CustomerMonth.All };
+        for (var d = from; d <= to; d = d.AddMonths(1))
+            wanted.Add(CustomerMonth.Of(d.Year, d.Month));
+
+        // The list is rebuilt only when the span it covers has actually moved. A list cleared and refilled
+        // under the reader's hand can hand the box a cleared selection on the way through, and a figure that
+        // jumps back to every month by itself is a figure nobody asked to change.
+        var same = Months.Count == wanted.Count;
+        if (same)
+        {
+            for (var i = 0; i < wanted.Count; i++)
+                if (Months[i].Label != wanted[i].Label) { same = false; break; }
+        }
+        if (!same)
+        {
+            _buildingMonths = true;
+            try
+            {
+                var keep = SelectedMonth;
+                Months.Clear();
+                foreach (var m in wanted)
+                    Months.Add(m);
+                SelectedMonth = keep is null
+                    ? CustomerMonth.All
+                    : Months.FirstOrDefault(o => o.Year == keep.Year && o.Month == keep.Month) ?? CustomerMonth.All;
+            }
+            finally { _buildingMonths = false; }
+        }
+        await LoadMonthAsync();
 
         var sales = await _sales.ListSalesAsync();
         Invoices.Clear();
@@ -130,11 +201,17 @@ public partial class CustomerDetailViewModel : ViewModelBase
         try
         {
             int? saleId = SelectedUnpaid is { SaleId: > 0 } u ? u.SaleId : null;
-            await _ledger.ReceivePaymentAsync(_id, PayDate?.DateTime ?? DateTime.Today, PayAmount ?? 0, PayMethod, PayNotes, saleId);
+            var when = PayDate?.DateTime ?? DateTime.Today;
+            await _ledger.ReceivePaymentAsync(_id, when, PayAmount ?? 0, PayMethod, PayNotes, saleId);
             _shell.Notify("Payment recorded. Ledger updated.");
             PayAmount = 0;
             PayNotes = "";
             await LoadAsync();
+            // A receipt dated into another month than the box is showing disappears from the list the
+            // reader is looking at, which looks exactly like a save that failed. The box follows the date
+            // that was actually written.
+            var landed = Months.FirstOrDefault(o => o.Year == when.Year && o.Month == when.Month);
+            if (landed is not null) SelectedMonth = landed;
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }

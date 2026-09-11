@@ -211,14 +211,36 @@ public class LedgerService
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<Payment>> ListPaymentsAsync(int customerId)
+    /// <summary>
+    /// What a customer handed over, in one month - or in the whole book when no month is given - together
+    /// with the lines that make it up. The adding is done here rather than by the page so that the figure
+    /// beside a month's rows *is* those rows: a receipts list whose headline was worked out separately is a
+    /// headline that can quietly stop matching the paper under it.
+    ///
+    /// Only receipts count. A payout is money leaving the till to that same customer and a return credit
+    /// moves their ledger without any cash, so neither is collected money, and neither is netted off the
+    /// figure - which is why this reads the receipts table and not the ledger. The day is taken off each row
+    /// after the rows are in memory: these date columns are TEXT, and asking SQLite for a range of days
+    /// compares the strings instead of the dates.
+    /// </summary>
+    public async Task<(decimal Amount, int Count, List<Payment> Rows)> GetReceiptsAsync(
+        int customerId, int? year, int? month)
     {
+        if ((year is null) != (month is null))
+            throw new ArgumentException("A month needs a year: pass both, or neither for every month.");
+
         await using var db = await _factory.CreateDbContextAsync();
-        return await db.Payments.AsNoTracking()
+        var all = await db.Payments.AsNoTracking()
             .Where(p => p.CustomerId == customerId)
-            .OrderByDescending(p => p.Date)
-            .ThenByDescending(p => p.Id)
             .ToListAsync();
+
+        var rows = year is int y && month is int m
+            ? all.Where(p => p.Date.Year == y && p.Date.Month == m).ToList()
+            : all;
+        // Newest first, as the customer's other lists are, and by writing order within a day - a receipt
+        // taken at night keeps its place beside one taken that morning.
+        rows = rows.OrderByDescending(p => p.Date).ThenByDescending(p => p.Id).ToList();
+        return (Money.Round(rows.Sum(p => p.Amount)), rows.Count, rows);
     }
 
     /// <summary>

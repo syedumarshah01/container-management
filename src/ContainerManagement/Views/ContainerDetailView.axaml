@@ -165,7 +165,15 @@
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
                 <DataGridTextColumn Header="What" Binding="{Binding Category}" Width="*" />
-                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
+                <!-- Printed in the figure's own voice, paisa and all, so the lines under an expense total
+                     add back to it on the screen. -->
+                <DataGridTemplateColumn Header="Amount" Width="140">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding Amount, Converter={StaticResource MoneyConv}}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
           </StackPanel>

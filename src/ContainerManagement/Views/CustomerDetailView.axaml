@@ -67,11 +67,26 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Payments  —  select one to delete a duplicate" />
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
+          <TextBlock Grid.Column="1" Classes="label" Text="Received" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Grid.Column="2" ItemsSource="{Binding Months}" SelectedItem="{Binding SelectedMonth}"
+                    MinWidth="150" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="3" Classes="stat" Text="{Binding MonthReceivedText}"
+                     VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
         <DataGrid ItemsSource="{Binding Payments}" SelectedItem="{Binding SelectedPayment}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
             <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="120" />
-            <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='Rs {0:N0}'}" Width="140" />
+            <!-- The month's figure above is these amounts added, so they are printed in the same words it
+                 uses: paisa and all. -->
+            <DataGridTemplateColumn Header="Amount" Width="140">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Amount, Converter={StaticResource MoneyConv}}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTextColumn Header="Invoice" Binding="{Binding SaleId}" Width="80" />
             <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*" />
           </DataGrid.Columns>

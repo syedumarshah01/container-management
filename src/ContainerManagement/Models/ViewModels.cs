@@ -555,6 +555,22 @@ public class UnpaidInvoice
     public override string ToString() => Label;
 }
 
+/// <summary>A month a customer's receipts can be read for. Year and month are null together for "every
+/// month", so one month and the whole book are asked for in the same shape and the page never has to hold a
+/// second, unfiltered copy of the list to show a total.</summary>
+public class CustomerMonth
+{
+    public int? Year { get; set; }
+    public int? Month { get; set; }
+    public string Label { get; set; } = "";
+    public override string ToString() => Label;
+
+    public static CustomerMonth All { get; } = new() { Label = "All months" };
+
+    public static CustomerMonth Of(int year, int month)
+        => new() { Year = year, Month = month, Label = new DateTime(year, month, 1).ToString("MMM yyyy") };
+}
+
 public class CloudBackupInfo
 {
     public string Id { get; set; } = "";

@@ -10,6 +10,7 @@
 
   <Application.Resources>
     <views:AmountWordsConverter x:Key="WordsConv" />
+    <views:MoneyTextConverter x:Key="MoneyConv" />
     <SolidColorBrush x:Key="NavyBrush">#1B2A4A</SolidColorBrush>
     <SolidColorBrush x:Key="NavySoftBrush">#243656</SolidColorBrush>
     <SolidColorBrush x:Key="GoldBrush">#C9A227</SolidColorBrush>

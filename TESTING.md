@@ -25,6 +25,7 @@ shift a figure on screen.
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
+| a customer's month | the receipts figure a month box shows is the payments dated in that month, and the lines under it are those payments - a payout to them and a return credit are not money collected, so neither is netted off it; five paisa is a month with five paisa in it, not an empty one; and fourteen months walked one at a time add back to the whole book, so no receipt can hide between two months or be counted twice |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
@@ -100,6 +101,12 @@ differently and no old bill was rewritten - this is worked out when a report run
 corrects itself without a migration. Cost is deliberately *not* scaled: a discount is a price
 decision, not a cheaper purchase.
 
+**Fixed - an amount list on screen used to round the money for the eye.** The bill grid, a customer's
+payments and a container's expenses printed `Rs {0:N0}`, which drops the paisa the book keeps, so those
+lines added up to a figure the page did not show and a hand-checked total failed on the screen while the
+book was right. They print in the same voice every other figure on the page uses - paisa when there is
+any - and they are right-aligned, which is what makes a column checkable by its last digit.
+
 **Fixed - the import form could set the bill below what had been paid.** "We owe" is not a field, it is
 the bill minus the payments, and the form used to write the bill without looking at the pile. Lower the
 bill past what you had already handed over and the container simply started owing a negative amount. It
@@ -148,6 +155,14 @@ rather than assuming it. Say the word and I will move those columns to text for 
    the ledger line should read that date with the running figure counting up through it, and the bill
    should be the same amount lighter. Only which month the money moved in depends on the date - the
    balance, the bill and the words under the box are all untouched by it.
+   The Payments card has a month box by its "Received" figure. Leave it on "All months" and the figure is
+   everything the book holds from them; pick a month and both the figure and the list narrow to it, so the
+   lines under the number *are* the number - add them and it should land on it to the paisa, paisa shown.
+   Take a month in which you paid them something back or they returned goods: "Received" should read
+   Rs 0, because neither of those is money collected. A month with no receipts should show a figure of zero
+   and no rows, not vanish from the box - and it is there, even for the current month, even for a customer
+   you have never been paid by. Record a payment dated in another month while the box is on one, and the box
+   should move to the month the money was written into, so a save never looks like a loss.
 4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
    and it should be refused, naming the figure that is owed. A container left over from before this rule,
    with money paid past its figure, shows nothing owed and says so in one line on the container form.

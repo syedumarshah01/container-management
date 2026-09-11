@@ -38,6 +38,7 @@ public static class Program
         {
             await Flows(dir);
             await YearStatement(dir);
+            await MonthReceipts(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -75,6 +76,8 @@ public static class Program
         Head("printing: what a label shows is the figure that is stored");
         Check("Money.Pkr(543.9375) prints Rs 543.94", Plain(Money.Pkr(543.9375m)) == "Rs 543.94", Money.Pkr(543.9375m));
         Check("Money.Pkr(0) prints Rs 0", Plain(Money.Pkr(0m)) == "Rs 0", Money.Pkr(0m));
+        Check("and it never rounds the paisa off a figure, which is what lets a list print the amount it holds",
+            Plain(Money.Pkr(135_019.27m)) == "Rs 135019.27", Money.Pkr(135_019.27m));
         Check("Money.Yen(250) prints ¥250", Plain(Money.Yen(250m)) == "¥250", Money.Yen(250m));
         Check("Money.Kg(0.055) keeps three decimals", Plain(Money.Kg(0.055m)) == "0.055", Money.Kg(0.055m));
         Check("Money.Kg(375) has no trailing zeros", Plain(Money.Kg(375m)) == "375", Money.Kg(375m));
@@ -978,6 +981,30 @@ public static class Program
         Eq("so what stands at the end of the year is the profit on those goods, less the costs",
             700m, s26[^1].Profit - c26[^1].Amount);
 
+        // The month box on a customer's page, held to the fixture this file already derived by hand:
+        // receipts dated in the month and nothing else. June's payout and June's return credit both moved
+        // this customer's book, and neither of them is money collected.
+        var (jan, janCount, janRows) = await ledger.GetReceiptsAsync(buyer.Id, 2026, 1);
+        Eq("January's receipts are the payment against the bill, and nothing else", 2_000m, jan);
+        Check("one line, so the figure beside it can be added up by hand", janCount == 1 && janRows.Count == 1,
+            janCount + " lines");
+        Eq("February's are the advance, which was not against any bill",
+            3_500m, (await ledger.GetReceiptsAsync(buyer.Id, 2026, 2)).Amount);
+        Eq("June paid money out and took goods back, and still collected nothing",
+            0m, (await ledger.GetReceiptsAsync(buyer.Id, 2026, 6)).Amount);
+        Eq("December collected nothing on a bill that was never paid",
+            0m, (await ledger.GetReceiptsAsync(buyer.Id, 2026, 12)).Amount);
+        Eq("the month before the year keeps its own receipt, and the January after the year is not this January",
+            1_000m + 900m, (await ledger.GetReceiptsAsync(buyer.Id, 2025, 12)).Amount
+            + (await ledger.GetReceiptsAsync(buyer.Id, 2027, 1)).Amount);
+        var (allIn, allCount, allRows) = await ledger.GetReceiptsAsync(buyer.Id, null, null);
+        Eq("every month together is the four receipts in the book", 7_400m, allIn);
+        Check("four of them, the payout having stayed out of the list", allCount == 4 && allRows.Count == 4,
+            allCount + " rows");
+        Eq("and the receipts book agrees with their own ledger to the paisa, counted on its money-in lines",
+            allIn, (await ledger.GetLedgerAsync(buyer.Id))
+                .Where(l => l.Type == LedgerType.Payment).Sum(l => l.Credit));
+
         var paper = print.YearStatementHtml(2026, y26, s26, c26, new ShopSettings());
         Check("the printed year gives every month its own row under each of the three books, and no month twice",
             Count(paper, "<tr><td>") == 36
@@ -994,6 +1021,66 @@ public static class Program
             Count(paper, "tr class='total'") + " total rows, " + Count(paper, "<th>Total 2026</th>") + " headings");
         Check("it says, on paper, what the year was carrying when it opened",
             paper.Contains("Brought into the year: " + Money.Pkr(1_000m)), paper);
+    }
+
+    private static async Task MonthReceipts(string dir)
+    {
+        var file = Path.Combine(dir, "receipts.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var ledger = new LedgerService(f);
+
+        Head("one customer's month of receipts: the edges of a month, the time of day on it, and money that is not a receipt");
+        var edge = await ledger.CreateCustomerAsync("Edge buyer", null, null, null);
+        await ledger.ReceivePaymentAsync(edge.Id, new DateTime(2026, 1, 31, 22, 15, 0), 1_000.50m, "Cash", "evening, last day of the month");
+        await ledger.ReceivePaymentAsync(edge.Id, new DateTime(2026, 2, 1, 0, 0, 0), 2_000m, "Cash", "the first minute of February");
+        await ledger.ReceivePaymentAsync(edge.Id, new DateTime(2025, 12, 31, 23, 59, 59), 400m, "Cash", "the year's last minute");
+        await ledger.ReceivePaymentAsync(edge.Id, new DateTime(2027, 1, 1, 0, 1, 0), 700m, "Cash", "next year's first minute");
+        await ledger.ReceivePaymentAsync(edge.Id, new DateTime(2026, 3, 15), 0.05m, "Cash", "five paisa, and nothing else");
+        // Money handed back to this customer, dated inside February. A month's receipts figure must not
+        // answer for it: netting it off would show 1,700 for a month in which 2,000 was collected.
+        await ledger.PayCustomerAsync(edge.Id, new DateTime(2026, 2, 20), 300m, "Cash", "part of the advance handed back");
+
+        Eq("a receipt at ten fifteen at night on the last day is still in that month",
+            1_000.50m, (await ledger.GetReceiptsAsync(edge.Id, 2026, 1)).Amount);
+        Eq("one at midnight on the first day is in the month that opened, and the money out that month is not netted off it",
+            2_000m, (await ledger.GetReceiptsAsync(edge.Id, 2026, 2)).Amount);
+        Eq("a month whose only receipt is five paisa is not an empty month",
+            0.05m, (await ledger.GetReceiptsAsync(edge.Id, 2026, 3)).Amount);
+        Eq("the last minute of a year belongs to that year, and the first minute of the next to the next",
+            400m + 700m, (await ledger.GetReceiptsAsync(edge.Id, 2025, 12)).Amount
+            + (await ledger.GetReceiptsAsync(edge.Id, 2027, 1)).Amount);
+        var quiet = await ledger.GetReceiptsAsync(edge.Id, 2026, 4);
+        Eq("a month with nothing in it is nothing, which is an answer and not a missing line", 0m, quiet.Amount);
+        Check("and it says so with no rows under it", quiet.Count == 0 && quiet.Rows.Count == 0,
+            quiet.Count + " rows");
+
+        var (whole, wholeCount, wholeRows) = await ledger.GetReceiptsAsync(edge.Id, null, null);
+        Eq("every month together is the five receipts, the payout having never been one", 4_100.55m, whole);
+        Check("five lines, newest first, with the time of day deciding the order within a day",
+            wholeCount == 5 && wholeRows.Count == 5
+            && wholeRows[0].Date.Year == 2027 && wholeRows[0].Date.Month == 1
+            && wholeRows[^1].Date.Year == 2025 && wholeRows[^1].Date.Month == 12,
+            wholeCount + " rows, newest dated " + (wholeRows.Count > 0
+                ? wholeRows[0].Date.ToString("dd MMM yyyy HH:mm") : "nothing"));
+        Eq("paisa is carried, not rounded away: five paisa of receipts reads as five paisa, not as nothing",
+            5m / 100m, wholeRows.Single(r => r.Date.Month == 3).Amount);
+
+        decimal walked = 0m;
+        for (var d = new DateTime(2025, 12, 1); d <= new DateTime(2027, 1, 1); d = d.AddMonths(1))
+            walked += (await ledger.GetReceiptsAsync(edge.Id, d.Year, d.Month)).Amount;
+        Eq("and fourteen months walked one at a time add back to the whole book exactly, with no receipt "
+           "left between two months and none counted twice", whole, Money.Round(walked));
+
+        await Throws<ArgumentException>("a month without a year is refused, rather than quietly read as every month",
+            () => ledger.GetReceiptsAsync(edge.Id, 2026, null));
     }
 
     private static int Count(string haystack, string needle)
