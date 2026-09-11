@@ -111,6 +111,95 @@ public class PrintService
         });
     }
 
+    /// <summary>
+    /// A year of the shop on paper: the till, the selling and the costs, month by month, each with a line of
+    /// totals under it. Everything is laid out from the rows the pages are already showing - no figure is
+    /// worked out a second time here, which is the only reason a printed statement cannot disagree with the
+    /// screen it was printed from. Months with nothing in them are printed as dashes rather than skipped,
+    /// because a year is twelve months and a reader has to be able to see which ones were quiet.
+    /// </summary>
+    public string YearStatementHtml(
+        int year,
+        IReadOnlyList<TillYearRow> till,
+        IReadOnlyList<SalesYearRow> sales,
+        IReadOnlyList<ExpenseYearRow> costs,
+        ShopSettings shop)
+    {
+        var sb = new StringBuilder();
+        Start(sb, shop, $"Year statement {year}");
+
+        var inSum = Money.Round(till.Sum(r => r.CashIn));
+        var outSum = Money.Round(till.Sum(r => r.CashOut));
+        var closing = till.Count > 0 ? till[^1].Closing : 0m;
+        var brought = Money.Round(closing - (inSum - outSum));
+        var backSum = Money.Round(till.Sum(r => r.Returns));
+
+        sb.Append("<h2>Main ledger</h2>");
+        sb.Append("<table><tr><th>Month</th><th class='num'>In</th><th class='num'>Out</th>"
+            + "<th class='num'>Net</th><th class='num'>Goods back</th><th class='num'>Closing</th></tr>");
+        foreach (var r in till)
+        {
+            sb.Append($"<tr><td>{H(r.MonthText)}</td><td class='num'>{H(r.InText)}</td>"
+                + $"<td class='num'>{H(r.OutText)}</td><td class='num'>{H(r.NetText)}</td>"
+                + $"<td class='num'>{H(r.ReturnsText)}</td><td class='num'>{H(r.ClosingText)}</td></tr>");
+        }
+        sb.Append($"<tr><th>{year}</th><th class='num'>{H(Money.Pkr(inSum))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(outSum))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(inSum - outSum))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(backSum))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(closing))}</th></tr>");
+        sb.Append("</table>");
+        sb.Append($"<p class='muted'>Brought into the year: {H(Money.Pkr(brought))}. "
+            + "Goods back is what customers took back in value, not cash that moved, so it is not added "
+            + "to the in and out columns.</p>");
+
+        var bills = sales.Sum(r => r.Bills);
+        var sold = Money.Round(sales.Sum(r => r.Sold));
+        var received = Money.Round(sales.Sum(r => r.Received));
+        var returned = Money.Round(sales.Sum(r => r.Returned));
+        var owed = Money.Round(sales.Sum(r => r.StillOwed));
+        var profit = Money.Round(sales.Sum(r => r.Profit));
+
+        sb.Append("<h2>Sales</h2>");
+        sb.Append("<table><tr><th>Month</th><th class='num'>Bills</th><th class='num'>Sold</th>"
+            + "<th class='num'>Received</th><th class='num'>Returned</th><th class='num'>Still owed</th>"
+            + "<th class='num'>Profit</th></tr>");
+        foreach (var r in sales)
+        {
+            sb.Append($"<tr><td>{H(r.MonthText)}</td><td class='num'>{H(r.BillsText)}</td>"
+                + $"<td class='num'>{H(r.SoldText)}</td><td class='num'>{H(r.ReceivedText)}</td>"
+                + $"<td class='num'>{H(r.ReturnedText)}</td><td class='num'>{H(r.StillOwedText)}</td>"
+                + $"<td class='num'>{H(r.ProfitText)}</td></tr>");
+        }
+        sb.Append($"<tr><th>{year}</th><th class='num'>{bills}</th>"
+            + $"<th class='num'>{H(Money.Pkr(sold))}</th><th class='num'>{H(Money.Pkr(received))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(returned))}</th><th class='num'>{H(Money.Pkr(owed))}</th>"
+            + $"<th class='num'>{H(Money.Pkr(profit))}</th></tr>");
+        sb.Append("</table>");
+        sb.Append("<p class='muted'>A return is taken off the month it was made in. Still owed is what the "
+            + "bills of that month have not been paid, counting every payment and return since.</p>");
+
+        var costCount = costs.Sum(r => r.Count);
+        var costSum = Money.Round(costs.Sum(r => r.Amount));
+        sb.Append("<h2>Shop costs</h2>");
+        sb.Append("<table><tr><th>Month</th><th class='num'>Lines</th><th class='num'>Amount</th></tr>");
+        foreach (var r in costs)
+        {
+            sb.Append($"<tr><td>{H(r.MonthText)}</td><td class='num'>{H(r.CountText)}</td>"
+                + $"<td class='num'>{H(r.AmountText)}</td></tr>");
+        }
+        sb.Append($"<tr><th>{year}</th><th class='num'>{costCount}</th>"
+            + $"<th class='num'>{H(Money.Pkr(costSum))}</th></tr>");
+        sb.Append("</table>");
+
+        sb.Append($"<p><b>{year} took {H(Money.Pkr(sold))} in sales, and {H(Money.Pkr(profit))} was left "
+            + $"after the cost of those goods; {H(Money.Pkr(costSum))} went out as shop costs, so "
+            + $"{H(Money.Pkr(Money.Round(profit - costSum)))} stands at the end of it.</b></p>");
+        sb.Append($"<p class='muted'>Cash in hand at the year's end: {H(Money.Pkr(closing))}.</p>");
+        End(sb);
+        return sb.ToString();
+    }
+
     private static void Start(StringBuilder sb, ShopSettings shop, string title)
     {
         sb.Append("""

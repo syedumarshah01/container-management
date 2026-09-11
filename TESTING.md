@@ -25,6 +25,8 @@ shift a figure on screen.
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries |
+| the year statement | each year's twelve months add back to the year: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same totals as the pages it was made from |
+| the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
 | paying a customer back | a payout moves their ledger and the till by the same figure, never past what their own book says is held of theirs, is never counted as a refund of a bill or as an expense, and reaches their page under "Paid out" rather than under "Sold" |
 | the supplier | one cash-book line per payment, never two, and every payment has one |
 | the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
@@ -150,6 +152,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    ledger, never "Sold". Try one paisa past what their book holds and it should be refused: a pay form must
    not be able to create a customer who owes the shop. Home's profit should not move at all, because handing
    someone their own money back settles a debt, it is not an expense.
+4d. Open **Year statement** and pick a year the shop traded in: the twelve months should add back to the
+   figures on each tape, the till's December closing should be the same number the Main ledger page holds when
+   the year is the current one (and *not* that number for a year in the past, which is the difference between
+   a closing balance and a movement), and a month with nothing in it should be a row of dashes rather than no
+   row at all. Press "Print the year" and the paper should carry the same figures, including the line naming
+   what the year was carrying when it opened.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

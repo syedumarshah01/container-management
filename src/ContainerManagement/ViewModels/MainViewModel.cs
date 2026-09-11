@@ -50,6 +50,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("Profit", "profit"),
             new NavItem("Expenses", "expenses"),
             new NavItem("Main ledger", "cashbook"),
+            new NavItem("Year statement", "year"),
             new NavItem("Backup", "backup"),
             new NavItem("Settings", "settings")
         ];
@@ -359,6 +360,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         "profit" => _services.GetRequiredService<ProfitViewModel>(),
         "expenses" => _services.GetRequiredService<ExpensesViewModel>(),
         "cashbook" => _services.GetRequiredService<MainLedgerViewModel>(),
+        "year" => _services.GetRequiredService<YearStatementViewModel>(),
         "backup" => _services.GetRequiredService<BackupViewModel>(),
         "settings" => _services.GetRequiredService<SettingsViewModel>(),
         _ => _services.GetRequiredService<DashboardViewModel>()

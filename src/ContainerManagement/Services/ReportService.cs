@@ -134,6 +134,66 @@ public class ReportService
         return (rows.Sum(r => r.Sales), rows.Sum(r => r.Profit), rows);
     }
 
+    /// <summary>
+    /// The selling year, month by month, on the rule Home's tape is already built by: a bill is its total
+    /// after the discount, shared over its lines, and a return comes off the month it was made in, because
+    /// that is the month the goods walked back through the door. Two more columns answer what a year is
+    /// actually asked: the money that arrived that month, whatever bill it was pointed at, and what the
+    /// bills of that month still have owing - measured over every payment and return ever made, so a March
+    /// bill settled in July does not go on being owed. Everything is filtered in memory rather than in
+    /// SQL, because the dates sit in text columns and a year boundary is not somewhere to let SQLite
+    /// decide anything.
+    /// </summary>
+    public async Task<List<SalesYearRow>> GetYearSalesAsync(int year)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var start = new DateTime(year, 1, 1);
+        var end = start.AddYears(1);
+
+        var sales = await db.Sales.AsNoTracking().ToListAsync();
+        var bills = sales
+            .Where(s => s.Status == SaleStatus.Active && s.Date >= start && s.Date < end)
+            .ToList();
+        var ids = bills.Select(x => x.Id).ToList();
+        var netted = await NetRevenueByLineAsync(db, ids);
+
+        var bySale = (await db.SaleLines.AsNoTracking().ToListAsync())
+            .Where(l => ids.Contains(l.SaleId))
+            .GroupBy(l => l.SaleId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var backLines = (await db.SaleReturnLines.AsNoTracking().Include(l => l.Return).ToListAsync())
+            .Where(l => l.Return.Date >= start && l.Return.Date < end)
+            .ToList();
+        var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
+        var pays = await db.Payments.AsNoTracking().ToListAsync();
+
+        var rows = new List<SalesYearRow>(12);
+        for (var m = 1; m <= 12; m++)
+        {
+            var from = start.AddMonths(m - 1);
+            var to = from.AddMonths(1);
+            var monthBills = bills.Where(s => s.Date >= from && s.Date < to).ToList();
+            var monthLines = monthBills.SelectMany(s =>
+                bySale.TryGetValue(s.Id, out var l) ? l : new List<SaleLine>()).ToList();
+            var monthBack = backLines.Where(l => l.Return.Date >= from && l.Return.Date < to).ToList();
+            rows.Add(new SalesYearRow
+            {
+                Month = m,
+                Bills = monthBills.Count,
+                Sold = Money.Round(monthLines.Sum(l => netted.GetValueOrDefault(l.Id, l.LineTotal))
+                                   - monthBack.Sum(l => l.Amount)),
+                Cogs = Money.Round(monthLines.Sum(l => l.LineCost)
+                                   - monthBack.Sum(l => Money.Round(l.Quantity * l.UnitCost))),
+                Received = Money.Round(pays.Where(p => p.Date >= from && p.Date < to).Sum(p => p.Amount)),
+                Returned = Money.Round(returns.Where(r => r.Date >= from && r.Date < to).Sum(r => r.Amount)),
+                StillOwed = Money.Round(monthBills.Sum(s => Math.Max(0, s.TotalAmount
+                    - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
+                    - returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount))))
+            });
+        }
+        return rows;
+    }
+
     public async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(DateTime? from = null, DateTime? to = null)
     {
         await using var db = await _factory.CreateDbContextAsync();

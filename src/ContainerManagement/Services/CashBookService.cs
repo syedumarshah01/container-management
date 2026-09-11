@@ -107,6 +107,41 @@ public class CashBookService
     }
 
     /// <summary>
+    /// The year in the till, month by month: what came in, what went out, the value of what came back, and
+    /// the cash each month closed with. January's closing figure carries every line before the year as
+    /// well, so the year can be read as a statement and not only as a movement, and December's is the
+    /// number the Main ledger page holds when the year is the one we are standing in.
+    /// </summary>
+    public async Task<List<TillYearRow>> GetYearCashAsync(int year)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        await ImportMissingAsync(db);
+        var lines = await db.CashBook.AsNoTracking().ToListAsync();
+        var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
+
+        var start = new DateTime(year, 1, 1);
+        var running = Money.Round(lines.Where(e => e.Date < start).Sum(e => e.AmountIn - e.AmountOut));
+        var rows = new List<TillYearRow>(12);
+        for (var m = 1; m <= 12; m++)
+        {
+            var from = start.AddMonths(m - 1);
+            var to = from.AddMonths(1);
+            var month = lines.Where(e => e.Date >= from && e.Date < to).ToList();
+            var row = new TillYearRow
+            {
+                Month = m,
+                CashIn = Money.Round(month.Sum(e => e.AmountIn)),
+                CashOut = Money.Round(month.Sum(e => e.AmountOut)),
+                Returns = Money.Round(returns.Where(r => r.Date >= from && r.Date < to).Sum(r => r.Amount))
+            };
+            running += row.CashIn - row.CashOut;
+            row.Closing = Money.Round(running);
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    /// <summary>
     /// The words for money paid past what a container says is owed. It should only ever be found on a
     /// container entered under the previous rule, since the pay page refuses it now - which is why the
     /// figure is stated plainly instead of dressed up as an arrangement with the supplier. One method,

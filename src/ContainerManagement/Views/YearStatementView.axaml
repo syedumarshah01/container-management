@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.YearStatementView"
+             x:DataType="vm:YearStatementViewModel">
+  <StackPanel>
+    <TextBlock Classes="h1" Text="Year statement" />
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+               Text="One year, month by month, in the three books: the till, the selling, and the shop's costs. Every figure is the one that page already shows - nothing here is counted a second way." />
+
+    <Grid ColumnDefinitions="*,*">
+      <Border Classes="statcard" Margin="0,0,8,16">
+        <StackPanel>
+          <TextBlock Classes="label" Text="{Binding YearLabel, StringFormat='Left after costs in {0}'}" />
+          <TextBlock Classes="stat" Text="{Binding AfterCosts}" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding AfterCostsHow}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="card" Grid.Column="1" Margin="8,0,0,16">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Year" />
+            <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="primary" Content="Print the year"
+                  Command="{Binding PrintCommand}" VerticalAlignment="Bottom" />
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Main ledger" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding TillTape}" />
+        <DataGrid ItemsSource="{Binding Till}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
+            <DataGridTextColumn Header="In" Binding="{Binding InText}" Width="150" />
+            <DataGridTextColumn Header="Out" Binding="{Binding OutText}" Width="150" />
+            <DataGridTextColumn Header="Net" Binding="{Binding NetText}" Width="150" />
+            <DataGridTextColumn Header="Goods back" Binding="{Binding ReturnsText}" Width="160" />
+            <DataGridTextColumn Header="Closing" Binding="{Binding ClosingText}" Width="160" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Sales" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding SalesTape}" />
+        <DataGrid ItemsSource="{Binding Sales}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
+            <DataGridTextColumn Header="Bills" Binding="{Binding BillsText}" Width="90" />
+            <DataGridTextColumn Header="Sold" Binding="{Binding SoldText}" Width="160" />
+            <DataGridTextColumn Header="Received" Binding="{Binding ReceivedText}" Width="160" />
+            <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedText}" Width="160" />
+            <DataGridTextColumn Header="Still owed" Binding="{Binding StillOwedText}" Width="160" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="160" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Shop costs" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding CostTape}" />
+        <DataGrid ItemsSource="{Binding Costs}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="120" />
+            <DataGridTextColumn Header="Lines" Binding="{Binding CountText}" Width="90" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="160" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -235,6 +235,67 @@ public class CustomerOwedRow
     public override string ToString() => Label;
 }
 
+/// <summary>
+/// One month of the till, as the year statement lists it. In and Out are cash; "goods back" is what
+/// customers took back in value that month and is added to neither - the Main ledger page carries it
+/// beside the money for the same reason, because a return on a bill nobody paid moved no cash at all.
+/// Closing counts the years before this one as well, which is the only way December's figure is the money
+/// in hand rather than a year of movement.
+/// </summary>
+public class TillYearRow
+{
+    public int Month { get; set; }
+    public decimal CashIn { get; set; }
+    public decimal CashOut { get; set; }
+    public decimal Returns { get; set; }
+    public decimal Closing { get; set; }
+    public string MonthText => MonthName(Month);
+    public string InText => CashIn == 0 ? "\u2014" : Money.Pkr(CashIn);
+    public string OutText => CashOut == 0 ? "\u2014" : Money.Pkr(CashOut);
+    public string NetText => Money.Pkr(CashIn - CashOut);
+    public string ReturnsText => Returns == 0 ? "\u2014" : Money.Pkr(Returns);
+    public string ClosingText => Money.Pkr(Closing);
+    internal static string MonthName(int month)
+        => new DateTime(2000, Math.Min(12, Math.Max(1, month)), 1).ToString("MMMM");
+}
+
+/// <summary>
+/// One month of selling, on the rule Home already uses: a bill is its total after the discount, shared
+/// over its lines, and a return comes off the month the goods walked back rather than the month of the bill
+/// it undoes. Profit is sold less what those goods cost. Shop costs are not folded in - they keep their own
+/// months further down the same statement, which is how the app has always separated the two.
+/// </summary>
+public class SalesYearRow
+{
+    public int Month { get; set; }
+    public int Bills { get; set; }
+    public decimal Sold { get; set; }
+    public decimal Cogs { get; set; }
+    public decimal Received { get; set; }
+    public decimal Returned { get; set; }
+    public decimal StillOwed { get; set; }
+    public decimal Profit => Money.Round(Sold - Cogs);
+    public string MonthText => TillYearRow.MonthName(Month);
+    public string BillsText => Bills == 0 ? "\u2014" : Bills.ToString();
+    public string SoldText => Sold == 0 ? "\u2014" : Money.Pkr(Sold);
+    public string ReceivedText => Received == 0 ? "\u2014" : Money.Pkr(Received);
+    public string ReturnedText => Returned == 0 ? "\u2014" : Money.Pkr(Returned);
+    public string StillOwedText => StillOwed == 0 ? "\u2014" : Money.Pkr(StillOwed);
+    public string ProfitText => Sold == 0 && Cogs == 0 ? "\u2014" : Money.Pkr(Profit);
+}
+
+/// <summary>One month of shop costs. The count travels with the figure so an empty month cannot be
+/// mistaken for a month whose costs were never typed in.</summary>
+public class ExpenseYearRow
+{
+    public int Month { get; set; }
+    public int Count { get; set; }
+    public decimal Amount { get; set; }
+    public string MonthText => TillYearRow.MonthName(Month);
+    public string CountText => Count == 0 ? "\u2014" : Count.ToString();
+    public string AmountText => Amount == 0 ? "\u2014" : Money.Pkr(Amount);
+}
+
 /// <summary>One payout the shop made to a customer, as the We Owe page lists them: newest first.</summary>
 public class CustomerPayoutRow
 {

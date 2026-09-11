@@ -37,6 +37,7 @@ public static class Program
         try
         {
             await Flows(dir);
+            await YearStatement(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -820,6 +821,157 @@ public static class Program
         Scan("BuyPlanLine", await db.BuyPlanLines.ToListAsync(), x => new[] { ("UnitCostYen", x.UnitCostYen), ("SalePricePkr", x.SalePricePkr) });
         Scan("BuyPlan", await db.BuyPlans.ToListAsync(), x => new[] { ("ExpensePkr", x.ExpensePkr) });
         Check("nothing stored has a third decimal, so printed = stored = summed", bad.Count == 0, string.Join("; ", bad));
+    }
+
+    // ------------------------------------------------------------------ the year statement
+
+    /// <summary>
+    /// A year read as a statement, on a database of its own so every figure below is one written by hand
+    /// rather than inherited from the flow above. The money is spread over three years on purpose: a year
+    /// statement gets missed in exactly three ways - a figure landing in the wrong January, a closing
+    /// balance that forgot the years before it, and a quiet month vanishing from the table instead of being
+    /// reported as nothing - and all three are only visible when there is a year on each side.
+    /// </summary>
+    private static async Task YearStatement(string dir)
+    {
+        var file = Path.Combine(dir, "year.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var ledger = new LedgerService(f);
+        var reports = new ReportService(f);
+        var cash = new CashBookService(f);
+        var shop = new ShopExpenseService(f);
+        var print = new PrintService();
+
+        Head("a year read as a statement: what moved, what it closed with, and what a quiet month looks like");
+        var ycontainer = await inventory.CreateContainerAsync("YEAR container", "CNT-Y1", "China",
+            new DateTime(2025, 12, 1), null, "PKR", 1, null, null, null, null, null, 0m, 0m, null);
+        var pump = await inventory.AddGoodsAsync(ycontainer.Id, "Water pump", "pcs", "WP-1", 40m, 1_000m,
+            null, null, null, null, null);
+        var buyer = await ledger.CreateCustomerAsync("Year buyer", null, null, null);
+
+        await sales.CreateSaleAsync(buyer.Id, new DateTime(2025, 12, 20), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = ycontainer.Id, ContainerItemId = pump.Id, ProductId = pump.ProductId, ProductName = "Water pump", Unit = "pcs", Quantity = 1m, UnitPrice = 1_000m }
+        }, 1_000m, "Cash", null, 0m, null);
+        var janBill = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 1, 15), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = ycontainer.Id, ContainerItemId = pump.Id, ProductId = pump.ProductId, ProductName = "Water pump", Unit = "pcs", Quantity = 2m, UnitPrice = 2_500m }
+        }, 2_000m, "Cash", null, 0m, null);
+        await ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 2, 10), 3_500m, "Cash", "advance, no bill yet");
+        await shop.AddAsync(new DateTime(2026, 3, 5), "Shop rent", 1_000m, null);
+
+        var janLine = janBill.Lines.Single();
+        var returned = await sales.ReturnItemsAsync(janBill.Id,
+            new List<SaleReturnInput> { new() { SaleLineId = janLine.Id, Quantity = 1m } });
+        Eq("a return on that bill moves no cash, because the bill itself was still 3,000 short",
+            0m, returned);
+        // A return can only be made today, so the fixture moves the row the app wrote into June. What is
+        // under test is a statement grouping the dates it is given, not who typed them in.
+        await using (var dbMove = await f.CreateDbContextAsync())
+        {
+            var ret = await dbMove.SaleReturns.SingleAsync(r => r.SaleId == janBill.Id);
+            ret.Date = new DateTime(2026, 6, 18);
+            await dbMove.SaveChangesAsync();
+        }
+        // The advance is on their account, not on the bill, so the return became credit and left three
+        // thousand of their money sitting with the shop - which is the case the pay form exists for.
+        Eq("their book says three thousand of theirs is now sitting with the shop",
+            -3_000m, await ledger.GetBalanceAsync(buyer.Id));
+        await ledger.PayCustomerAsync(buyer.Id, new DateTime(2026, 6, 20), 3_000m, "Cash", "advance settled");
+        await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 12, 31), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = ycontainer.Id, ContainerItemId = pump.Id, ProductId = pump.ProductId, ProductName = "Water pump", Unit = "pcs", Quantity = 2m, UnitPrice = 1_100m }
+        }, 0m, "Cash", null, 0m, null);
+        await sales.CreateSaleAsync(buyer.Id, new DateTime(2027, 1, 1), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = ycontainer.Id, ContainerItemId = pump.Id, ProductId = pump.ProductId, ProductName = "Water pump", Unit = "pcs", Quantity = 1m, UnitPrice = 900m }
+        }, 900m, "Cash", null, 0m, null);
+
+        var y26 = await cash.GetYearCashAsync(2026);
+        Check("a year is twelve rows, quiet months and all", y26.Count == 12, y26.Count + " rows");
+        Eq("January's money in is the January bill's payment, and nothing else", 2_000m, y26[0].CashIn);
+        Eq("and January closed on what the year brought in plus that", 3_000m, y26[0].Closing);
+        Eq("February counts the advance the day it arrived", 3_500m, y26[1].CashIn);
+        Eq("March paid the rent out", 1_000m, y26[2].CashOut);
+        Eq("April did nothing, and says so without pretending the till was empty", 5_500m, y26[3].Closing);
+        Eq("June's money out is the payout, and the payout alone", 3_000m, y26[5].CashOut);
+        Eq("while the goods that came back the same month are shown beside it, added to neither column",
+            2_500m, y26[5].Returns);
+        Eq("so June closed on the money that is actually left", 2_500m, y26[5].Closing);
+        Eq("the year in: two thousand and the advance", 5_500m, y26.Sum(r => r.CashIn));
+        Eq("the year out: the rent and one payout", 4_000m, y26.Sum(r => r.CashOut));
+        Eq("and the year's closing figure is the thousand it was handed plus the difference it made",
+            1_000m, y26[11].Closing - (y26.Sum(r => r.CashIn) - y26.Sum(r => r.CashOut)));
+        Eq("December did not reach into the next year's January", 0m, y26[11].CashIn);
+        Eq("and the year's closing is not cash in hand, because 2027 has money in it",
+            2_500m, y26[11].Closing);
+        Eq("while cash in hand is every year together", 3_400m, await CashInHandAsync(f));
+        var y27 = await cash.GetYearCashAsync(2027);
+        Eq("the next year's January takes only next January's money", 900m, y27[0].CashIn);
+        Eq("and by its December the whole book agrees with the till", 3_400m, y27[11].Closing);
+        var y25 = await cash.GetYearCashAsync(2025);
+        Eq("a year before the shop's first money opens at nothing", 0m, y25[0].Closing);
+        Eq("and 2025's December is the thousand that 2026 then carried forward", 1_000m, y25[11].CashIn);
+
+        var s26 = await reports.GetYearSalesAsync(2026);
+        Eq("January sold two pumps at 2,500", 5_000m, s26[0].Sold);
+        Eq("at a cost of 1,000 apiece", 2_000m, s26[0].Cogs);
+        Eq("so the month's profit is the difference, which the table can be checked against", 3_000m, s26[0].Profit);
+        Eq("one bill", 1m, s26[0].Bills);
+        Eq("February brought money in without writing a bill", 3_500m, s26[1].Received);
+        Eq("and the February money did not close January's bill, because it was never pointed at it",
+            500m, s26[0].StillOwed);
+        Eq("June has only a return in it, so June sells a negative figure - Home's rule, not a second one",
+            -2_500m, s26[5].Sold);
+        Eq("its cost comes back with the goods", -1_000m, s26[5].Cogs);
+        Eq("and the returned value is on the return column of its own", 2_500m, s26[5].Returned);
+        Eq("December sold two pumps at 1,100", 2_200m, s26[11].Sold);
+        Eq("and its unpaid bill is still owed, as a figure of its own", 2_200m, s26[11].StillOwed);
+        Eq("so December made 200 of them", 200m, s26[11].Profit);
+        Eq("sold across the year, returns and all", 4_700m, s26.Sum(r => r.Sold));
+        Eq("profit across the year", 1_700m, s26.Sum(r => r.Profit));
+        Eq("money that arrived across the year", 5_500m, s26.Sum(r => r.Received));
+        Eq("and what their bills still have owing at the end of it", 2_700m, s26.Sum(r => r.StillOwed));
+        Eq("while that same customer's own book stands at nothing, the payout having cleared it",
+            0m, await ledger.GetBalanceAsync(buyer.Id));
+        var c26 = await shop.GetYearAsync(2026);
+        Eq("the rent is March's", 1_000m, c26[2].Amount);
+        Check("and a quiet month says so with a count, not only a dash", c26[3].Count == 0 && c26[2].Count == 1);
+        Eq("the year's costs", 1_000m, c26.Sum(r => r.Amount));
+        Eq("so what stands at the end of the year is the profit on those goods, less the costs",
+            700m, s26.Sum(r => r.Profit) - c26.Sum(r => r.Amount));
+
+        var paper = print.YearStatementHtml(2026, y26, s26, c26, new ShopSettings());
+        Check("the printed year gives every month its own row under each of the three books, and no month twice",
+            Count(paper, "<tr><td>") == 36
+            && new[] { "January", "February", "March", "April", "May", "June", "July", "August", "September",
+                "October", "November", "December" }.All(mn => Count(paper, mn) == 3),
+            Count(paper, "<tr><td>") + " month rows, " + Count(paper, "June") + " Junes");
+        Check("and its year lines carry the same totals the pages count up to",
+            paper.Contains(Money.Pkr(4_700m)) && paper.Contains(Money.Pkr(1_700m))
+            && paper.Contains(Money.Pkr(2_700m)) && paper.Contains(Money.Pkr(2_500m))
+            && paper.Contains(Money.Pkr(5_500m)) && paper.Contains(Money.Pkr(1_000m)));
+        Check("it says, on paper, what the year was carrying when it opened",
+            paper.Contains("Brought into the year: " + Money.Pkr(1_000m)), paper);
+    }
+
+    private static int Count(string haystack, string needle)
+    {
+        var n = 0;
+        for (var i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+             i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+            n++;
+        return n;
     }
 
     // ------------------------------------------------------------------ tiny harness

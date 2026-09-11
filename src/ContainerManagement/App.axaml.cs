@@ -123,6 +123,7 @@ public partial class App : Application
         services.AddTransient<ProfitViewModel>();
         services.AddTransient<ExpensesViewModel>();
         services.AddTransient<MainLedgerViewModel>();
+        services.AddTransient<YearStatementViewModel>();
         services.AddTransient<BackupViewModel>();
         services.AddTransient<SettingsViewModel>();
     }
