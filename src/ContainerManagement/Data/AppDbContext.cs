@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
     public DbSet<BuyPlan> BuyPlans => Set<BuyPlan>();
     public DbSet<BuyPlanLine> BuyPlanLines => Set<BuyPlanLine>();
+    public DbSet<BuyPlanExpense> BuyPlanExpenses => Set<BuyPlanExpense>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -214,6 +215,22 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.CreatedAt);
             e.HasMany(x => x.Lines).WithOne(l => l.Plan).HasForeignKey(l => l.PlanId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Expenses).WithOne(x => x.Plan).HasForeignKey(x => x.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<BuyPlanExpense>(e =>
+        {
+            e.ToTable("BuyPlanExpenses");
+            e.Property(x => x.Description).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.AmountPkr).HasPrecision(18, 2);
+            e.Property(x => x.AmountForeign).HasPrecision(18, 2);
+            // Six decimals, like a container's: the rupees on the row are this number times the yen figure,
+            // so the row cannot hold one rate and re-derive another.
+            e.Property(x => x.RateUsed).HasPrecision(18, 6);
+            e.Ignore(x => x.SourceText);
+            e.HasIndex(x => x.PlanId);
         });
 
         model.Entity<BuyPlanLine>(e =>

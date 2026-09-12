@@ -241,7 +241,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         }
         // An emptied box does not erase the rate the container holds, so the line reads the figure the book
         // would use rather than the figure the box happens to show.
-        var converted = InventoryService.InRupees(amount, InventoryService.RateFor(_yenRateOnFile, EditYenRate));
+        var converted = Currencies.InRupees(amount, Currencies.RateFor(_yenRateOnFile, EditYenRate));
         ShowExpensePreview = true;
         ExpensePreview = converted is null
             ? Money.Yen(amount) + " has no rate to convert it at. Write Rs for 1 yen here, or choose Rs if "
@@ -260,7 +260,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
             GoodsCostPreview = "";
             return;
         }
-        var converted = InventoryService.InRupees(cost, InventoryService.RateFor(_yenRateOnFile, EditYenRate));
+        var converted = Currencies.InRupees(cost, Currencies.RateFor(_yenRateOnFile, EditYenRate));
         ShowGoodsCostPreview = true;
         GoodsCostPreview = converted is null
             ? Money.Yen(cost) + " a piece has no rate to convert it at. Write Rs for 1 yen here, or choose "
@@ -281,6 +281,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
         ExpenseCategory = value.Category;
         ExpenseCurrency = Currencies.Shown(value.Currency);
         ExpenseIsYen = value.Currency == "JPY";
+        // A yen line carries the rate it was taken at, and the form reads it back: picking a line up and
+        // pressing Save must put the same rupees down again, not today's value of a bill already paid. The
+        // box then holds the sheet's rate for the next figure typed, which is what KeepRate is for.
+        if (value.Currency == "JPY" && value.RateUsed is decimal rowRate && Currencies.UsableRate(rowRate))
+            EditYenRate = rowRate;
         ExpenseAmount = value.Amount;
         ExpenseDate = new DateTimeOffset(value.Date);
         ExpenseNotes = value.Notes ?? "";

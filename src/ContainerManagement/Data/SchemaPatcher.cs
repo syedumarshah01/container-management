@@ -194,6 +194,33 @@ public static class SchemaPatcher
             """);
 
         Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlanLines_PlanId ON BuyPlanLines(PlanId);");
+
+        // One row per bill on a sheet, as a container keeps them. Made only when it is missing, and the day
+        // it is made a sheet that had a single total typed into it keeps standing: that figure becomes one
+        // row, so nobody opens an old sheet to find its expense gone, and the new rows start where the book
+        // left off. The total itself is not re-typed - it is the sum of the rows from then on.
+        if (!HasTable(con, "BuyPlanExpenses"))
+        {
+            Exec(con, """
+                CREATE TABLE BuyPlanExpenses (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    PlanId INTEGER NOT NULL,
+                    Description TEXT NOT NULL,
+                    AmountPkr TEXT NOT NULL,
+                    Currency TEXT NOT NULL,
+                    AmountForeign TEXT NOT NULL,
+                    RateUsed TEXT,
+                    FOREIGN KEY (PlanId) REFERENCES BuyPlans(Id) ON DELETE CASCADE
+                );
+                """);
+            Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlanExpenses_PlanId ON BuyPlanExpenses(PlanId);");
+            Exec(con, """
+                INSERT INTO BuyPlanExpenses (PlanId, Description, AmountPkr, Currency, AmountForeign, RateUsed)
+                SELECT Id, 'Other', ExpensePkr, 'PKR', '0', NULL
+                FROM BuyPlans
+                WHERE ExpensePkr IS NOT NULL AND CAST(ExpensePkr AS REAL) > 0;
+                """);
+        }
     }
 
     private static void AddColumn(SqliteConnection con, string table, string column, string decl)
@@ -201,6 +228,14 @@ public static class SchemaPatcher
         if (HasColumn(con, table, column))
             return;
         Exec(con, $"ALTER TABLE {table} ADD COLUMN {column} {decl};");
+    }
+
+    private static bool HasTable(SqliteConnection con, string table)
+    {
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @t;";
+        cmd.Parameters.AddWithValue("@t", table);
+        return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) > 0L;
     }
 
     private static bool HasColumn(SqliteConnection con, string table, string column)

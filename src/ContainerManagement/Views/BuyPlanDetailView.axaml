@@ -14,8 +14,10 @@
                 HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
 
-      <!-- one line: name, rate, expense, and the two actions, all on the same label/box rhythm -->
-      <Grid ColumnDefinitions="2*,*,*,Auto" Margin="0,0,0,12">
+      <!-- one line: the sheet's name, the rate everything yen is taken at, and the two actions, all on the
+           same label/box rhythm. The expense figure is not here: it is typed a bill at a time below, and the
+           sheet adds those rows up. -->
+      <Grid ColumnDefinitions="2*,*,Auto" Margin="0,0,0,12">
         <StackPanel Margin="0,0,12,0">
           <TextBlock Classes="label" Text="SHEET NAME" />
           <TextBox Text="{Binding Title}" Watermark="e.g. April — Yiwu electronics"
@@ -26,11 +28,7 @@
           <NumericUpDown Value="{Binding YenRate}" Minimum="0" Increment="0.01" FormatString="#,##0.####"
                          IsEnabled="{Binding IsOwner}" />
         </StackPanel>
-        <StackPanel Grid.Column="2" Margin="0,0,12,0">
-          <TextBlock Classes="label" Text="TOTAL EXPENSE (RS)" />
-          <NumericUpDown Value="{Binding ExpensePkr}" Minimum="0" IsEnabled="{Binding IsOwner}" />
-        </StackPanel>
-        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"
                     Margin="0,0,0,12">
           <Button Content="Back" Command="{Binding BackCommand}" MinWidth="90" />
           <Button Content="Save" Command="{Binding SaveCommand}" MinWidth="90" IsVisible="{Binding IsOwner}"
@@ -141,6 +139,75 @@
         </StackPanel>
       </Border>
 
+      <Border Classes="card" Margin="0,16,0,0">
+        <StackPanel>
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <TextBlock Classes="h2" Text="Expenses" Margin="0" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                        IsVisible="{Binding HasExpenseSelection}">
+              <Button Content="Update row" Command="{Binding UpdateExpenseCommand}" MinWidth="110" />
+              <Button Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}" MinWidth="90" />
+            </StackPanel>
+          </Grid>
+
+          <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}"
+                    VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Visible"
+                    x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="What it was for" Binding="{Binding DescriptionText}" Width="420" />
+              <!-- The rupees the sheet adds, with the bill as it was written under it: the yen figure and the
+                   rate it was taken at, so a rupee total is never the only thing left of a foreign invoice. -->
+              <DataGridTemplateColumn Header="Rs on the sheet" Width="260">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="10,0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding AmountText}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Note}" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+
+          <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowExpenseTape}"
+                     Text="{Binding ExpenseTape}" Margin="0,12,0,0" />
+
+          <Border Height="1" Background="#E6E4DE" Margin="0,16,0,14" IsVisible="{Binding IsOwner}" />
+
+          <Grid ColumnDefinitions="3*,*,*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
+            <StackPanel Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="WHAT IT WAS FOR" />
+              <TextBox Text="{Binding ExpenseDescription}" Watermark="sea freight, customs, clearing, labour ..." />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="AMOUNT" />
+              <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
+              <TextBlock Classes="words" Text="{Binding ExpenseAmount, Converter={StaticResource WordsConv}}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,10,0">
+              <TextBlock Classes="label" Text="CURRENCY" />
+              <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding ExpenseCurrency}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <Button Grid.Column="3" Classes="primary" Content="Add bill" Command="{Binding AddExpenseCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,0,12" MinWidth="100" />
+            <!-- The rate a yen bill is taken at, next to the figure it converts, with the answer under it -
+                 and it is this row's own rate: the box at the top prices the goods, and clicking an old bill
+                 should not quietly re-price the sheet. -->
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="14"
+                        IsVisible="{Binding ExpenseIsYen}">
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Classes="label" Text="RS FOR 1 YEN" VerticalAlignment="Center" Margin="0" />
+                <NumericUpDown Width="130" Minimum="0" Increment="0.0001" FormatString="#,##0.######"
+                               Value="{Binding ExpenseRate}" />
+              </StackPanel>
+              <TextBlock Classes="words" TextWrapping="Wrap" MaxWidth="560" VerticalAlignment="Center"
+                         IsVisible="{Binding ShowExpensePreview}" Text="{Binding ExpensePreview}" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

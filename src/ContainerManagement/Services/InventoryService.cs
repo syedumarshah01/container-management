@@ -496,33 +496,6 @@ public class InventoryService
     }
 
     /// <summary>
-    /// A figure in yen, and the rate it is to be taken at, turned into the rupees the book keeps - or null
-    /// when there is no rate to convert with. The rupees are multiplied out of the rate as it is *stored*
-    /// (six decimals, one rounding, in C# rather than in a floating-point column) so that the yen figure
-    /// and the rate kept on the line re-derive the rupee total to the paisa, for as long as anyone cares to
-    /// check it. The pages show this same answer before anything is written, so what is read on screen is
-    /// what the book keeps, not an approximation of it.
-    /// </summary>
-    internal static (decimal Pkr, decimal Foreign, decimal Rate)? InRupees(decimal yenAmount, decimal? rate)
-    {
-        if (yenAmount <= 0m || !Currencies.UsableRate(rate))
-            return null;
-        var used = Currencies.Rate(rate!.Value);
-        return (Money.Round(yenAmount * used), Money.Round(yenAmount), used);
-    }
-
-    /// <summary>The rate a line's yen figure was converted at: the one typed on the form if there was one,
-    /// the container's otherwise. Whichever it is, it is copied onto the line, because a rate read afresh
-    /// next month would re-value money already paid to a clearing agent - and it is written back onto the
-    /// container, so the page shows one rate rather than two that disagree.</summary>
-    internal static decimal? RateFor(decimal containerRate, decimal? typed)
-        => typed is decimal given && Currencies.UsableRate(given) ? Currencies.Rate(given) : containerRate;
-
-    private static string NoRate(decimal amount)
-        => $"¥{amount:N0} needs a rate: write Rs for 1 yen in this row. A rate of 1 would book the yen figure "
-           + "as rupees, so nothing is guessed at - and if the bill was in rupees after all, choose Rs (PKR).";
-
-    /// <summary>
     /// An expense as it was written, and what it is in rupees. A yen figure is converted once, at the rate
     /// on the form or the container, and the rate is kept on the line. A container still sitting at the
     /// default rate of 1 would turn ¥180,000 into Rs 180,000, so that is refused out loud rather than
@@ -537,9 +510,9 @@ public class InventoryService
             throw new InvalidOperationException("Expense amount must be greater than zero.");
         if (code != "JPY")
             return (amount, "PKR", 0m, null);
-        var converted = InRupees(amount, RateFor(container.ExchangeRate, typedRate));
+        var converted = Currencies.InRupees(amount, Currencies.RateFor(container.ExchangeRate, typedRate));
         if (converted is null)
-            throw new InvalidOperationException(NoRate(amount));
+            throw new InvalidOperationException(Currencies.NoRateMessage(amount));
         return (converted.Value.Pkr, "JPY", converted.Value.Foreign, converted.Value.Rate);
     }
 
@@ -560,9 +533,9 @@ public class InventoryService
             return (Money.Round(entered), "PKR", Money.Round(entered), null);
         if (entered == 0m)
             return (0m, "JPY", 0m, null);
-        var converted = InRupees(entered, RateFor(container.ExchangeRate, typedRate));
+        var converted = Currencies.InRupees(entered, Currencies.RateFor(container.ExchangeRate, typedRate));
         if (converted is null)
-            throw new InvalidOperationException(NoRate(entered));
+            throw new InvalidOperationException(Currencies.NoRateMessage(entered));
         return (converted.Value.Pkr, "JPY", converted.Value.Foreign, converted.Value.Rate);
     }
 

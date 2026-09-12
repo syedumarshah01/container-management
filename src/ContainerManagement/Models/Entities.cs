@@ -358,10 +358,13 @@ public class BuyPlan
     /// <summary>Rupees for 1 yen. Used to turn the yen cost into a rupee cost.</summary>
     public decimal YenRate { get; set; } = 1;
 
-    /// <summary>One total for freight, customs, clearing, labour — in rupees.</summary>
+    /// <summary>What the sheet adds its expenses up to, in rupees. It is not typed: it is the sum of the
+    /// rows in <see cref="Expenses"/>, recomputed every time one of them is written, so the total on the
+    /// list and the lines on the sheet cannot be two different numbers.</summary>
     public decimal ExpensePkr { get; set; }
 
     public List<BuyPlanLine> Lines { get; set; } = new();
+    public List<BuyPlanExpense> Expenses { get; set; } = new();
 
     public override string ToString() => Title;
 }
@@ -376,6 +379,34 @@ public class BuyPlanLine
     public decimal UnitCostYen { get; set; }
     public decimal UnitWeightKg { get; set; }
     public decimal SalePricePkr { get; set; }
+}
+
+/// <summary>
+/// One expense on an order sheet - sea freight, customs, clearing, labour - written as the bill was written,
+/// in yen or in rupees. A sheet's expense figure is the sum of these rows and nothing else, which is how
+/// the container page keeps them too: the money a shipment costs is a list of bills, not a number typed next
+/// to the goods.
+/// </summary>
+public class BuyPlanExpense
+{
+    public int Id { get; set; }
+    public int PlanId { get; set; }
+    public BuyPlan Plan { get; set; } = null!;
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>What the row adds to the sheet. Always rupees, whatever currency the bill was in, because
+    /// it is rupees that the goods cost is added to.</summary>
+    public decimal AmountPkr { get; set; }
+
+    public string Currency { get; set; } = "PKR";
+
+    /// <summary>The figure as it was typed, in <see cref="Currency"/>. On a rupee row this is the same number
+    /// as AmountPkr; on a yen row it is the invoice's figure, which never changes afterwards.</summary>
+    public decimal AmountForeign { get; set; }
+
+    /// <summary>The rate a yen row was multiplied by. Kept on the row, because a rate read afresh next month
+    /// would re-value a bill the forwarder has already been quoted.</summary>
+    public decimal? RateUsed { get; set; }
 }
 
 public enum CashBookKind

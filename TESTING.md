@@ -36,6 +36,7 @@ shift a figure on screen.
 | the supplier | one cash-book line per payment, never two, and every payment has one |
 | the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
+| a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
 | the return outcome | the page states, in rupees and before the button is pressed, what the rule will do - and the figures it names are the posting's own arithmetic, run with writing switched off, so the line can promise nothing the book does not write |
@@ -73,7 +74,27 @@ survived looking at. Re-print it after the customer pays anything, or after you 
 paper says they owed that before the bill existed. The standing now comes from the ledger, cut at the bill's
 own line, and what has happened since is a second figure, labelled as today's.
 
-**Fixed - the order sheet rounded later than the rest.** The sheet's one expense figure and its
+**Changed - an order sheet's expenses are typed a bill at a time.** The sheet used to hold one number for
+freight, customs, clearing and labour together, typed into a box beside the rate. That box is gone: the
+Expenses card on the sheet works the way a container's does - what it was for, the amount, the currency, and
+for a yen bill the rate it is to be taken at - and the sheet's expense figure is those rows added up,
+recomputed on every save. Two things follow, and both are the point of the change. The first is that there is
+no longer a total that can disagree with the lines under it, which is what the old shape got wrong: a typed
+total and a list of bills could each be right on their own day and contradict each other the next. The second
+is that a yen bill on a sheet behaves like one on a container: it is converted once, the yen figure and the
+rate are kept on the row, and the row's note reads back `¥180,000 at 1.0701 = Rs 192,618`. Saving the sheet
+again with that row untouched puts the same rupees down; only the next bill typed follows the rate if the
+rate has moved. A sheet left at a rate of 1 refuses a yen bill rather than booking ¥180,000 as Rs 180,000,
+and a bill with no amount is refused too, mid-save, with nothing written.
+
+Sheets made before this change keep their figure: the first time the book is opened after upgrading, a sheet
+holding a typed total of, say, Rs 45,000 grows one row reading "Other" for Rs 45,000, so nobody opens an old
+sheet to find its expenses missing, and the total is unchanged. From then on it is the rows that decide it.
+
+The rate box for a bill is the row's own (`Rs for 1 yen` under the amount), not the box at the top of the
+page: the top box prices the *goods*, and clicking an old bill should not quietly re-price the whole sheet.
+
+**Fixed - the order sheet rounded later than the rest.** The sheet's expense figure and its
 yen rate were taken as typed while you worked, and rounded only on the way to the database. A sheet
 showing Rs 127,683.495 all-in came back as Rs 127,683.50 after saving, and profit moved with it; a
 rate typed as 1.0701234567 priced a row at Rs 171,353.52 while the saved sheet priced it at
@@ -248,6 +269,14 @@ rather than assuming it. Say the word and I will move those columns to text for 
    has no weight - and weigh it to see every item in the box re-costed over the new total. Then delete the
    expenses one by one: the costs, and the sold lines from those lots, should come back to the goods prices
    paisa for paisa.
+4f0. On an order sheet, the TOTAL EXPENSE box should be gone and an Expenses card should sit under the
+   goods rows. Type two bills - one "Sea freight" in ¥ and one "Local clearing" in Rs - and the card should
+   read the rupees the yen bill comes to *while* it is being typed, using the rate in its own `Rs for 1 yen`
+   box. Save, close the sheet and open it again: the yen row should show the rupees it added with `¥180,000
+   at 1.0701 = Rs 192,618` under them, its amount box should hold the *yen* figure and not the converted one,
+   and the "+ EXPENSE" figure at the top should be exactly the two rows added. Change the rate at the top of
+   the sheet to something else and save: the yen bill should not move, while a bill typed after that is taken
+   at the new rate. Then delete one row: the expense figure should fall by that row alone, to the paisa.
 4f. Choose ¥ in the expense row and the *Rs for 1 yen* box should appear there with the container's rate in
    it, together with the rupee the figure comes to - before Add, and the same figure on the line afterwards
    under "Entered as". Leave the rate at nothing (or 1) and Add should refuse, saying why, rather than

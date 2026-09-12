@@ -672,6 +672,34 @@ public static class Currencies
     /// for and is accepted as it stands.</summary>
     public static bool UsableRate(decimal? rate) => rate is decimal r && r > 0m && r != 1m;
 
+    /// <summary>
+    /// A figure in yen, and the rate it is to be taken at, turned into the rupees the book keeps - or null
+    /// when there is no rate to convert with. The rupees are multiplied out of the rate as it is *stored*
+    /// (six decimals, one rounding, in C# rather than in a floating-point column) so that the yen figure
+    /// and the rate kept beside it re-derive the rupee total to the paisa, for as long as anyone cares to
+    /// check. Both pages show this same answer before anything is written, so what is read on screen is what
+    /// the book keeps, not an approximation of it.
+    /// </summary>
+    public static (decimal Pkr, decimal Foreign, decimal Rate)? InRupees(decimal yenAmount, decimal? rate)
+    {
+        if (yenAmount <= 0m || !UsableRate(rate))
+            return null;
+        var used = Rate(rate!.Value);
+        return (Money.Round(yenAmount * used), Money.Round(yenAmount), used);
+    }
+
+    /// <summary>The rate a yen figure is to be multiplied by: the one written on the form if there was one,
+    /// the container's or the sheet's otherwise. One rule for both pages, because a figure that previews at
+    /// one rate and books at another is the mistake this whole corner exists to prevent.</summary>
+    public static decimal RateFor(decimal bookRate, decimal? typed)
+        => typed is decimal given && UsableRate(given) ? Rate(given) : bookRate;
+
+    /// <summary>What to say when a yen figure arrives with nothing to convert it by.</summary>
+    public static string NoRateMessage(decimal amount)
+        => $"¥{amount:N0} needs a rate: write Rs for 1 yen in the rate box. A rate of 1 would book the yen "
+           + "figure as rupees, so nothing is guessed at - and if the bill was in rupees after all, choose "
+           + "Rs (PKR).";
+
     /// <summary>A rate the way it is written under a shopkeeper's own hand: as many decimals as it takes to
     /// repeat the multiplication, and no trailing zeros to read past. One shape for the figure, so the line
     /// under an expense and the note under an item's cost price do not learn to differ - and it is the same
@@ -829,6 +857,7 @@ public class BuyPlanRow
     public decimal YenRate { get; set; } = 1;
     public decimal ExpensePkr { get; set; }
     public List<BuyPlanLineRow> Lines { get; set; } = new();
+    public List<BuyPlanExpenseRow> Expenses { get; set; } = new();
     public BuyPlanTotal Total { get; set; } = new();
 
     public string TitleText => string.IsNullOrWhiteSpace(Title) ? "Untitled sheet" : Title.Trim();
@@ -852,8 +881,67 @@ public class BuyPlanRow
         var rate = Money.Round(YenRate > 0 ? YenRate : 1, 6);
         foreach (var l in Lines)
             l.YenRate = rate;
+        // The expense figure is the rows and nothing else. Recomputed here, on the page as it is typed and
+        // on the sheet as it was saved, so the total a sheet shows is always the sum of what is under it.
+        ExpensePkr = Money.Round(Expenses.Sum(e => e.AmountPkr));
         Total = BuyPlanTotal.Build(Lines, rate, ExpensePkr);
     }
+}
+
+/// <summary>An expense row on an order sheet, as the page shows it and as the form above it edits it.</summary>
+public class BuyPlanExpenseRow
+{
+    public int Id { get; set; }
+    public string Description { get; set; } = string.Empty;
+
+    private decimal _amountPkr;
+
+    /// <summary>What the row adds to the sheet, in rupees. Rounded on the way in, because the rupees a row
+    /// holds are the rupees the sheet totals and the tape prints: a page showing 192,618.0045 beside a book
+    /// keeping 192,618.00 is two figures for one amount.</summary>
+    public decimal AmountPkr
+    {
+        get => _amountPkr;
+        set => _amountPkr = Money.Round(value);
+    }
+
+    public string Currency { get; set; } = "PKR";
+    public decimal AmountForeign { get; set; }
+    public decimal? RateUsed { get; set; }
+
+    public string DescriptionText => string.IsNullOrWhiteSpace(Description) ? "Other" : Description.Trim();
+    public string AmountText => Money.Pkr(AmountPkr);
+
+    /// <summary>The line under the rupees: what was written, the rate it was taken at, and what came out.
+    /// Empty on a rupee row, because there is nothing there to explain.</summary>
+    public string Note => Currency != "PKR" && AmountForeign > 0m && RateUsed is decimal rate
+        ? Money.Yen(AmountForeign) + " at " + Currencies.RateText(rate) + " = " + Money.Pkr(AmountPkr)
+        : "";
+
+    /// <summary>What the amount box holds when the row is picked up: the invoice's yen figure on a yen row,
+    /// the rupees on a rupee one. The converted number is never put back into the box, because the box is
+    /// where the shop writes what the bill said.</summary>
+    public decimal AmountEntered => Currency == "JPY" && AmountForeign > 0m ? AmountForeign : AmountPkr;
+
+    public BuyPlanExpenseInput ToInput() => new()
+    {
+        Description = DescriptionText,
+        Amount = AmountEntered,
+        Currency = Currency,
+        Rate = RateUsed
+    };
+}
+
+/// <summary>An expense row as the page hands it to the save. The amount is the figure as written, in the
+/// currency named with it; <c>Rate</c> is the rate to multiply a yen figure by - null takes the sheet's own
+/// rate, and a row re-saved untouched hands back the rate it was converted at, so saving a sheet never
+/// re-values the money already on it.</summary>
+public class BuyPlanExpenseInput
+{
+    public string Description { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "PKR";
+    public decimal? Rate { get; set; }
 }
 
 /// <summary>A row as the page hands it to the save.</summary>

@@ -485,40 +485,111 @@ public static class Program
         }
 
         Head("an order sheet: what was saved is what the sheet showed");
-        // The sheet as it looks while you type, worked out here so the saved one can be compared to it.
+        var goodsRows = new List<BuyPlanLineInput>
+        {
+            new() { ItemName = "LED bulb", Quantity = 250m, UnitCostYen = 1m, UnitWeightKg = 0.375m, SalePricePkr = 450m },
+            new() { ItemName = "Charger", Quantity = 40m, UnitCostYen = 640.5m, UnitWeightKg = 0.12m, SalePricePkr = 1999.99m }
+        };
+        // The sheet as it looks while you type, worked out here so the saved one can be compared to it. The
+        // expense figure is not typed into it: two bills are, and the sheet adds them up.
         var live = new BuyPlanRow
         {
             YenRate = 1.0701m,
-            ExpensePkr = 100_000.005m,
             Lines = new List<BuyPlanLineRow>
             {
                 new() { ItemName = "LED bulb", Quantity = 250m, UnitCostYen = 1m, UnitWeightKg = 0.375m, SalePricePkr = 450m },
                 new() { ItemName = "Charger", Quantity = 40m, UnitCostYen = 640.5m, UnitWeightKg = 0.12m, SalePricePkr = 1999.99m }
+            },
+            Expenses = new List<BuyPlanExpenseRow>
+            {
+                new()
+                {
+                    Description = "Sea freight", Currency = "JPY", AmountForeign = 180_000m, RateUsed = 1.0701m,
+                    AmountPkr = Money.Round(180_000m * 1.0701m)
+                },
+                new() { Description = "Local clearing", Currency = "PKR", AmountPkr = 100_000.005m }
             }
         };
         live.RefreshTotals();
+        Eq("the sheet's expense figure is its bills added up, to the paisa", 292_618.01m, live.ExpensePkr);
         var planId = (await plans.CreateAsync("AUDIT sheet")).Id;
-        await plans.SaveAsync(planId, "AUDIT sheet", 1.0701m, 100_000.005m, new List<BuyPlanLineInput>
+        await plans.SaveAsync(planId, "AUDIT sheet", 1.0701m, goodsRows, new List<BuyPlanExpenseInput>
         {
-            new() { ItemName = "LED bulb", Quantity = 250m, UnitCostYen = 1m, UnitWeightKg = 0.375m, SalePricePkr = 450m },
-            new() { ItemName = "Charger", Quantity = 40m, UnitCostYen = 640.5m, UnitWeightKg = 0.12m, SalePricePkr = 1999.99m }
+            new() { Description = "Sea freight", Amount = 180_000m, Currency = "JPY" },
+            new() { Description = "Local clearing", Amount = 100_000.005m, Currency = "PKR" }
         });
         var saved = await plans.GetAsync(planId);
         Eq("the yen rate is kept to six decimals", 1.0701m, saved.YenRate);
-        Eq("the expense to two", 100_000.01m, saved.ExpensePkr);
+        Eq("the expense to two", 292_618.01m, saved.ExpensePkr);
+        Eq("a bill typed in yen is stored in yen", 180_000m, saved.Expenses[0].AmountForeign);
+        Eq("at the rate the sheet held when it was typed", 1.0701m, saved.Expenses[0].RateUsed ?? -1m);
+        Eq("and the rupees it adds are that figure times that rate", 192_618m, saved.Expenses[0].AmountPkr);
+        Check("stated on the row in the money it was written in",
+            Plain(saved.Expenses[0].Note) == Plain("\u00a5180,000 at 1.0701 = Rs 192,618"),
+            "the row says: " + saved.Expenses[0].Note);
+        Check("and a rupee bill carries no rate and no note, there being nothing to explain",
+            saved.Expenses[1].Currency == "PKR" && saved.Expenses[1].RateUsed is null
+            && saved.Expenses[1].Note == "" && saved.Expenses[1].AmountPkr == 100_000.01m,
+            $"{saved.Expenses[1].Currency} / {saved.Expenses[1].RateUsed?.ToString() ?? "none"} / {saved.Expenses[1].Note}");
         Eq("a per-piece weight to three", 0.375m, saved.Lines[0].UnitWeightKg);
         Eq("the re-opened sheet costs what the live sheet cost", live.Total.CostPkr, saved.Total.CostPkr);
         Eq("and sells for what it sold for", live.Total.SalePkr, saved.Total.SalePkr);
         Eq("and profits by the same", live.Total.ProfitPkr, saved.Total.ProfitPkr);
         Eq("a row's own cost survives the round trip", live.Lines[1].CostPkr, saved.Lines[1].CostPkr);
-        Eq("and so does the one expense figure", live.Total.ExpensePkr, saved.Total.ExpensePkr);
+        Eq("and so do its bills, added up the same way", live.Total.ExpensePkr, saved.Total.ExpensePkr);
         var copied = await plans.GetAsync((await plans.DuplicateAsync(planId)).Id);
         Eq("a duplicate carries the same figures", saved.Total.ProfitPkr, copied.Total.ProfitPkr);
+        Eq("and the same bills, in the currencies they were written in", saved.ExpensePkr, copied.ExpensePkr);
+        Check("a duplicated yen bill is not re-multiplied at the new sheet's rate",
+            copied.Expenses[0].AmountPkr == 192_618m && copied.Expenses[0].RateUsed == 1.0701m,
+            $"{copied.Expenses[0].AmountPkr} at {copied.Expenses[0].RateUsed}");
+
+        Head("saving a sheet again does not re-value the bills already on it");
+        // The page sends an untouched row back with the rate that row was converted at, which is what makes
+        // this a no-op; the sheet's own rate has moved on, and only the next figure typed follows it.
+        await plans.SaveAsync(planId, "AUDIT sheet", 1.20m, goodsRows, new List<BuyPlanExpenseInput>
+        {
+            new() { Description = "Sea freight", Amount = 180_000m, Currency = "JPY", Rate = 1.0701m },
+            new() { Description = "Local clearing", Amount = 100_000.01m, Currency = "PKR" },
+            new() { Description = "Demurrage", Amount = 50_000m, Currency = "JPY" }
+        });
+        var after = await plans.GetAsync(planId);
+        Eq("the bill whose own rate came back is exactly where it was", 192_618m, after.Expenses[0].AmountPkr);
+        Eq("the rupee bill is taken as written", 100_000.01m, after.Expenses[1].AmountPkr);
+        Eq("and the bill typed after the rate moved is taken at the new one", 60_000m, after.Expenses[2].AmountPkr);
+        Eq("the sheet totals the three", 352_618.01m, after.ExpensePkr);
+        Eq("so the profit moved by exactly what the new bill added", 60_000m,
+            saved.Total.ProfitPkr - after.Total.ProfitPkr);
+
+        Head("what a bill row will not accept");
+        await plans.SaveAsync(planId, "AUDIT sheet", 1.20m, goodsRows, new List<BuyPlanExpenseInput>
+        {
+            new() { Description = "   ", Amount = 5_000m, Currency = "PKR" }
+        });
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var blank = await db.BuyPlanExpenses.AsNoTracking().SingleAsync(e => e.PlanId == planId);
+            Check("a bill with no words on it is kept, as Other, rather than lost",
+                blank.Description == "Other", "stored " + blank.Description);
+        }
+        await Throws<InvalidOperationException>("a yen bill on a sheet sitting at a rate of 1 is refused, not read as rupees",
+            () => plans.SaveAsync(planId, "AUDIT sheet", 1m, goodsRows, new List<BuyPlanExpenseInput>
+            {
+                new() { Description = "Duty", Amount = 180_000m, Currency = "JPY" }
+            }));
+        await Throws<InvalidOperationException>("a bill with nothing on it is refused",
+            () => plans.SaveAsync(planId, "AUDIT sheet", 1.20m, goodsRows, new List<BuyPlanExpenseInput>
+            {
+                new() { Description = "Duty", Amount = 0m, Currency = "PKR" }
+            }));
+        var held = await plans.GetAsync(planId);
+        Eq("and a refused save wrote nothing, so the sheet still says what it said", 5_000m, held.ExpensePkr);
         await plans.DeleteAsync(planId);
         await using (var db = await factory.CreateDbContextAsync())
         {
             Check("deleting a sheet takes its rows with it - no orphans left to sum",
-                !await db.BuyPlanLines.AnyAsync(l => l.PlanId == planId));
+                !await db.BuyPlanLines.AnyAsync(l => l.PlanId == planId)
+                && !await db.BuyPlanExpenses.AnyAsync(e => e.PlanId == planId));
         }
 
         Head("the guards refuse before anything is written");
@@ -831,6 +902,8 @@ public static class Program
         Scan("Product", await db.Products.ToListAsync(), x => new[] { ("LastSalePrice", x.LastSalePrice ?? 0m) });
         Scan("BuyPlanLine", await db.BuyPlanLines.ToListAsync(), x => new[] { ("UnitCostYen", x.UnitCostYen), ("SalePricePkr", x.SalePricePkr) });
         Scan("BuyPlan", await db.BuyPlans.ToListAsync(), x => new[] { ("ExpensePkr", x.ExpensePkr) });
+        Scan("BuyPlanExpense", await db.BuyPlanExpenses.ToListAsync(),
+            x => new[] { ("AmountPkr", x.AmountPkr), ("AmountForeign", x.AmountForeign) });
         Check("nothing stored has a third decimal, so printed = stored = summed", bad.Count == 0, string.Join("; ", bad));
     }
 
