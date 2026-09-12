@@ -640,18 +640,25 @@ public class CloudBackupInfo
     public bool IsLocalFolder { get; set; }
 }
 
-/// <summary>The two currencies a figure on a shipment can be written in - a container expense and the cost
-/// price of an item are entered the same way, in the shop's own paperwork's currency. Everything about the
-/// goods side is already in one of them: the cargo was bought in yen, the shop sells in rupees.</summary>
+/// <summary>Money on a shipment is written in one of two currencies - the cargo is bought in yen, the shop
+/// sells in rupees - and a container can additionally be *labelled* with a currency of its own. The labels
+/// and the codes, and the rule for whether a rate is fit to convert with, live here once: the two money
+/// forms on the container page and the order sheet all read these numbers, so no screen can end up with a
+/// currency list or a rate rule of its own.</summary>
 public static class Currencies
 {
-    public static readonly string[] All = { "Rs (PKR)", "\u00a5 (JPY)" };
+    /// <summary>The currencies a container can be labelled with on its import details.</summary>
+    public static readonly string[] Codes = ["PKR", "JPY", "CNY", "USD"];
+
+    /// <summary>What the money boxes offer, as a shop writes it rather than as a code: the figure typed in
+    /// one of these boxes is taken to be in it, and the book keeps the three-letter code.</summary>
+    public static readonly string[] EntryLabels = { "Rs (PKR)", "\u00a5 (JPY)" };
 
     /// <summary>The box shows the currency as a shop writes it; the book keeps the code. One mapping, in
     /// one place, so a label reworded on a form cannot quietly change what a figure is taken to mean.</summary>
     public static string CodeOf(string? shown) => shown is string t && t.Contains("JPY") ? "JPY" : "PKR";
 
-    public static string Shown(string? code) => code == "JPY" ? All[1] : All[0];
+    public static string Shown(string? code) => code == "JPY" ? EntryLabels[1] : EntryLabels[0];
 
     /// <summary>The rate a yen figure is multiplied by is held to six decimals - the size the order sheet
     /// uses for the same figure - and the multiplication is done with that rounded number, so the rupees on
@@ -698,11 +705,6 @@ public static class Units
         "roll",
         "box"
     ];
-}
-
-public static class Currencies
-{
-    public static readonly string[] All = ["PKR", "JPY", "CNY", "USD"];
 }
 
 public static class SupplierPayMethods

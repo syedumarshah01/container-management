@@ -39,7 +39,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// <summary>Which currency the cost price is being typed in. The invoice from Japan says yen and the
     /// till says rupees, and this form now takes either - so the figure kept is the one that was written,
     /// next to the rupee figure the rest of the book works in.</summary>
-    [ObservableProperty] private string goodsCurrency = Currencies.All[0];
+    [ObservableProperty] private string goodsCurrency = Currencies.EntryLabels[0];
     [ObservableProperty] private bool goodsIsYen;
     [ObservableProperty] private string goodsCostPreview = "";
     [ObservableProperty] private bool showGoodsCostPreview;
@@ -54,7 +54,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     /// "demurrage at the port", and a figure nobody can name is a figure nobody finds again; a blank is kept
     /// as "Other" by the book.</summary>
     [ObservableProperty] private string expenseCategory = "";
-    [ObservableProperty] private string expenseCurrency = Currencies.All[0];
+    [ObservableProperty] private string expenseCurrency = Currencies.EntryLabels[0];
     [ObservableProperty] private bool expenseIsYen;
     [ObservableProperty] private decimal? expenseAmount;
     [ObservableProperty] private DateTimeOffset? expenseDate = DateTimeOffset.Now;
@@ -96,7 +96,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
-    public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.All;
+    public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.EntryLabels;
 
     public override async Task LoadAsync()
     {
@@ -452,7 +452,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsInStock = null;
         GoodsCost = 0;
         GoodsWeight = null;
-        GoodsCurrency = Currencies.All[0];
+        GoodsCurrency = Currencies.EntryLabels[0];
         GoodsIsYen = false;
         ShowGoodsCostPreview = false;
         GoodsCostPreview = "";
