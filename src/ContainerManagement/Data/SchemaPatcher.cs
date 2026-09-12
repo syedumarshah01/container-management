@@ -40,6 +40,12 @@ public static class SchemaPatcher
         AddColumn(con, "Expenses", "AmountForeign", "TEXT NOT NULL DEFAULT '0'");
         AddColumn(con, "Expenses", "RateUsed", "TEXT");
 
+        // An item's cost price can be typed in yen, so the invoice's own figure and the rate it was taken
+        // at stay on the item. TEXT again for the rate, as above: a float column would put the figure a
+        // rupee total was multiplied by through a binary fraction.
+        AddColumn(con, "ContainerItems", "CostCurrency", "TEXT NOT NULL DEFAULT 'PKR'");
+        AddColumn(con, "ContainerItems", "CostRate", "TEXT");
+
         AddColumn(con, "LedgerEntries", "PayoutId", "INTEGER");
         AddColumn(con, "CashBook", "PayoutId", "INTEGER");
 

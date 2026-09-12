@@ -58,10 +58,13 @@ public class AppDbContext : DbContext
         {
             e.Ignore(x => x.EffectiveCost);
             e.Ignore(x => x.CostEachFreight);
+            e.Ignore(x => x.CostEntered);
             e.Property(x => x.QuantityReceived).HasPrecision(18, 3);
             e.Property(x => x.QuantityRemaining).HasPrecision(18, 3);
             e.Property(x => x.UnitCost).HasPrecision(18, 2);
             e.Property(x => x.ForeignCost).HasPrecision(18, 4);
+            e.Property(x => x.CostCurrency).HasMaxLength(3);
+            e.Property(x => x.CostRate).HasPrecision(18, 6);
             e.Property(x => x.LandedUnitCost).HasPrecision(18, 4);
             e.HasOne(x => x.Container).WithMany(c => c.Items).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Product).WithMany(p => p.Items).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
@@ -140,7 +143,9 @@ public class AppDbContext : DbContext
             e.Property(x => x.Category).HasMaxLength(80);
             e.Property(x => x.Currency).HasMaxLength(3);
             e.Property(x => x.AmountForeign).HasPrecision(18, 2);
-            e.Property(x => x.RateUsed).HasPrecision(18, 4);
+            // Six decimals, as the order sheet's rate: the rupee total on the line is the yen figure times
+            // this number, so it has to be kept at the precision it was multiplied by.
+            e.Property(x => x.RateUsed).HasPrecision(18, 6);
             e.Ignore(x => x.SourceText);
             e.HasOne(x => x.Container).WithMany(c => c.Expenses).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
         });

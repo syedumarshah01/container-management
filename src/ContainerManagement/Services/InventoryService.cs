@@ -231,21 +231,24 @@ public class InventoryService
 
     public async Task<ContainerItem> AddGoodsAsync(
         int containerId, string productName, string unit, string? sku, decimal qty, decimal costEntered,
-        string? notes, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath)
+        string? notes, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath,
+        string? costCurrency = null, decimal? rate = null)
     {
         if (string.IsNullOrWhiteSpace(productName))
             throw new InvalidOperationException("Item name is required.");
         if (qty <= 0)
             throw new InvalidOperationException("Quantity must be greater than zero.");
-        if (costEntered < 0)
-            throw new InvalidOperationException("Unit cost cannot be negative.");
-        costEntered = Money.Round(costEntered);
 
         await using var db = await _factory.CreateDbContextAsync();
         var container = await db.Containers.FindAsync(containerId)
             ?? throw new InvalidOperationException("Container not found.");
         if (container.Status == ContainerStatus.Closed)
             throw new InvalidOperationException("This container is closed. Re-open it to add items.");
+
+        // The price as typed, and the same figure in rupees: the rupee cost is what the rest of the book
+        // works in, and ForeignCost keeps what the invoice said, so the yen figure survives the entry.
+        var (pkr, costCode, foreign, usedRate) = ConvertGoodsCost(container, costCurrency, costEntered, rate);
+        KeepRate(container, costCode, rate);
 
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
         if (!string.IsNullOrWhiteSpace(photoPath))
@@ -257,9 +260,11 @@ public class InventoryService
             ProductId = product.Id,
             QuantityReceived = qty,
             QuantityRemaining = qty,
-            ForeignCost = costEntered,
-            UnitCost = costEntered,
-            LandedUnitCost = costEntered,
+            ForeignCost = foreign,
+            UnitCost = pkr,
+            LandedUnitCost = pkr,
+            CostCurrency = costCode,
+            CostRate = usedRate,
             Notes = notes?.Trim(),
             Cartons = cartons,
             Cbm = cbm,
@@ -277,7 +282,8 @@ public class InventoryService
     /// <returns>How many lines already sold were re-costed along with the item.</returns>
     public async Task<int> UpdateGoodsAsync(
         int itemId, string productName, string unit, string? sku, decimal received, decimal remaining,
-        decimal costEntered, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath)
+        decimal costEntered, decimal? cartons, decimal? cbm, decimal? weight, string? photoPath,
+        string? costCurrency = null, decimal? rate = null)
     {
         if (string.IsNullOrWhiteSpace(productName))
             throw new InvalidOperationException("Item name is required.");
@@ -287,22 +293,27 @@ public class InventoryService
             throw new InvalidOperationException("In stock cannot be negative.");
         if (remaining > received)
             throw new InvalidOperationException("In stock cannot be more than purchased.");
-        if (costEntered < 0)
-            throw new InvalidOperationException("Price cannot be negative.");
-        costEntered = Money.Round(costEntered);
 
         await using var db = await _factory.CreateDbContextAsync();
         var item = await db.ContainerItems.Include(i => i.Container).FirstOrDefaultAsync(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
+
+        // The same conversion as a new item: the price is taken as typed, in the currency chosen, and the
+        // rupee figure is what the book then works in. Re-saving an item in rupees after entering it in
+        // yen is how a shop corrects a rate it got wrong, so the currency is not fixed at the first entry.
+        var (pkr, costCode, foreign, usedRate) = ConvertGoodsCost(item.Container, costCurrency, costEntered, rate);
+        KeepRate(item.Container, costCode, rate);
 
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
 
         item.ProductId = product.Id;
         item.QuantityReceived = received;
         item.QuantityRemaining = remaining;
-        item.ForeignCost = costEntered;
-        item.UnitCost = costEntered;
-        item.LandedUnitCost = costEntered;
+        item.ForeignCost = foreign;
+        item.UnitCost = pkr;
+        item.LandedUnitCost = pkr;
+        item.CostCurrency = costCode;
+        item.CostRate = usedRate;
         item.Cartons = cartons;
         item.Cbm = cbm;
         item.WeightKg = weight;
@@ -484,45 +495,95 @@ public class InventoryService
         return repriced;
     }
 
-    /// <summary>What a yen figure comes to in rupees at a given rate, or null when there is no rate to
-    /// convert with. The page shows this same answer on its preview line, so the rupee total read before
-    /// pressing Add is the one that gets written, not an approximation of it.</summary>
-    internal static (decimal Pkr, decimal Foreign, decimal? Rate)? InRupees(decimal yenAmount, decimal rate)
-        => yenAmount > 0m && rate > 1m
-            ? (Money.Round(yenAmount * rate), Money.Round(yenAmount), Money.Round(rate, 4))
-            : null;
+    /// <summary>
+    /// A figure in yen, and the rate it is to be taken at, turned into the rupees the book keeps - or null
+    /// when there is no rate to convert with. The rupees are multiplied out of the rate as it is *stored*
+    /// (six decimals, one rounding, in C# rather than in a floating-point column) so that the yen figure
+    /// and the rate kept on the line re-derive the rupee total to the paisa, for as long as anyone cares to
+    /// check it. The pages show this same answer before anything is written, so what is read on screen is
+    /// what the book keeps, not an approximation of it.
+    /// </summary>
+    internal static (decimal Pkr, decimal Foreign, decimal Rate)? InRupees(decimal yenAmount, decimal? rate)
+    {
+        if (yenAmount <= 0m || !Currencies.UsableRate(rate))
+            return null;
+        var used = Currencies.Rate(rate!.Value);
+        return (Money.Round(yenAmount * used), Money.Round(yenAmount), used);
+    }
+
+    /// <summary>The rate a line's yen figure was converted at: the one typed on the form if there was one,
+    /// the container's otherwise. Whichever it is, it is copied onto the line, because a rate read afresh
+    /// next month would re-value money already paid to a clearing agent - and it is written back onto the
+    /// container, so the page shows one rate rather than two that disagree.</summary>
+    internal static decimal? RateFor(decimal containerRate, decimal? typed)
+        => typed is decimal given && Currencies.UsableRate(given) ? Currencies.Rate(given) : containerRate;
+
+    private static string NoRate(decimal amount)
+        => $"¥{amount:N0} needs a rate: write Rs for 1 yen in this row. A rate of 1 would book the yen figure "
+           + "as rupees, so nothing is guessed at - and if the bill was in rupees after all, choose Rs (PKR).";
 
     /// <summary>
-    /// The expense as it was written, and what it is in rupees. A yen figure is converted at the rate on the
-    /// container and that rate is copied onto the line, because a rate changed next month must not re-value
-    /// money already paid to a clearing agent. A container still sitting at the default rate of 1 would turn
-    /// ¥180,000 into Rs 180,000, so that is refused out loud rather than believed.
+    /// An expense as it was written, and what it is in rupees. A yen figure is converted once, at the rate
+    /// on the form or the container, and the rate is kept on the line. A container still sitting at the
+    /// default rate of 1 would turn ¥180,000 into Rs 180,000, so that is refused out loud rather than
+    /// believed - and refused in words that say what to do about it.
     /// </summary>
     private static (decimal Pkr, string Currency, decimal Foreign, decimal? Rate) ConvertExpense(
-        CargoContainer container, string? currency, decimal amount)
+        CargoContainer container, string? currency, decimal amount, decimal? typedRate)
     {
-        var code = ExpenseCurrencies.CodeOf(currency);
+        var code = Currencies.CodeOf(currency);
         amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Expense amount must be greater than zero.");
         if (code != "JPY")
             return (amount, "PKR", 0m, null);
-        var converted = InRupees(amount, container.ExchangeRate);
+        var converted = InRupees(amount, RateFor(container.ExchangeRate, typedRate));
         if (converted is null)
-            throw new InvalidOperationException(
-                $"Write the yen rate on the container first: {Money.Yen(amount)} at a rate of "
-                + $"{container.ExchangeRate:0.00####} would be taken as rupees.");
+            throw new InvalidOperationException(NoRate(amount));
         return (converted.Value.Pkr, "JPY", converted.Value.Foreign, converted.Value.Rate);
     }
 
+    /// <summary>
+    /// An item's cost price as it was written, and what it is per piece in rupees. The goods price is what
+    /// the shop typed, in whichever currency the invoice was in, and the conversion happens once, here:
+    /// everything else in the book - the freight shared onto it, what the stock is worth, what a sold line
+    /// is costed at - reads rupees and never multiplies by a rate again, so a rate corrected tomorrow
+    /// cannot move what was paid yesterday.
+    /// </summary>
+    private static (decimal Pkr, string Currency, decimal Foreign, decimal? Rate) ConvertGoodsCost(
+        CargoContainer container, string? currency, decimal entered, decimal? typedRate)
+    {
+        var code = Currencies.CodeOf(currency);
+        if (entered < 0m)
+            throw new InvalidOperationException("Unit cost cannot be negative.");
+        if (code != "JPY")
+            return (Money.Round(entered), "PKR", Money.Round(entered), null);
+        if (entered == 0m)
+            return (0m, "JPY", 0m, null);
+        var converted = InRupees(entered, RateFor(container.ExchangeRate, typedRate));
+        if (converted is null)
+            throw new InvalidOperationException(NoRate(entered));
+        return (converted.Value.Pkr, "JPY", converted.Value.Foreign, converted.Value.Rate);
+    }
+
+    /// <summary>A yen figure was converted at a rate someone wrote on the form: keep that rate as the
+    /// container's, so the page holds one rate and not a box that disagrees with the lines beside it.</summary>
+    private static void KeepRate(CargoContainer container, string code, decimal? typedRate)
+    {
+        if (code == "JPY" && typedRate is decimal given && Currencies.UsableRate(given))
+            container.ExchangeRate = Currencies.Rate(given);
+    }
+
     public async Task<ContainerExpense> AddExpenseAsync(
-        int containerId, DateTime date, string category, decimal amount, string? notes, string? currency = null)
+        int containerId, DateTime date, string category, decimal amount, string? notes, string? currency = null,
+        decimal? rate = null)
     {
         await using var db = await _factory.CreateDbContextAsync();
         var container = await db.Containers.FindAsync(containerId)
             ?? throw new InvalidOperationException("Container not found.");
 
-        var (pkr, code, foreign, rate) = ConvertExpense(container, currency, amount);
+        var (pkr, code, foreign, used) = ConvertExpense(container, currency, amount, rate);
+        KeepRate(container, code, rate);
         await using var tx = await db.Database.BeginTransactionAsync();
         var exp = new ContainerExpense
         {
@@ -532,7 +593,7 @@ public class InventoryService
             Amount = pkr,
             Currency = code,
             AmountForeign = foreign,
-            RateUsed = rate,
+            RateUsed = used,
             Notes = notes?.Trim()
         };
         db.Expenses.Add(exp);
@@ -546,7 +607,8 @@ public class InventoryService
     }
 
     public async Task UpdateExpenseAsync(
-        int expenseId, DateTime date, string category, decimal amount, string? notes, string? currency = null)
+        int expenseId, DateTime date, string category, decimal amount, string? notes, string? currency = null,
+        decimal? rate = null)
     {
         await using var db = await _factory.CreateDbContextAsync();
         var exp = await db.Expenses.FindAsync(expenseId)
@@ -554,14 +616,15 @@ public class InventoryService
         var container = await db.Containers.FindAsync(exp.ContainerId)
             ?? throw new InvalidOperationException("Container not found.");
 
-        var (pkr, code, foreign, rate) = ConvertExpense(container, currency, amount);
+        var (pkr, code, foreign, used) = ConvertExpense(container, currency, amount, rate);
+        KeepRate(container, code, rate);
         await using var tx = await db.Database.BeginTransactionAsync();
         exp.Date = date;
         exp.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
         exp.Amount = pkr;
         exp.Currency = code;
         exp.AmountForeign = foreign;
-        exp.RateUsed = rate;
+        exp.RateUsed = used;
         exp.Notes = notes?.Trim();
         await db.SaveChangesAsync();
         await ApplyLandedCostsAsync(db, exp.ContainerId);

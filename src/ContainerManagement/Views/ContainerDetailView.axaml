@@ -88,7 +88,7 @@
                      yen expense is refused rather than read as rupees. -->
                 <TextBlock Grid.Row="5" Classes="label" Text="Rs for 1 yen" VerticalAlignment="Center" Margin="0" />
                 <NumericUpDown Grid.Row="5" Grid.Column="1" Width="140" Margin="0,6" Minimum="0"
-                               Increment="0.01" FormatString="#,##0.####" Value="{Binding EditYenRate}" />
+                               Increment="0.0001" FormatString="#,##0.######" Value="{Binding EditYenRate}" />
               </Grid>
 
               <TextBlock Classes="label" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
@@ -113,8 +113,19 @@
                 <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="110" />
                 <!-- What a piece costs now: what it was bought for, plus the share of the container's
                      expenses this item's weight carries. It is the figure a sale is costed at, so the
-                     freight is not left out of profit. -->
-                <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="130" />
+                     freight is not left out of profit. Under it, in yen, the figure the invoice was
+                     written in - so a line entered in a supplier's currency stays legible in it. -->
+                <DataGridTemplateColumn Header="Cost each" Width="170">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <StackPanel Margin="8,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding UnitCostText}" />
+                        <TextBlock Text="{Binding CostNoteText}" FontSize="11"
+                                   Foreground="{StaticResource MutedBrush}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Of which freight" Binding="{Binding FreightText}" Width="170" />
               </DataGrid.Columns>
             </DataGrid>
@@ -137,8 +148,12 @@
                 <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" HorizontalAlignment="Stretch" />
               </StackPanel>
               <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                <TextBlock Classes="label" Text="Price" />
-                <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="label" Text="Cost price" />
+                <Grid ColumnDefinitions="*,96">
+                  <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" HorizontalAlignment="Stretch" />
+                  <ComboBox Grid.Column="1" Margin="6,0,0,0" ItemsSource="{Binding CurrencyOptions}"
+                            SelectedItem="{Binding GoodsCurrency}" HorizontalAlignment="Stretch" />
+                </Grid>
                 <TextBlock Classes="words" Text="{Binding GoodsCost, Converter={StaticResource WordsConv}}" />
               </StackPanel>
               <!-- What one piece weighs, as on the order sheet: the lot's weight in all is this times how
@@ -149,7 +164,16 @@
                                FormatString="#,##0.###" HorizontalAlignment="Stretch" />
               </StackPanel>
             </Grid>
-            <TextBlock Classes="label" Text="In stock (when editing)" />
+            <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding GoodsIsYen}">
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Classes="label" Text="Rs for 1 yen" VerticalAlignment="Center" Margin="0" />
+                <NumericUpDown Width="120" Minimum="0" Increment="0.0001" FormatString="#,##0.######"
+                               Value="{Binding EditYenRate}" />
+              </StackPanel>
+              <TextBlock Classes="words" TextWrapping="Wrap" MaxWidth="520" VerticalAlignment="Center"
+                         IsVisible="{Binding ShowGoodsCostPreview}" Text="{Binding GoodsCostPreview}" />
+            </StackPanel>
+            <TextBlock Classes="label" Text="In stock (when editing)" Margin="0,10,0,6" />
             <NumericUpDown Value="{Binding GoodsInStock}" Minimum="0" HorizontalAlignment="Stretch" />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Classes="primary" Content="Add" Command="{Binding AddGoodsCommand}" />
@@ -165,8 +189,8 @@
           <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
             <Grid ColumnDefinitions="*,140,120,Auto,Auto,Auto">
               <StackPanel Margin="0,0,8,0">
-                <TextBlock Classes="label" Text="Category" />
-                <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
+                <TextBlock Classes="label" Text="What it was for" />
+                <TextBox Text="{Binding ExpenseCategory}" Watermark="sea freight, demurrage, duty ..." />
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="Amount" />
@@ -175,7 +199,8 @@
               </StackPanel>
               <StackPanel Grid.Column="2" Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="Currency" />
-                <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding ExpenseCurrency}" />
+                <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding ExpenseCurrency}"
+                          HorizontalAlignment="Stretch" />
               </StackPanel>
               <Button Grid.Column="3" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,8,12" />
@@ -184,10 +209,18 @@
               <Button Grid.Column="5" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,0,12" />
             </Grid>
-            <!-- What a yen figure comes to in rupees, said before it is written, so no one has to multiply
-                 in their head to know what will land in the costs. -->
-            <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowExpensePreview}"
-                       Text="{Binding ExpensePreview}" Margin="0,0,0,8" />
+            <!-- The rate shows up with the currency that needs it, next to the figure it converts, and so
+                 does the answer: what a yen bill comes to in rupees, said before it is written, rather than
+                 left to be multiplied in someone's head and hoped for. -->
+            <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding ExpenseIsYen}" Margin="0,0,0,8">
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Classes="label" Text="Rs for 1 yen" VerticalAlignment="Center" Margin="0" />
+                <NumericUpDown Width="120" Minimum="0" Increment="0.0001" FormatString="#,##0.######"
+                               Value="{Binding EditYenRate}" />
+              </StackPanel>
+              <TextBlock Classes="words" TextWrapping="Wrap" MaxWidth="520" VerticalAlignment="Center"
+                         IsVisible="{Binding ShowExpensePreview}" Text="{Binding ExpensePreview}" />
+            </StackPanel>
             <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />

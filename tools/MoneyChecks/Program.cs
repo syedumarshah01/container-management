@@ -1450,10 +1450,75 @@ public static class Program
         Check("and the page stops talking about a sharing there is nothing to share",
             (await inventory.GetExpenseSplitAsync(box.Id)).Tape == "", "the tape should be blank");
 
+        Check("and a yen line's rupees can be re-derived from the two figures kept on it",
+            Money.Round(duty.AmountForeign * (duty.RateUsed ?? -1m)) == duty.Amount,
+            $"{duty.AmountForeign} x {duty.RateUsed} should be {duty.Amount}, book says {duty.Amount}");
+
+        Head("an item's cost price, typed in yen at the rate on the row");
+        var goods = await inventory.CreateContainerAsync(
+            "YEN goods box", null, "Japan", new DateTime(2026, 3, 2), null, "JPY", 0.42m);
+        var tea = await inventory.AddGoodsAsync(
+            goods.Id, "Tea set", "pcs", "TS-1", 30m, 8_900m, null, null, null, 4.2m, null, "JPY", null);
+        Eq("¥8,900 a piece at 0.42 is a cost of Rs 3,738", 3_738m, tea.UnitCost);
+        Eq("and the invoice's own figure is kept beside it, not replaced by it", 8_900m, tea.ForeignCost);
+        Eq("with the rate that did the multiplying", 0.42m, tea.CostRate ?? -1m);
+        Check("and the currency it was typed in, so the form can show the same figure back",
+            tea.CostCurrency == "JPY", "stored " + tea.CostCurrency);
+        Check("the rupee cost re-derives from the yen figure times the rate on the item, to the paisa",
+            Money.Round(tea.ForeignCost * (tea.CostRate ?? -1m)) == tea.UnitCost,
+            $"{tea.ForeignCost} x {tea.CostRate} against {tea.UnitCost}");
+        Eq("and with no expense on the box, the landed cost is that rupee cost", 3_738m, tea.LandedUnitCost);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var plain = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == mug.Id);
+            Check("a rupee line keeps no rate and says which currency it was",
+                plain.CostCurrency == "PKR" && plain.CostRate is null && plain.ForeignCost == plain.UnitCost,
+                $"{plain.CostCurrency} / {plain.CostRate?.ToString() ?? "none"} / {plain.ForeignCost}");
+        }
+
+        // A rate typed on the expense row is the container's rate from then on, and it never goes back over
+        // the goods: the item above stays at the rupee figure its own yen cost was multiplied to.
+        var dutyOnGoods = await inventory.AddExpenseAsync(
+            goods.Id, new DateTime(2026, 3, 6), "Duty", 100_000m, null, "JPY", 0.5m);
+        Eq("¥100,000 at the 0.5 written on the row is Rs 50,000", 50_000m, dutyOnGoods.Amount);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var now = await db.Containers.AsNoTracking().SingleAsync(c => c.Id == goods.Id);
+            Eq("the row's rate became the container's, so the page holds one rate", 0.5m, now.ExchangeRate);
+            var still = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == tea.Id);
+            Eq("and the goods cost entered at 0.42 was not re-valued by it", 3_738m, still.UnitCost);
+            Eq("with its own rate still on it", 0.42m, still.CostRate ?? -1m);
+            // 126 kg of tea sets carry the whole Rs 50,000, so Rs 1,666.67 a piece lands on top of Rs 3,738.
+            Eq("the expense is shared over the 126 kg onto the only lot in the box", 5_404.67m,
+                still.LandedUnitCost);
+        }
+
+        // Correcting the money: an item found to have been a rupee bill is re-saved in rupees, and the
+        // yen figure is then simply the same number - no rate, no conversion, nothing to undo.
+        await inventory.UpdateGoodsAsync(tea.Id, "Tea set", "pcs", "TS-1", 30m, 30m, 3_700m, null, null, 4.2m,
+            null, "PKR", null);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var fixed2 = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == tea.Id);
+            Eq("the rupee price is taken as written", 3_700m, fixed2.UnitCost);
+            Check("and it forgets the rate and the currency it had been entered under",
+                fixed2.CostCurrency == "PKR" && fixed2.CostRate is null && fixed2.ForeignCost == 3_700m,
+                $"{fixed2.CostCurrency} / {fixed2.CostRate?.ToString() ?? "none"} / {fixed2.ForeignCost}");
+            Eq("and the freight is added to the new rupee figure, not to the old one", 5_366.67m,
+                fixed2.LandedUnitCost);
+        }
+
         var bare = await inventory.CreateContainerAsync("NO RATE box", null, "Japan", new DateTime(2026, 3, 2), null);
-        await inventory.AddGoodsAsync(bare.Id, "Vase", "pcs", "V-1", 10m, 100m, null, null, null, 1m, null);
-        await Throws<InvalidOperationException>("a yen expense on a container with no yen rate is refused, not read as rupees",
+        await Throws<InvalidOperationException>("a yen item cost with no rate on the box is refused, not booked at 1",
+            () => inventory.AddGoodsAsync(bare.Id, "Vase", "pcs", "V-1", 10m, 4_000m, null, null, null, 1m, null, "JPY", null));
+        await Throws<InvalidOperationException>("the same for an expense",
             () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Customs Duty", 180_000m, null, "JPY"));
+        await inventory.AddGoodsAsync(bare.Id, "Vase", "pcs", "V-1", 10m, 4_000m, null, null, null, 1m, null, "JPY", 0.4231m);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var vase = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Product.Sku == "V-1");
+            Eq("a rate typed on the row is enough, whatever the container holds", 1_692.40m, vase.UnitCost);
+        }
         await Throws<InvalidOperationException>("and zero is not an expense in either currency",
             () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Sea Freight", 0m, null, "PKR"));
         await Throws<InvalidOperationException>("nor is a negative one, which would take freight off a cost",

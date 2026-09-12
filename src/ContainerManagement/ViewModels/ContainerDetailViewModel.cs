@@ -36,14 +36,26 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private decimal? goodsInStock;
     [ObservableProperty] private decimal? goodsCost;
 
+    /// <summary>Which currency the cost price is being typed in. The invoice from Japan says yen and the
+    /// till says rupees, and this form now takes either - so the figure kept is the one that was written,
+    /// next to the rupee figure the rest of the book works in.</summary>
+    [ObservableProperty] private string goodsCurrency = Currencies.All[0];
+    [ObservableProperty] private bool goodsIsYen;
+    [ObservableProperty] private string goodsCostPreview = "";
+    [ObservableProperty] private bool showGoodsCostPreview;
+
     /// <summary>What one piece weighs, in kilograms - the figure on the carton, and the same one the order
     /// sheet asks for. The container's expenses are shared over what the lot weighs in all, so an item left
     /// blank holds up the whole sharing: the page says so rather than loading its freight onto the others.</summary>
     [ObservableProperty] private decimal? goodsWeight;
     [ObservableProperty] private ContainerItemRow? selectedItem;
 
-    [ObservableProperty] private string expenseCategory = "Sea Freight";
-    [ObservableProperty] private string expenseCurrency = ExpenseCurrencies.All[0];
+    /// <summary>What the money was for, in the shop's own words. A dropdown of categories could not say
+    /// "demurrage at the port", and a figure nobody can name is a figure nobody finds again; a blank is kept
+    /// as "Other" by the book.</summary>
+    [ObservableProperty] private string expenseCategory = "";
+    [ObservableProperty] private string expenseCurrency = Currencies.All[0];
+    [ObservableProperty] private bool expenseIsYen;
     [ObservableProperty] private decimal? expenseAmount;
     [ObservableProperty] private DateTimeOffset? expenseDate = DateTimeOffset.Now;
     [ObservableProperty] private string expenseNotes = "";
@@ -51,8 +63,12 @@ public partial class ContainerDetailViewModel : ViewModelBase
 
     [ObservableProperty] private decimal? editWeight;
 
-    /// <summary>Yen to rupees, for this shipment. Expenses written in yen are converted at it and the rate
-    /// is kept on the line, so changing it here never re-values money already paid to a clearing agent.</summary>
+    /// <summary>
+    /// Yen to rupees, for this shipment - one figure, and the box for it is shown wherever a yen figure is
+    /// being typed, because a rate read from a form above the fold is a rate that gets left at last month's
+    /// value. Expenses and item costs are converted at it once, when they are saved, and the rate is kept on
+    /// the line: changing it here afterwards never re-values money already paid to a clearing agent.
+    /// </summary>
     [ObservableProperty] private decimal? editYenRate;
     [ObservableProperty] private string expenseTape = "";
     [ObservableProperty] private string expensePreview = "";
@@ -80,8 +96,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
-    public IReadOnlyList<string> CategoryOptions { get; } = ExpenseCategories.All;
-    public IReadOnlyList<string> CurrencyOptions { get; } = ExpenseCurrencies.All;
+    public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.All;
 
     public override async Task LoadAsync()
     {
@@ -110,12 +125,15 @@ public partial class ContainerDetailViewModel : ViewModelBase
         EditSupplierAmount = owedNow > 0.009m ? owedNow : 0m;
         EditArrival = c.ArrivalDate;
         _yenRateOnFile = c.ExchangeRate;
-        EditYenRate = c.ExchangeRate > 1 ? c.ExchangeRate : null;
+        // The rate as it stands, unless it is still the untouched default of 1 - which is not a rate but the
+        // absence of one, and showing it in the box would have a shop save a figure it never chose.
+        EditYenRate = Currencies.UsableRate(c.ExchangeRate) ? c.ExchangeRate : null;
         // The arithmetic of the sharing, in the shop's own words, straight off the service that writes the
         // costs - so the tape and the figures in the cost column cannot tell two different stories.
         ExpenseTape = (await _inventory.GetExpenseSplitAsync(_id)).Tape;
         ShowExpenseTape = !string.IsNullOrWhiteSpace(ExpenseTape);
         UpdateExpensePreview();
+        UpdateGoodsPreview();
         // Money paid past the figure on a container can only be left over from the earlier rule: the pay
         // page refuses it now, and a box that cannot show a negative shows nothing owed. So the form says
         // what the clamp hides rather than pretending the two figures agree.
@@ -142,7 +160,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 UnitCost = i.UnitCost,
                 LandedCost = i.EffectiveCost,
                 WeightKg = i.WeightKg,
-                ForeignCost = i.UnitCost,
+                ForeignCost = i.ForeignCost,
+                CostCurrency = i.CostCurrency,
+                CostRate = i.CostRate,
                 Cartons = i.Cartons,
                 PhotoPath = i.PhotoPath ?? i.Product.PhotoPath
             });
@@ -172,43 +192,81 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsUnit = value.Unit;
         GoodsQty = value.Purchased;
         GoodsInStock = value.InStock;
-        GoodsCost = value.ForeignCost;
+        GoodsCost = value.CostEntered;
+        GoodsCurrency = Currencies.Shown(value.CostCurrency);
+        GoodsIsYen = value.CostCurrency == "JPY";
         GoodsWeight = value.WeightKg;
+        UpdateGoodsPreview();
     }
 
     [ObservableProperty] private bool showExpenseTape;
 
     partial void OnExpenseTapeChanged(string value) => ShowExpenseTape = !string.IsNullOrWhiteSpace(value);
     partial void OnExpenseAmountChanged(decimal? value) => UpdateExpensePreview();
-    partial void OnExpenseCurrencyChanged(string value) => UpdateExpensePreview();
-    partial void OnEditYenRateChanged(decimal? value) => UpdateExpensePreview();
+
+    partial void OnExpenseCurrencyChanged(string value)
+    {
+        ExpenseIsYen = Currencies.CodeOf(value) == "JPY";
+        UpdateExpensePreview();
+    }
+
+    partial void OnGoodsCurrencyChanged(string value)
+    {
+        GoodsIsYen = Currencies.CodeOf(value) == "JPY";
+        UpdateGoodsPreview();
+    }
+
+    partial void OnGoodsCostChanged(decimal? value) => UpdateGoodsPreview();
+
+    // One rate box, wherever it is shown, and one answer under each of the two figures it converts: the
+    // same number in both places it can be read, never two a shop has to square up.
+    partial void OnEditYenRateChanged(decimal? value)
+    {
+        UpdateExpensePreview();
+        UpdateGoodsPreview();
+    }
 
     /// <summary>
     /// What the figure being typed comes to in rupees, shown before it is written. The conversion is the
-    /// service's own, not a copy of it, so the rupee total on the screen is the one the book will keep.
+    /// service's own, not a copy of it - the same method and the same rate rule - so the rupee total read on
+    /// the screen is the one the book keeps, rather than a preview that drifts from the entry.
     /// </summary>
     private void UpdateExpensePreview()
     {
-        if (ExpenseCurrencies.CodeOf(ExpenseCurrency) != "JPY" || ExpenseAmount is not decimal amount || amount <= 0)
+        if (Currencies.CodeOf(ExpenseCurrency) != "JPY" || ExpenseAmount is not decimal amount || amount <= 0)
         {
             ShowExpensePreview = false;
             ExpensePreview = "";
             return;
         }
-        // The box being emptied does not erase the rate the container holds, so the preview reads the same
-        // figure the book would use.
-        var converted = InventoryService.InRupees(amount, EditYenRate ?? _yenRateOnFile);
-        if (converted is null)
+        // An emptied box does not erase the rate the container holds, so the line reads the figure the book
+        // would use rather than the figure the box happens to show.
+        var converted = InventoryService.InRupees(amount, InventoryService.RateFor(_yenRateOnFile, EditYenRate));
+        ShowExpensePreview = true;
+        ExpensePreview = converted is null
+            ? Money.Yen(amount) + " has no rate to convert it at. Write Rs for 1 yen here, or choose Rs if "
+              + "the bill was in rupees."
+            : Money.Yen(amount) + " at " + Currencies.RateText(converted.Value.Rate) + " = "
+              + Money.Pkr(converted.Value.Pkr) + ", and that is what goes into the costs by weight.";
+    }
+
+    /// <summary>The same line for an item's cost price: what a piece will be carried at in rupees, before
+    /// it is written - and it is that rupee figure, not the yen one, that the freight is then added to.</summary>
+    private void UpdateGoodsPreview()
+    {
+        if (Currencies.CodeOf(GoodsCurrency) != "JPY" || GoodsCost is not decimal cost || cost <= 0)
         {
-            ShowExpensePreview = true;
-            ExpensePreview = "No yen rate on this container: write Rs for 1 yen in Import details, and "
-                             + Money.Yen(amount) + " will convert.";
+            ShowGoodsCostPreview = false;
+            GoodsCostPreview = "";
             return;
         }
-        ShowExpensePreview = true;
-        ExpensePreview = Money.Yen(amount) + " at " + converted.Value.Rate?.ToString("0.00####") + " = "
-                         + Money.Pkr(converted.Value.Pkr)
-                         + ", and that is what goes into the costs by weight.";
+        var converted = InventoryService.InRupees(cost, InventoryService.RateFor(_yenRateOnFile, EditYenRate));
+        ShowGoodsCostPreview = true;
+        GoodsCostPreview = converted is null
+            ? Money.Yen(cost) + " a piece has no rate to convert it at. Write Rs for 1 yen here, or choose "
+              + "Rs if the invoice was in rupees."
+            : Money.Yen(cost) + " at " + Currencies.RateText(converted.Value.Rate) + " = "
+              + Money.Pkr(converted.Value.Pkr) + " a piece, before its share of the freight.";
     }
 
     partial void OnGoodsInStockChanged(decimal? value)
@@ -221,7 +279,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
     {
         if (_loadingSelection || value is null) return;
         ExpenseCategory = value.Category;
-        ExpenseCurrency = value.Currency == "JPY" ? ExpenseCurrencies.All[1] : ExpenseCurrencies.All[0];
+        ExpenseCurrency = Currencies.Shown(value.Currency);
+        ExpenseIsYen = value.Currency == "JPY";
         ExpenseAmount = value.Amount;
         ExpenseDate = new DateTimeOffset(value.Date);
         ExpenseNotes = value.Notes ?? "";
@@ -233,7 +292,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddGoodsAsync(_id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, GoodsCost ?? 0,
-                null, null, null, Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null, null);
+                null, null, null, Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
+                null, Currencies.CodeOf(GoodsCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify("Item added.");
             ClearGoodsForm();
@@ -263,7 +323,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
             var repriced = await _inventory.UpdateGoodsAsync(
                 SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, SelectedItem.Purchased, stock, GoodsCost ?? 0,
                 null, null, Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
-                SelectedItem.PhotoPath);
+                SelectedItem.PhotoPath, Currencies.CodeOf(GoodsCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify(repriced == 0
                 ? "Item updated."
@@ -280,7 +340,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddExpenseAsync(_id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory,
-                ExpenseAmount ?? 0, ExpenseNotes, ExpenseCurrencies.CodeOf(ExpenseCurrency));
+                ExpenseAmount ?? 0, ExpenseNotes, Currencies.CodeOf(ExpenseCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify("Expense added.");
             ExpenseAmount = 0;
@@ -303,7 +363,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             await _inventory.UpdateExpenseAsync(
                 SelectedExpense.Id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0,
-                ExpenseNotes, ExpenseCurrencies.CodeOf(ExpenseCurrency));
+                ExpenseNotes, Currencies.CodeOf(ExpenseCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify("Expense updated.");
             await LoadAsync();
@@ -392,6 +452,10 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsInStock = null;
         GoodsCost = 0;
         GoodsWeight = null;
+        GoodsCurrency = Currencies.All[0];
+        GoodsIsYen = false;
+        ShowGoodsCostPreview = false;
+        GoodsCostPreview = "";
         SelectedItem = null;
     }
 }
@@ -412,6 +476,15 @@ public class ContainerItemRow
     /// against - and the goods price is not lost: it stays on the item as what was paid to the supplier.</summary>
     public decimal LandedCost { get; set; }
     public decimal? WeightKg { get; set; }
+
+    /// <summary>The currency the cost price was typed in, and the rate it was taken at: shown under the
+    /// rupee cost, so a line entered in yen reads as what it was without opening the form again.</summary>
+    public string CostCurrency { get; set; } = "PKR";
+    public decimal? CostRate { get; set; }
+    public decimal CostEntered => CostCurrency == "JPY" ? ForeignCost : UnitCost;
+    public string CostNoteText => CostCurrency == "JPY"
+        ? Money.Yen(ForeignCost) + " at " + Currencies.RateText(CostRate)
+        : "";
     public decimal? Cartons { get; set; }
     public string? PhotoPath { get; set; }
     public string UnitCostText => Money.Pkr(LandedCost > 0 ? LandedCost : UnitCost);

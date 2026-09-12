@@ -74,7 +74,23 @@ public class ContainerItem
     public decimal QuantityReceived { get; set; }
     public decimal QuantityRemaining { get; set; }
     public decimal UnitCost { get; set; }
+    /// <summary>The cost price as it was written on the invoice, in CostCurrency. Kept next to the rupee
+    /// figure rather than instead of it, so a supplier's bill can be checked against the entry forever.</summary>
     public decimal ForeignCost { get; set; }
+
+    /// <summary>Which currency the cost price was typed in. A rate is not applied twice in this book - the
+    /// rupee figure is fixed when the item is saved - so the currency has to be recorded, not guessed at
+    /// from whether the two figures happen to differ.</summary>
+    public string CostCurrency { get; set; } = "PKR";
+
+    /// <summary>The rate a yen cost price was multiplied by, kept on the item so the rupee figure can be
+    /// re-derived from the yen one. Null on an item priced in rupees.</summary>
+    public decimal? CostRate { get; set; }
+
+    /// <summary>The cost the shop typed, in the currency it was typed in - which is what the item form
+    /// shows back, so editing an item's name never has a converted rupee figure dropped into its price box.</summary>
+    public decimal CostEntered => CostCurrency == "JPY" ? ForeignCost : UnitCost;
+
     public decimal LandedUnitCost { get; set; }
     public decimal? Cartons { get; set; }
     public decimal? Cbm { get; set; }
@@ -268,10 +284,9 @@ public class ContainerExpense
 
     /// <summary>How a rupee total was arrived at, for the line itself: a yen expense shows the yen figure
     /// and the rate beside it, so nobody has to trust the conversion after the day it was written.</summary>
-    public string SourceText => Currency == "PKR" || AmountForeign <= 0
-        ? ""
-        : Money.Yen(AmountForeign)
-          + (RateUsed is decimal rate ? " at " + rate.ToString("0.00####") + " = " + Money.Pkr(Amount) : "");
+    public string SourceText => Currency != "PKR" && AmountForeign > 0m && RateUsed is decimal rate
+        ? Money.Yen(AmountForeign) + " at " + Currencies.RateText(rate) + " = " + Money.Pkr(Amount)
+        : "";
 }
 
 public class Supplier

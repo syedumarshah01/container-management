@@ -640,30 +640,36 @@ public class CloudBackupInfo
     public bool IsLocalFolder { get; set; }
 }
 
-public static class ExpenseCategories
-{
-    public static readonly string[] All =
-    [
-        "Sea Freight",
-        "Customs Duty",
-        "Clearing & Forwarding",
-        "Local Transport",
-        "Labour",
-        "Warehouse",
-        "Insurance",
-        "Other"
-    ];
-}
-
-/// <summary>The two currencies an expense on a container can be written in. Everything else about the
-/// shipment is already in one of them: the goods were bought in yen, the shop sells in rupees.</summary>
-public static class ExpenseCurrencies
+/// <summary>The two currencies a figure on a shipment can be written in - a container expense and the cost
+/// price of an item are entered the same way, in the shop's own paperwork's currency. Everything about the
+/// goods side is already in one of them: the cargo was bought in yen, the shop sells in rupees.</summary>
+public static class Currencies
 {
     public static readonly string[] All = { "Rs (PKR)", "\u00a5 (JPY)" };
 
     /// <summary>The box shows the currency as a shop writes it; the book keeps the code. One mapping, in
-    /// one place, so a label reworded on the form cannot quietly change what a figure is taken to mean.</summary>
+    /// one place, so a label reworded on a form cannot quietly change what a figure is taken to mean.</summary>
     public static string CodeOf(string? shown) => shown is string t && t.Contains("JPY") ? "JPY" : "PKR";
+
+    public static string Shown(string? code) => code == "JPY" ? All[1] : All[0];
+
+    /// <summary>The rate a yen figure is multiplied by is held to six decimals - the size the order sheet
+    /// uses for the same figure - and the multiplication is done with that rounded number, so the rupees on
+    /// the line can be re-derived from the yen figure and the rate kept beside it, to the paisa, for as
+    /// long as anyone cares to check.</summary>
+    public static decimal Rate(decimal value) => Money.Round(value, 6);
+
+    /// <summary>Whether a rate written here is one to convert with. A container sits at 1 until someone
+    /// says otherwise, and ¥180,000 read as Rs 180,000 is not a conversion but a mistake - so the unset
+    /// sentinel is refused, while a real yen rate (a little over forty paisa to the yen) is what is asked
+    /// for and is accepted as it stands.</summary>
+    public static bool UsableRate(decimal? rate) => rate is decimal r && r > 0m && r != 1m;
+
+    /// <summary>A rate the way it is written under a shopkeeper's own hand: as many decimals as it takes to
+    /// repeat the multiplication, and no trailing zeros to read past. One shape for the figure, so the line
+    /// under an expense and the note under an item's cost price do not learn to differ - and it is the same
+    /// number the money was multiplied by, so a line's yen figure and this rate give its rupees back.</summary>
+    public static string RateText(decimal? rate) => rate is decimal r ? r.ToString("0.######") : "";
 }
 
 public static class PaymentMethods

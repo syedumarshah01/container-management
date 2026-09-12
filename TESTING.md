@@ -23,6 +23,7 @@ shift a figure on screen.
 | an invoice's standing | the "previous ledger balance" on a printed bill is what their ledger held up to that bill's own line, not today's total with the bill subtracted from it - so re-printing a bill says the same thing about that day whatever has happened since, the money paid after it shows on its own line as today's figure, and the next bill's previous balance carries on from this one through whatever came between |
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
+| the rate a yen figure is taken at | the rupees on a yen line are exactly its yen figure times the rate kept on it, to the paisa, for an expense *and* for an item's cost price; the rate on the row overrides the container's and then becomes it; a rate of 1 - nothing written at all - is refused; and a rate changed tomorrow re-values nothing that was paid yesterday |
 | the freight in the cost | an item's weight in the sum is what a piece weighs times how many were landed; the shipment's expenses - rupees as written, yen converted once at the container's rate, with that rate kept on the line - are added up, divided by that weight and shared back onto the items, so the **shares equal the expenses to the paisa** and the paisa that will not divide goes on the heaviest lot; the per-piece cost then carries what a piece can carry in paisa and the few rupees left over are named on the page, not folded into a price; **an item with no weight stops the sharing for the whole box** rather than leaving its freight on someone else's cost; and deleting every expense brings every cost back to the goods price, the sold lines with it |
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
@@ -129,10 +130,27 @@ and divided by the weight of everything in the box, and each item's share - by i
 to its cost price. Profit on Home, on the containers list and on the Profit page is sold less *that*
 cost, so a container that was landed at a loss no longer reports a profit. What follows from it:
 
-- A yen expense is converted at the rate written on the container, at the moment it is saved, and the
-  rupee total, the yen figure and the rate are all kept on the line. Changing the rate later re-values
-  nothing: money already paid to a clearing agent is a fact, not a rate. A container with no yen rate
-  yet is *refused* a yen expense rather than having ¥180,000 read as Rs 180,000.
+- A yen figure is converted once, at the moment it is saved, and the rupee total, the yen figure and the
+  rate are kept on the line. Changing the rate later re-values nothing: money already paid to a clearing
+  agent is a fact, not a rate.
+- **Rs for 1 yen is asked for where the yen figure is typed**, in the expense row and in the item row, and
+  it is the same figure the Import details card holds - one rate per container, shown twice, never two
+  rates to square up. A yen line typed with a rate in that box takes the rate as written and the container
+  then carries it. What the figure comes to in rupees is shown under the box *before* Add is pressed, and
+  it is the service's own multiplication, not a copy, so the rupees read on screen are the rupees kept.
+- A rate of 1, or no rate at all, is refused for a yen figure rather than believed: ¥180,000 booked as
+  Rs 180,000 is the mistake a rate of 1 hides. A rate *below* 1 is the normal shape of this pair (a little
+  over forty paisa to the yen), so it is what is accepted - only the untouched default is refused. And if
+  the bill was in rupees after all, the box is left alone and Rs (PKR) chosen.
+- **A cost price can be typed in yen too.** The item row takes a currency next to the price; the rupee
+  figure is what the whole book then works in - freight shared on top of it, stock valued at it, sold lines
+  costed at it - while `ForeignCost` keeps what the invoice said and `CostRate` the rate it was multiplied
+  by. Those two are kept on the item so the rupee cost can be re-derived to the paisa years later
+  (`Rs = ¥ x rate`), which is what the checks assert. Re-saving the item in rupees is how a wrong rate is
+  corrected: the figure is then taken as written, with no rate and no conversion to undo.
+- An expense's description is a plain text box, not a list. "Demurrage at the port" is a real line in a
+  shipment's books and a dropdown cannot be made long enough to hold every port's invention; a blank is
+  kept as "Other".
 - The cost of a piece is kept to the paisa, like every money figure in this book, so a bill can be
   checked against the cost in the grid. A thousand pieces cannot always carry their lot's exact share
   in whole paisa, so what is left - a few rupees on a large freight bill - is stated on the page instead
@@ -230,6 +248,15 @@ rather than assuming it. Say the word and I will move those columns to text for 
    has no weight - and weigh it to see every item in the box re-costed over the new total. Then delete the
    expenses one by one: the costs, and the sold lines from those lots, should come back to the goods prices
    paisa for paisa.
+4f. Choose ¥ in the expense row and the *Rs for 1 yen* box should appear there with the container's rate in
+   it, together with the rupee the figure comes to - before Add, and the same figure on the line afterwards
+   under "Entered as". Leave the rate at nothing (or 1) and Add should refuse, saying why, rather than
+   booking ¥180,000 as Rs 180,000; write a rate of 0.42 and it should be accepted as it stands, because a
+   yen is worth less than a rupee. Then type a cost price in ¥ on an item: the grid's cost column should
+   carry the rupee figure with the invoice's yen figure under it, the item's own price box should show the
+   yen figure back when the row is selected again, and multiplying it by the rate on the line should give
+   the rupee cost to the paisa. Change the container's rate the next day and neither that item's cost nor
+   that expense's rupees should move - only the next figure typed picks up the new rate.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures
