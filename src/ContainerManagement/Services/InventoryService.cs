@@ -120,7 +120,7 @@ public class InventoryService
     /// </summary>
     public async Task UpdateImportDetailsAsync(
         int id, string? supplierName, decimal supplierAmount, decimal? paidSoFar, decimal? weight,
-        DateTime? arrival = null)
+        DateTime? arrival = null, decimal? yenRate = null)
     {
         supplierAmount = Money.Round(supplierAmount);
         if (paidSoFar is decimal typed && typed < 0)
@@ -158,6 +158,11 @@ public class InventoryService
         // clearing a date is not something this form offers, so it must not do it by accident.
         if (arrival is DateTime when)
             c.ArrivalDate = when;
+        // The rate the yen expenses convert at. Left alone when the box is empty, as the date is; and a
+        // rate changed here does not go back over the expenses already recorded, since each keeps the rate
+        // it was converted at. No item's cost moves either: the shares are in rupees, fixed when written.
+        if (yenRate is decimal rate && rate > 0m)
+            c.ExchangeRate = Money.Round(rate, 4);
 
         if (target > paid)
         {
@@ -263,6 +268,9 @@ public class InventoryService
         };
         db.ContainerItems.Add(item);
         await db.SaveChangesAsync();
+        // A new item changes what the container weighs, and so what every other item carries of the freight.
+        await ApplyLandedCostsAsync(db, containerId);
+        await db.SaveChangesAsync();
         return item;
     }
 
@@ -287,7 +295,6 @@ public class InventoryService
         var item = await db.ContainerItems.Include(i => i.Container).FirstOrDefaultAsync(i => i.Id == itemId)
             ?? throw new InvalidOperationException("Item not found.");
 
-        var costChanged = item.UnitCost != costEntered;
         var product = await FindOrCreateProductAsync(db, productName, unit, sku);
 
         item.ProductId = product.Id;
@@ -305,7 +312,12 @@ public class InventoryService
             product.PhotoPath = photoPath;
         }
 
-        var repriced = costChanged ? await RepriceSoldLinesAsync(db, item.Id, costEntered) : 0;
+        await db.SaveChangesAsync();
+        // The cost of the lines already sold is rewritten from the landed figure - goods price plus this
+        // container's freight - because a cost the shop corrects is a cost the profit reports have to
+        // follow. Only the items whose cost actually moved are touched, so a save that changed nothing
+        // reports nothing.
+        var repriced = await ApplyLandedCostsAsync(db, item.ContainerId);
         await db.SaveChangesAsync();
         return repriced;
     }
@@ -324,7 +336,12 @@ public class InventoryService
 
         var adjustments = await db.StockAdjustments.Where(a => a.ContainerItemId == itemId).ToListAsync();
         db.StockAdjustments.RemoveRange(adjustments);
+        var containerId = item.ContainerId;
         db.ContainerItems.Remove(item);
+        await db.SaveChangesAsync();
+        // The freight this item was carrying does not vanish with it: it belongs to the shipment, and the
+        // weight it no longer contributes was part of the divisor. So the rest are shared out again.
+        await ApplyLandedCostsAsync(db, containerId);
         await db.SaveChangesAsync();
     }
 
@@ -371,43 +388,185 @@ public class InventoryService
         await db.SaveChangesAsync();
     }
 
-    public async Task<ContainerExpense> AddExpenseAsync(int containerId, DateTime date, string category, decimal amount, string? notes)
+    /// <summary>
+    /// How a container's expenses fall on its goods: shared by weight, since that is how freight and customs
+    /// are charged. The expenses are added up, divided by what the items weigh between them, and each item
+    /// takes the rate back multiplied by its own weight. The paisa that will not divide goes on the heaviest
+    /// item, exactly as a discount's goes on its biggest line, so the shares add to the expenses to the
+    /// paisa: not one rupee invented on the way, not one lost.
+    ///
+    /// An item with no weight stops the sharing rather than being left out of it. The rate is the whole
+    /// expense over the whole weight, so the weight those items should have carried would have to be
+    /// charged onto the ones that were weighed - and a cost price swollen by a stranger's freight is not
+    /// visible on the page that made it wrong.
+    /// </summary>
+    internal static ExpenseSplit SplitExpense(List<ContainerItem> items, List<ContainerExpense> expenses)
     {
+        var split = new ExpenseSplit
+        {
+            ExpenseTotal = Money.Round(expenses.Sum(e => e.Amount))
+        };
+        // Only a lot that was actually received can carry anything.
+        var lots = items.Where(i => i.QuantityReceived > 0m).ToList();
+        split.Items = lots.Count;
+        var weighed = lots.Where(i => i.WeightKg is decimal w && w > 0m).ToList();
+        split.TotalWeightKg = Money.Round(weighed.Sum(TotalKg), 3);
+        split.UnweighedItems = lots.Count - weighed.Count;
+        if (!split.CanDistribute)
+            return split;
+
+        // Unrounded on purpose: paisa-rounding Rs 459.7701 a kilo before multiplying it by 375 kg loses
+        // rupees, and the item costs would then have to invent them back.
+        var perKg = split.ExpenseTotal / split.TotalWeightKg;
+        split.PerKg = Money.Round(perKg);
+        foreach (var i in weighed)
+            split.SharePerItem[i.Id] = Money.Round(TotalKg(i) * perKg);
+        var left = Money.Round(split.ExpenseTotal - split.SharePerItem.Values.Sum());
+        if (left != 0m)
+        {
+            var heaviest = weighed.OrderByDescending(TotalKg).ThenBy(i => i.Id).First();
+            split.SharePerItem[heaviest.Id] = Money.Round(split.SharePerItem[heaviest.Id] + left);
+        }
+
+        // What the per-piece costs can actually carry. A share of Rs 172,413.79 over a thousand pieces is
+        // Rs 172.41379 apiece, and a price with a third decimal is not a price this book keeps - every cost
+        // figure here is paisa-exact so that a bill can be checked by hand against the cost in the grid. So
+        // the pieces carry what they can, and the remainder is named rather than folded into a price.
+        foreach (var i in weighed)
+            split.Absorbed += Money.Round(PerPiece(i, split.SharePerItem[i.Id]) * i.QuantityReceived);
+        split.Absorbed = Money.Round(split.Absorbed);
+        split.LeftOver = Money.Round(split.ExpenseTotal - split.Absorbed);
+        return split;
+    }
+
+    /// <summary>An item's weight in the sum: what a piece weighs, times how many were landed. The item form
+    /// takes the weight a carton scale gives - the same figure the order sheet asks for - because it is the
+    /// figure that is written on the packing, and a lot's total is arithmetic the shop should not have to
+    /// do before typing.</summary>
+    private static decimal TotalKg(ContainerItem i) => Money.Round(i.WeightKg!.Value * i.QuantityReceived, 3);
+
+    /// <summary>What one piece of this lot carries of the shared expenses.</summary>
+    internal static decimal PerPiece(ContainerItem i, decimal share) => Money.Round(share / i.QuantityReceived);
+
+    /// <summary>The expense split for a container, as the pages read it.</summary>
+    public async Task<ExpenseSplit> GetExpenseSplitAsync(int containerId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var items = await db.ContainerItems.AsNoTracking().Where(i => i.ContainerId == containerId).ToListAsync();
+        var expenses = await db.Expenses.AsNoTracking().Where(e => e.ContainerId == containerId).ToListAsync();
+        return SplitExpense(items, expenses);
+    }
+
+    /// <summary>
+    /// Writes the split into each item's cost. LandedUnitCost is built from the goods cost every single
+    /// time and never added to - so an expense saved twice, or removed and put back, cannot charge a piece
+    /// twice, and when the last expense goes the cost comes back to exactly what it was. Lines already sold
+    /// follow the new cost, which is how a corrected cost already behaves: profit is about what the goods
+    /// cost, and what it took to land them here is part of that.
+    /// </summary>
+    private static async Task<int> ApplyLandedCostsAsync(AppDbContext db, int containerId)
+    {
+        var items = await db.ContainerItems.Where(i => i.ContainerId == containerId).ToListAsync();
+        var expenses = await db.Expenses.Where(e => e.ContainerId == containerId).ToListAsync();
+        var split = SplitExpense(items, expenses);
+        var repriced = 0;
+        foreach (var item in items)
+        {
+            var share = split.SharePerItem.TryGetValue(item.Id, out var s) ? s : 0m;
+            var landed = item.QuantityReceived > 0m
+                ? Money.Round(item.UnitCost + PerPiece(item, share))
+                : item.UnitCost;
+            if (landed == item.LandedUnitCost)
+                continue;
+            item.LandedUnitCost = landed;
+            repriced += await RepriceSoldLinesAsync(db, item.Id, landed);
+        }
+        return repriced;
+    }
+
+    /// <summary>What a yen figure comes to in rupees at a given rate, or null when there is no rate to
+    /// convert with. The page shows this same answer on its preview line, so the rupee total read before
+    /// pressing Add is the one that gets written, not an approximation of it.</summary>
+    internal static (decimal Pkr, decimal Foreign, decimal? Rate)? InRupees(decimal yenAmount, decimal rate)
+        => yenAmount > 0m && rate > 1m
+            ? (Money.Round(yenAmount * rate), Money.Round(yenAmount), Money.Round(rate, 4))
+            : null;
+
+    /// <summary>
+    /// The expense as it was written, and what it is in rupees. A yen figure is converted at the rate on the
+    /// container and that rate is copied onto the line, because a rate changed next month must not re-value
+    /// money already paid to a clearing agent. A container still sitting at the default rate of 1 would turn
+    /// ¥180,000 into Rs 180,000, so that is refused out loud rather than believed.
+    /// </summary>
+    private static (decimal Pkr, string Currency, decimal Foreign, decimal? Rate) ConvertExpense(
+        CargoContainer container, string? currency, decimal amount)
+    {
+        var code = ExpenseCurrencies.CodeOf(currency);
         amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Expense amount must be greater than zero.");
+        if (code != "JPY")
+            return (amount, "PKR", 0m, null);
+        var converted = InRupees(amount, container.ExchangeRate);
+        if (converted is null)
+            throw new InvalidOperationException(
+                $"Write the yen rate on the container first: {Money.Yen(amount)} at a rate of "
+                + $"{container.ExchangeRate:0.00####} would be taken as rupees.");
+        return (converted.Value.Pkr, "JPY", converted.Value.Foreign, converted.Value.Rate);
+    }
 
+    public async Task<ContainerExpense> AddExpenseAsync(
+        int containerId, DateTime date, string category, decimal amount, string? notes, string? currency = null)
+    {
         await using var db = await _factory.CreateDbContextAsync();
-        if (!await db.Containers.AnyAsync(c => c.Id == containerId))
-            throw new InvalidOperationException("Container not found.");
+        var container = await db.Containers.FindAsync(containerId)
+            ?? throw new InvalidOperationException("Container not found.");
 
+        var (pkr, code, foreign, rate) = ConvertExpense(container, currency, amount);
+        await using var tx = await db.Database.BeginTransactionAsync();
         var exp = new ContainerExpense
         {
             ContainerId = containerId,
             Date = date,
             Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim(),
-            Amount = Money.Round(amount),
+            Amount = pkr,
+            Currency = code,
+            AmountForeign = foreign,
+            RateUsed = rate,
             Notes = notes?.Trim()
         };
         db.Expenses.Add(exp);
+        // Saved first, because the sharing reads the container's expenses back out of the book: a line that
+        // is only in memory is a line whose freight nobody was charged.
         await db.SaveChangesAsync();
+        await ApplyLandedCostsAsync(db, containerId);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
         return exp;
     }
 
-    public async Task UpdateExpenseAsync(int expenseId, DateTime date, string category, decimal amount, string? notes)
+    public async Task UpdateExpenseAsync(
+        int expenseId, DateTime date, string category, decimal amount, string? notes, string? currency = null)
     {
-        amount = Money.Round(amount);
-        if (amount <= 0)
-            throw new InvalidOperationException("Expense amount must be greater than zero.");
-
         await using var db = await _factory.CreateDbContextAsync();
         var exp = await db.Expenses.FindAsync(expenseId)
             ?? throw new InvalidOperationException("Expense not found.");
+        var container = await db.Containers.FindAsync(exp.ContainerId)
+            ?? throw new InvalidOperationException("Container not found.");
+
+        var (pkr, code, foreign, rate) = ConvertExpense(container, currency, amount);
+        await using var tx = await db.Database.BeginTransactionAsync();
         exp.Date = date;
         exp.Category = string.IsNullOrWhiteSpace(category) ? "Other" : category.Trim();
-        exp.Amount = Money.Round(amount);
+        exp.Amount = pkr;
+        exp.Currency = code;
+        exp.AmountForeign = foreign;
+        exp.RateUsed = rate;
         exp.Notes = notes?.Trim();
         await db.SaveChangesAsync();
+        await ApplyLandedCostsAsync(db, exp.ContainerId);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     public async Task DeleteExpenseAsync(int expenseId)
@@ -415,8 +574,16 @@ public class InventoryService
         await using var db = await _factory.CreateDbContextAsync();
         var exp = await db.Expenses.FindAsync(expenseId)
             ?? throw new InvalidOperationException("Expense not found.");
+        var containerId = exp.ContainerId;
+
+        await using var tx = await db.Database.BeginTransactionAsync();
         db.Expenses.Remove(exp);
         await db.SaveChangesAsync();
+        // Every item's cost is rebuilt from its own goods price, so the freight this line was carrying is
+        // taken back out of all of them rather than left in.
+        await ApplyLandedCostsAsync(db, containerId);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     public async Task PaySupplierAsync(int containerId, DateTime date, decimal amount, string method, string? notes)
@@ -498,7 +665,10 @@ public class InventoryService
                 Unit = i.Product.Unit,
                 Remaining = i.QuantityRemaining,
                 UnitCost = i.UnitCost,
-                LandedCost = i.UnitCost,
+                // Spelled out rather than written as i.EffectiveCost, because this half is still a database
+                // query and a property the columns do not have cannot be translated: the same condition,
+                // in the same words as ContainerItem.EffectiveCost, which is what the pages read.
+                LandedCost = i.LandedUnitCost > 0 ? i.LandedUnitCost : i.UnitCost,
                 LastSalePrice = i.Product.LastSalePrice
             })
             .ToListAsync();

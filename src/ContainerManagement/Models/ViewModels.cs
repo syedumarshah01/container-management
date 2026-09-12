@@ -195,7 +195,10 @@ public class InventoryLot
     public decimal UnitCost { get; set; }
     public decimal LandedCost { get; set; }
     public bool NeverSold { get; set; }
-    public decimal Value => Remaining * UnitCost;
+    /// <summary>The lot's stock at the landed cost, so the lines under an item's Value row add back up to
+    /// that row: goods price plus what the shipment's freight and customs added per piece, which is the
+    /// same figure the container page shows and the same one a sale would be costed at.</summary>
+    public decimal Value => Remaining * LandedCost;
     public string RemainingText => Money.Qty(Remaining);
     public string ValueText => Money.Pkr(Value);
 }
@@ -421,7 +424,11 @@ public class StockOption
     public decimal LandedCost { get; set; }
     public decimal? LastSalePrice { get; set; }
 
-    public decimal SellCost => UnitCost;
+    /// <summary>The cost a piece is sold against: what it was bought for, plus the freight and customs
+    /// shared onto it by weight. This is the figure the sale page shows and the figure the bill will be
+    /// costed at, so a shop pricing a piece out loud is pricing it against the whole cost of landing it -
+    /// and the suggested price is built on it for the same reason.</summary>
+    public decimal SellCost => LandedCost > 0 ? LandedCost : UnitCost;
 
     public string SearchLabel
     {
@@ -553,6 +560,59 @@ public class UnpaidInvoice
     public override string ToString() => Label;
 }
 
+/// <summary>
+/// How a container's expenses fall on its items: the rupee total to be shared, the weight it is shared over,
+/// the rate per kilogram, and each item's share. It is calculated once, in InventoryService, and both the
+/// words on the container page and the cost written into every item come out of it - a share worked out
+/// twice is a share that eventually disagrees with itself.
+/// </summary>
+public class ExpenseSplit
+{
+    public decimal ExpenseTotal { get; set; }
+    public decimal TotalWeightKg { get; set; }
+    public decimal PerKg { get; set; }
+    public int UnweighedItems { get; set; }
+    public int Items { get; set; }
+
+    /// <summary>Each item's share of the expenses, in rupees, and the sum of them is ExpenseTotal to the
+    /// paisa - the last paisa that will not divide goes on the heaviest item, as a discount's does.</summary>
+    public Dictionary<int, decimal> SharePerItem { get; } = new();
+
+    /// <summary>What the per-piece costs actually took on, and the rupees of expense they could not carry
+    /// because a cost price is kept to the paisa. Named on the page, never smoothed away.</summary>
+    public decimal Absorbed { get; set; }
+    public decimal LeftOver { get; set; }
+
+    public bool CanDistribute => ExpenseTotal > 0 && UnweighedItems == 0 && Items > 0 && TotalWeightKg > 0;
+
+    /// <summary>Why the money is not in the costs, in the shop's own words, when it is not - an expense that
+    /// cannot be shared out still belongs on the container, and a figure silently left out of the item's
+    /// cost is the kind of hole a shop finds a year later.</summary>
+    public string Tape
+    {
+        get
+        {
+            if (ExpenseTotal <= 0)
+                return "";
+            if (Items == 0)
+                return Money.Pkr(ExpenseTotal) + " of expenses has nothing to sit on: this container has no items yet.";
+            if (UnweighedItems > 0)
+                return Money.Pkr(ExpenseTotal) + " of expenses is not in the costs: "
+                       + UnweighedItems + (UnweighedItems == 1 ? " item has" : " items have")
+                       + " no weight. Weigh them and it is shared by weight.";
+            if (TotalWeightKg <= 0)
+                return Money.Pkr(ExpenseTotal) + " of expenses is not in the costs: no item weighs anything.";
+            var text = Money.Pkr(ExpenseTotal) + " over " + Money.Kg(TotalWeightKg) + " kg = "
+                       + Money.Pkr(PerKg) + " a kilo, added to each item's cost by what it weighs.";
+            if (LeftOver >= 0.005m)
+                text += " " + Money.Pkr(LeftOver) + " would not divide into the per-piece costs and stays out of them.";
+            else if (LeftOver <= -0.005m)
+                text += " The per-piece costs carry " + Money.Pkr(-LeftOver) + " more than the expenses were.";
+            return text;
+        }
+    }
+}
+
 /// <summary>A month a customer's receipts can be read for. Year and month are null together for "every
 /// month", so one month and the whole book are asked for in the same shape and the page never has to hold a
 /// second, unfiltered copy of the list to show a total.</summary>
@@ -593,6 +653,17 @@ public static class ExpenseCategories
         "Insurance",
         "Other"
     ];
+}
+
+/// <summary>The two currencies an expense on a container can be written in. Everything else about the
+/// shipment is already in one of them: the goods were bought in yen, the shop sells in rupees.</summary>
+public static class ExpenseCurrencies
+{
+    public static readonly string[] All = { "Rs (PKR)", "\u00a5 (JPY)" };
+
+    /// <summary>The box shows the currency as a shop writes it; the book keeps the code. One mapping, in
+    /// one place, so a label reworded on the form cannot quietly change what a figure is taken to mean.</summary>
+    public static string CodeOf(string? shown) => shown is string t && t.Contains("JPY") ? "JPY" : "PKR";
 }
 
 public static class PaymentMethods

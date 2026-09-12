@@ -56,7 +56,7 @@
             <StackPanel Spacing="14">
               <TextBlock Classes="h2" Text="Import details" />
 
-              <Grid ColumnDefinitions="110,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+              <Grid ColumnDefinitions="110,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                 <TextBlock Classes="label" Text="Supplier" VerticalAlignment="Center" Margin="0" />
                 <TextBox Grid.Column="1" Width="460" Margin="0,6" Text="{Binding EditSupplier}"
                          Watermark="as on the invoice" />
@@ -82,6 +82,13 @@
                 <TextBlock Grid.Row="4" Classes="label" Text="Arrived on" VerticalAlignment="Center" Margin="0" />
                 <DatePicker Grid.Row="4" Grid.Column="1" Margin="0,6" HorizontalAlignment="Left"
                             SelectedDate="{Binding EditArrival}" />
+
+                <!-- Expenses written in yen are turned into rupees at this rate and the rate is kept on the
+                     line, so a rate changed later does not re-value money already paid. Leave it empty and a
+                     yen expense is refused rather than read as rupees. -->
+                <TextBlock Grid.Row="5" Classes="label" Text="Rs for 1 yen" VerticalAlignment="Center" Margin="0" />
+                <NumericUpDown Grid.Row="5" Grid.Column="1" Width="140" Margin="0,6" Minimum="0"
+                               Increment="0.01" FormatString="#,##0.####" Value="{Binding EditYenRate}" />
               </Grid>
 
               <TextBlock Classes="label" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
@@ -103,7 +110,12 @@
                 <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
                 <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
                 <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
-                <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="110" />
+                <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="110" />
+                <!-- What a piece costs now: what it was bought for, plus the share of the container's
+                     expenses this item's weight carries. It is the figure a sale is costed at, so the
+                     freight is not left out of profit. -->
+                <DataGridTextColumn Header="Cost each" Binding="{Binding UnitCostText}" Width="130" />
+                <DataGridTextColumn Header="Of which freight" Binding="{Binding FreightText}" Width="170" />
               </DataGrid.Columns>
             </DataGrid>
           </DockPanel>
@@ -115,7 +127,7 @@
           <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
             <TextBlock Classes="label" Text="Name" />
             <TextBox Text="{Binding GoodsName}" HorizontalAlignment="Stretch" />
-            <Grid ColumnDefinitions="*,*,*">
+            <Grid ColumnDefinitions="*,*,*,*">
               <StackPanel Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="SKU / quality (optional)" />
                 <TextBox Text="{Binding GoodsSku}" Watermark="optional" HorizontalAlignment="Stretch" />
@@ -124,10 +136,17 @@
                 <TextBlock Classes="label" Text="Qty" />
                 <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" HorizontalAlignment="Stretch" />
               </StackPanel>
-              <StackPanel Grid.Column="2">
+              <StackPanel Grid.Column="2" Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="Price" />
                 <NumericUpDown Value="{Binding GoodsCost}" Minimum="0" HorizontalAlignment="Stretch" />
                 <TextBlock Classes="words" Text="{Binding GoodsCost, Converter={StaticResource WordsConv}}" />
+              </StackPanel>
+              <!-- What one piece weighs, as on the order sheet: the lot's weight in all is this times how
+                   many were landed, and that is what the shipment's expenses are divided by. -->
+              <StackPanel Grid.Column="3">
+                <TextBlock Classes="label" Text="Kg each" />
+                <NumericUpDown Value="{Binding GoodsWeight}" Minimum="0" Increment="0.001"
+                               FormatString="#,##0.###" HorizontalAlignment="Stretch" />
               </StackPanel>
             </Grid>
             <TextBlock Classes="label" Text="In stock (when editing)" />
@@ -144,7 +163,7 @@
       <Border Classes="card">
         <Expander Header="Expenses" HorizontalAlignment="Stretch">
           <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
-            <Grid ColumnDefinitions="*,140,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,140,120,Auto,Auto,Auto">
               <StackPanel Margin="0,0,8,0">
                 <TextBlock Classes="label" Text="Category" />
                 <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding ExpenseCategory}" />
@@ -154,13 +173,21 @@
                 <NumericUpDown Value="{Binding ExpenseAmount}" Minimum="0" />
                 <TextBlock Classes="words" Text="{Binding ExpenseAmount, Converter={StaticResource WordsConv}}" />
               </StackPanel>
-              <Button Grid.Column="2" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
+              <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Currency" />
+                <ComboBox ItemsSource="{Binding CurrencyOptions}" SelectedItem="{Binding ExpenseCurrency}" />
+              </StackPanel>
+              <Button Grid.Column="3" Classes="primary" Content="Add" Command="{Binding AddExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,8,12" />
-              <Button Grid.Column="3" Content="Save" Command="{Binding SaveExpenseCommand}"
+              <Button Grid.Column="4" Content="Save" Command="{Binding SaveExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,8,12" />
-              <Button Grid.Column="4" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
+              <Button Grid.Column="5" Classes="danger" Content="Remove" Command="{Binding RemoveExpenseCommand}"
                       VerticalAlignment="Bottom" Margin="0,0,0,12" />
             </Grid>
+            <!-- What a yen figure comes to in rupees, said before it is written, so no one has to multiply
+                 in their head to know what will land in the costs. -->
+            <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowExpensePreview}"
+                       Text="{Binding ExpensePreview}" Margin="0,0,0,8" />
             <DataGrid ItemsSource="{Binding Expenses}" SelectedItem="{Binding SelectedExpense}" x:CompileBindings="False">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:dd MMM yyyy}}" Width="120" />
@@ -174,8 +201,13 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <!-- Empty on a rupee line: there is nothing to explain about it. -->
+                <DataGridTextColumn Header="Entered as" Binding="{Binding SourceText}" Width="260" />
               </DataGrid.Columns>
             </DataGrid>
+            <!-- What the expenses do to the costs, in the same figures the costs were written from. -->
+            <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowExpenseTape}"
+                       Text="{Binding ExpenseTape}" Margin="0,10,0,0" />
           </StackPanel>
         </Expander>
       </Border>

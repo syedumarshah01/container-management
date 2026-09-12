@@ -33,6 +33,13 @@ public static class SchemaPatcher
         AddColumn(con, "Containers", "SupplierId", "INTEGER");
         AddColumn(con, "Containers", "SupplierAmount", "REAL NOT NULL DEFAULT 0");
 
+        // A container expense can be written in yen, so the line keeps the figure as typed, the rate it was
+        // converted at and the rupee total the books use. Decimals are TEXT here, as EF Core's SQLite
+        // provider writes them: a REAL column would put a money figure through a binary fraction.
+        AddColumn(con, "Expenses", "Currency", "TEXT NOT NULL DEFAULT 'PKR'");
+        AddColumn(con, "Expenses", "AmountForeign", "TEXT NOT NULL DEFAULT '0'");
+        AddColumn(con, "Expenses", "RateUsed", "TEXT");
+
         AddColumn(con, "LedgerEntries", "PayoutId", "INTEGER");
         AddColumn(con, "CashBook", "PayoutId", "INTEGER");
 

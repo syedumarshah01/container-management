@@ -124,7 +124,9 @@ public partial class NewSaleViewModel : ViewModelBase
 
         SelectedStockContainer = value.ContainerTitle;
         SelectedStockQty = Money.Qty(value.Remaining) + " " + value.Unit;
-        SelectedStockCost = Money.Pkr(value.UnitCost);
+        // The landed cost, not the goods price alone: it is the figure this line will be costed at, and a
+        // picker that shows a smaller one teaches a shop to under-price a piece.
+        SelectedStockCost = Money.Pkr(value.SellCost);
         PickQty = 1;
         PickPrice = value.LastSalePrice is > 0
             ? value.LastSalePrice

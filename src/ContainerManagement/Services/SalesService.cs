@@ -435,7 +435,10 @@ public class SalesService
                 ProductId = item.ProductId,
                 Quantity = line.Quantity,
                 UnitPrice = Money.Round(line.UnitPrice),
-                UnitCost = Money.Round(item.UnitCost)
+                // The cost of the piece is the landed one: what it was bought for, and what its share of the
+                // freight and customs was. The same paisa-exact figure the re-costing path writes, so a line
+                // billed today and the same lot's lines re-costed next month cannot be two different numbers.
+                UnitCost = Money.Round(item.EffectiveCost)
             });
         }
 

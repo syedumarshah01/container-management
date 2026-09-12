@@ -40,6 +40,7 @@ public static class Program
             await YearStatement(dir);
             await MonthReceipts(dir);
             await InvoiceStanding(dir);
+            await FreightSplit(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -205,19 +206,25 @@ public static class Program
         Eq("and what was written to the database reads back identical", 135_543.86m,
             await PersistedBill(factory, bill.Id));
 
+        // The expense that used to sit beside the cost is now inside it. 1,000 bulbs at 0.375 kg and 500
+        // chargers at 0.12 kg are 375 + 60 = 435 kg, and Rs 200,000 over that is Rs 459.7701 a kilo, so
+        // the bulbs' lot carries Rs 172,413.79 (Rs 172.41 a piece) and the chargers' Rs 27,586.21 (Rs 55.17
+        // a piece). The two lines already sold are re-costed at those figures, which is what the next four
+        // lines of arithmetic are about.
         await inventory.AddExpenseAsync(container.Id, DateTime.Today, "Sea Freight", 200_000m, "audit");
         var first = await reports.GetContainerProfitAsync(container.Id);
         Eq("the container's revenue is what the bill asked for, discount off", 135_543.86m, first.Revenue);
         Check("because the discount is shared over the bill's lines and the shares add back to the bill",
             first.Revenue == bill.TotalAmount, $"billed {bill.TotalAmount}, counted {first.Revenue} of sales");
-        Eq("its cost is its sold lines' cost: 693.92 + 0", 693.92m, first.Cogs);
+        Eq("its cost is its sold lines' cost with the freight in: (1850.45+172.41)x0.375 + 55.17x7",
+            1144.76m, first.Cogs);
         Eq("its expenses are recorded", 200_000m, first.Expenses);
-        Eq("and profit, as every page defines it, is revenue minus cost only", 134_849.94m, first.Profit);
-        Warn("container profit ignores the container's own freight and customs - the margin is 200,000 lower than this row says",
-            first.Profit == first.Revenue - first.Cogs - first.Expenses,
-            $"row shows {first.Profit}; after its 200,000 of expenses the money actually left with is {first.Revenue - first.Cogs - first.Expenses}");
+        Eq("and profit is revenue minus that landed cost", 134_399.10m, first.Profit);
+        Check("the freight did not sit beside the profit any more - it moved it, by what the sold pieces carry",
+            134_849.94m - first.Profit == 450.84m,
+            $"profit moved by {134_849.94m - first.Profit}, while the two lines picked up 64.65 + 386.19");
         Eq("and the discount is off profit too, not only off the bill", bill.TotalAmount - first.Cogs, first.Profit);
-        Info("a container expense is also not put through the cash book: rent paid out of the till moves cash, sea freight does not.");
+        Info("a container expense is not put through the cash book either: rent paid out of the till moves cash, sea freight does not.");
 
         Head("paying the printed bill works (a stored 543.9375 used to reject 543.94)");
         var payBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
@@ -260,11 +267,11 @@ public static class Program
             $"{beforeReprice.Revenue - first.Revenue} added for an undiscounted line of {payBill.Lines[0].LineTotal}");
 
         Head("profit follows a corrected cost - the case that stayed wrong for one release");
-        Eq("two sold lines at 693.92 each before the cost is fixed", 1387.84m, beforeReprice.Cogs);
+        Eq("the three sold lines cost 758.57 + 386.19 + 758.57 with the freight in", 1903.33m, beforeReprice.Cogs);
         var repriced = await inventory.UpdateGoodsAsync(bulbs.Id, "LED bulb", "pcs", "LB-1", 1000m, 999.25m, 2000m, null, null, 0.375m, null);
         Check("both sold lines of that lot were re-costed", repriced == 2, repriced + " lines touched");
         var later = await reports.GetContainerProfitAsync(container.Id);
-        Eq("the same two lines now cost 750 each", 1500m, later.Cogs);
+        Eq("the two bulb lines move to 814.65 each, and the charger line is untouched", 2015.49m, later.Cogs);
         Eq("so profit fell by exactly the cost increase of 112.16", beforeReprice.Profit - 112.16m, later.Profit);
         Check("and no stock was invented or lost by the re-costing",
             later.QtyReceived == beforeReprice.QtyReceived && later.QtySold == beforeReprice.QtySold);
@@ -1236,6 +1243,222 @@ public static class Program
     }
 
     // ------------------------------------------------------------------ tiny harness
+
+    // ------------------------------------------------------------------ freight shared into the cost of each piece
+    // The shipment's expenses, in rupees and in yen, added up and divided by what the box weighs, and then
+    // put into the cost of every piece. The figures here are worked out by hand from the paper: 600 mugs at
+    // 0.45 kg, 400 tumblers at 0.30, 40 trays at 9, so 270 + 120 + 360 = 750 kg, and the expenses are
+    // Rs 1,234,567.89 freight, Rs 522,345.30 for the ¥1,234,567 duty at 0.4231, and Rs 45,000.55 clearing -
+    // Rs 1,801,913.74 over 750 kg, which is Rs 2,402.5516 a kilo.
+    private static async Task FreightSplit(string dir)
+    {
+        var file = Path.Combine(dir, "freight.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var ledger = new LedgerService(f);
+        var reports = new ReportService(f);
+
+        Head("the yen bill and the rupee bills are added up, and shared by weight into each piece's cost");
+        var box = await inventory.CreateContainerAsync(
+            "FREIGHT box", "BOX-1", "Japan", new DateTime(2026, 3, 2), null, "JPY", 0.4231m);
+        var mug = await inventory.AddGoodsAsync(box.Id, "Ceramic mug", "pcs", "MUG-1", 600m, 480m, null, null, null, 0.45m, null);
+        var tumbler = await inventory.AddGoodsAsync(box.Id, "Glass tumbler", "pcs", "TUM-1", 400m, 720m, null, null, null, 0.30m, null);
+        var tray = await inventory.AddGoodsAsync(box.Id, "Tray", "pcs", "TRY-1", 40m, 3000m, null, null, null, 9m, null);
+        Eq("the weight divided by is what each lot weighs in all, added up", 750m,
+            (await inventory.GetExpenseSplitAsync(box.Id)).TotalWeightKg);
+        Check("and before there is an expense there is nothing to share, so no cost moves",
+            (await inventory.GetExpenseSplitAsync(box.Id)).ExpenseTotal == 0m);
+
+        await inventory.AddExpenseAsync(box.Id, new DateTime(2026, 3, 5), "Sea Freight", 1_234_567.89m, null);
+        await inventory.AddExpenseAsync(box.Id, new DateTime(2026, 3, 6), "Customs Duty", 1_234_567m, "the yen bill", "JPY");
+        await inventory.AddExpenseAsync(box.Id, new DateTime(2026, 3, 6), "Clearing", 45_000.55m, null, "PKR");
+
+        ContainerExpense duty = null!, freight = null!, clearing = null!;
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var rows = await db.Expenses.AsNoTracking().Where(e => e.ContainerId == box.Id).ToListAsync();
+            duty = rows.Single(e => e.Category == "Customs Duty");
+            freight = rows.Single(e => e.Category == "Sea Freight");
+            clearing = rows.Single(e => e.Category == "Clearing");
+        }
+
+        Eq("¥1,234,567 at 0.4231 is kept as Rs 522,345.30, the paisa rounded away from nothing", 522_345.30m, duty.Amount);
+        Eq("and the yen figure the bill was written in is kept beside it", 1_234_567m, duty.AmountForeign);
+        Eq("with the rate that did it", 0.4231m, duty.RateUsed ?? -1m);
+        Check("the line itself says where the rupees came from, so the conversion can be checked years later",
+            Plain(duty.SourceText).Contains("¥1234567") && Plain(duty.SourceText).Contains("Rs 522345.30"), duty.SourceText);
+        Check("a rupee line has nothing to explain about itself",
+            freight.SourceText == "" && freight.Currency == "PKR" && freight.AmountForeign == 0m && freight.RateUsed is null,
+            $"{freight.Currency} / {freight.AmountForeign} / {freight.RateUsed?.ToString() ?? "none"}");
+
+        // The container has a weight box of its own, from the paper form, and it is deliberately not what
+        // the freight is divided by: a divisor a shop cannot tie back to the goods is a divisor nobody can
+        // check. Entering 900 kg on the box must therefore leave the sharing on the 750 kg of goods.
+        await inventory.UpdateImportDetailsAsync(box.Id, "Osaka Traders", 0m, null, 900m, null);
+        Eq("what the container's own weight box says does not move the divisor", 750m,
+            (await inventory.GetExpenseSplitAsync(box.Id)).TotalWeightKg);
+
+        var split = await inventory.GetExpenseSplitAsync(box.Id);
+        Eq("the three bills are one number, in rupees", 1_801_913.74m, split.ExpenseTotal);
+        Eq("which over 750 kg is this rate a kilo", 2_402.55m, split.PerKg);
+        Eq("the mugs, being 270 kg, carry", 648_688.95m, split.SharePerItem[mug.Id]);
+        Eq("the tumblers, 120 kg", 288_306.20m, split.SharePerItem[tumbler.Id]);
+        Eq("and the trays, 360 kg, take the paisa that would not divide", 864_918.59m, split.SharePerItem[tray.Id]);
+        Eq("and the shares add to the expenses to the paisa, nothing invented and nothing lost",
+            split.ExpenseTotal, split.SharePerItem.Values.Sum());
+        Check("the page says the same thing the cost was written from",
+            Plain(split.Tape).Contains("Rs 1801913.74") && Plain(split.Tape).Contains("750 kg") && Plain(split.Tape).Contains("Rs 2402.55"),
+            split.Tape);
+
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var items = await db.ContainerItems.AsNoTracking().Where(i => i.ContainerId == box.Id).ToListAsync();
+            decimal Landed(int id) => items.Single(i => i.Id == id).LandedUnitCost;
+            Eq("so a mug that cost 480 now costs its share over 600 pieces added on", 1_561.15m, Landed(mug.Id));
+            Eq("a tumbler, 720 plus its share over 400", 1_440.77m, Landed(tumbler.Id));
+            Eq("and a tray, 3,000 plus its share over 40", 24_622.96m, Landed(tray.Id));
+            Eq("and what a piece carries of freight can be read on its own", 1_081.15m, items.Single(i => i.Id == mug.Id).CostEachFreight);
+            Eq("the goods price itself is untouched, so the bill from Japan can still be checked", 480m,
+                items.Single(i => i.Id == mug.Id).UnitCost);
+            Check("the per-piece prices can carry all but the paisa that a thousand pieces cannot divide",
+                Plain(split.Tape).Contains("Rs 2.66 more"), split.Tape);
+        }
+
+        Head("a piece sold after the freight is costed at the landed figure, and profit is the difference");
+        var buyer = await ledger.CreateCustomerAsync("Mug buyer", null, null, null);
+        var bill1 = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 3, 7), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = mug.Id, ProductId = mug.ProductId, ProductName = "Ceramic mug", Unit = "pcs", Quantity = 10m, UnitPrice = 2500m }
+        }, 0m, "Cash", null, 0m, null);
+        Eq("10 pieces at the landed 1,561.15 cost 15,611.50, not the 4,800 the goods price alone would say",
+            15_611.50m, bill1.Lines[0].LineCost);
+        var row1 = await reports.GetContainerProfitAsync(box.Id);
+        Eq("the container's profit is the bill less that cost", 25_000m - 15_611.50m, row1.Profit);
+        Eq("and its expenses are shown beside it, not taken off twice", 1_801_913.74m, row1.Expenses);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var stock = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == mug.Id);
+            Eq("and the stock left in the store is worth the landed figure too", 590m * 1_561.15m,
+                Money.Round(stock.QuantityRemaining * stock.EffectiveCost));
+        }
+
+        Head("an item with no weight stops the sharing for the box, and says so");
+        var mat = await inventory.AddGoodsAsync(box.Id, "Door mat", "pcs", "MAT-1", 25m, 900m, null, null, null, null, null);
+        var refused = await inventory.GetExpenseSplitAsync(box.Id);
+        Check("nothing is shared while a lot has no weight", !refused.CanDistribute);
+        Check("and the page counts the item that is holding it up", refused.UnweighedItems == 1,
+            refused.UnweighedItems + " items unweighed");
+        Check("and names the money as outside the costs rather than leaving it unmentioned",
+            Plain(refused.Tape).Contains("1 item has no weight") && Plain(refused.Tape).Contains("Rs 1801913.74"),
+            refused.Tape);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var items = await db.ContainerItems.AsNoTracking().Where(i => i.ContainerId == box.Id).ToListAsync();
+            Check("every cost in the box comes back to the goods price alone - the freight is out, not left in",
+                items.All(i => i.LandedUnitCost == i.UnitCost),
+                string.Join("; ", items.Select(i => $"{i.Id}:{i.LandedUnitCost}/{i.UnitCost}")));
+            var line = await db.SaleLines.AsNoTracking().Include(l => l.Sale).SingleAsync(l => l.SaleId == bill1.Id);
+            Eq("and the 10 mugs already sold are re-costed back to 4,800, because profit follows the cost",
+                4_800m, Money.Round(line.Quantity * line.UnitCost));
+        }
+        Eq("which puts the profit back where it was before the freight was shared", 25_000m - 4_800m,
+            (await reports.GetContainerProfitAsync(box.Id)).Profit);
+
+        Head("weigh that last lot and the whole box is shared again, over the new divisor");
+        await inventory.UpdateGoodsAsync(mat.Id, "Door mat", "pcs", "MAT-1", 25m, 25m, 900m, null, null, 20m, null);
+        var again = await inventory.GetExpenseSplitAsync(box.Id);
+        Eq("500 kg of mats makes the box 1,250 kg", 1_250m, again.TotalWeightKg);
+        Eq("so the rate a kilo falls", 1_441.53m, again.PerKg);
+        Eq("and a mug, at 270 kg, now carries", 389_213.37m, again.SharePerItem[mug.Id]);
+        Eq("the paisa that will not divide going on the heaviest lot", 720_765.49m, again.SharePerItem[mat.Id]);
+        Eq("and the shares still add to the expenses exactly", again.ExpenseTotal, again.SharePerItem.Values.Sum());
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var mugNow = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == mug.Id);
+            Eq("which is 1,128.69 a mug, freight of 648.69 on a cost of 480", 1_128.69m, mugNow.LandedUnitCost);
+            Eq("and 648.69 a piece of it is freight", 648.69m, mugNow.CostEachFreight);
+            var line = await db.SaleLines.AsNoTracking().Include(l => l.Sale).SingleAsync(l => l.SaleId == bill1.Id);
+            Eq("the sold 10 mugs follow it to 11,286.90", 11_286.90m, Money.Round(line.Quantity * line.UnitCost));
+        }
+
+        Head("the sharing is rebuilt from the goods price every time, so nothing can be charged twice");
+        await inventory.UpdateExpenseAsync(clearing.Id, clearing.Date, clearing.Category, clearing.Amount, clearing.Notes, "PKR");
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var mugNow = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == mug.Id);
+            Eq("saving an expense again with the same figure moves no cost", 1_128.69m, mugNow.LandedUnitCost);
+        }
+        await inventory.AddExpenseAsync(box.Id, new DateTime(2026, 3, 8), "Sea Freight", 1_234_567.89m, "typed twice by mistake", "PKR");
+        var doubled = await inventory.GetExpenseSplitAsync(box.Id);
+        Eq("a freight bill entered twice really does double the shared amount, as it should",
+            3_036_481.63m, doubled.ExpenseTotal);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var dupe = await db.Expenses.Where(e => e.ContainerId == box.Id && e.Notes == "typed twice by mistake")
+                .Select(e => e.Id).SingleAsync();
+            await inventory.DeleteExpenseAsync(dupe);
+        }
+        Eq("and removing it brings the shared amount back to what it was", 1_801_913.74m,
+            (await inventory.GetExpenseSplitAsync(box.Id)).ExpenseTotal);
+
+        Head("the rate is the container's, is applied once, and never goes backwards over a paid expense");
+        await inventory.UpdateImportDetailsAsync(box.Id, "Osaka Traders", 0m, null, null, null, 0.50m);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var stillDuty = await db.Expenses.AsNoTracking().SingleAsync(e => e.Id == duty.Id);
+            Eq("the yen line already in the book keeps the rupees it was converted to at 0.4231", 522_345.30m,
+                stillDuty.Amount);
+            Eq("and the rate it was converted at", 0.4231m, stillDuty.RateUsed ?? -1m);
+        }
+        var later = await inventory.AddExpenseAsync(box.Id, new DateTime(2026, 3, 9), "Inspection", 100_000m, null, "JPY");
+        Eq("a yen expense written after the rate moved is converted at the new one", 50_000m, later.Amount);
+        Eq("and the rate in force when it was written is the one kept on the line", 0.5m, later.RateUsed ?? -1m);
+        await inventory.UpdateExpenseAsync(later.Id, later.Date, "Inspection", 100_000m, null, "PKR");
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var now = await db.Expenses.AsNoTracking().SingleAsync(e => e.Id == later.Id);
+            Eq("switching that line to rupees takes the figure as written, with no conversion", 100_000m, now.Amount);
+            Check("and it forgets the rate, because there is nothing left to convert", now.RateUsed is null && now.Currency == "PKR");
+        }
+
+        Head("delete the expenses and the costs are the goods prices, exactly as they were");
+        List<int> left;
+        await using (var db = await f.CreateDbContextAsync())
+            left = await db.Expenses.Where(e => e.ContainerId == box.Id).Select(e => e.Id).ToListAsync();
+        Check("the box has every expense line to lose", left.Count == 3, left.Count + " lines");
+        foreach (var id in left)
+            await inventory.DeleteExpenseAsync(id);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var items = await db.ContainerItems.AsNoTracking().Where(i => i.ContainerId == box.Id).ToListAsync();
+            Check("every item's landed cost is its goods cost again",
+                items.All(i => i.LandedUnitCost == i.UnitCost),
+                string.Join("; ", items.Select(i => $"{i.Id}:{i.LandedUnitCost}/{i.UnitCost}")));
+            var line = await db.SaleLines.AsNoTracking().Include(l => l.Sale).SingleAsync(l => l.SaleId == bill1.Id);
+            Eq("and the sold line with it, so no freight is left charged to a shipment that has none",
+                4_800m, Money.Round(line.Quantity * line.UnitCost));
+        }
+        Check("and the page stops talking about a sharing there is nothing to share",
+            (await inventory.GetExpenseSplitAsync(box.Id)).Tape == "", "the tape should be blank");
+
+        var bare = await inventory.CreateContainerAsync("NO RATE box", null, "Japan", new DateTime(2026, 3, 2), null);
+        await inventory.AddGoodsAsync(bare.Id, "Vase", "pcs", "V-1", 10m, 100m, null, null, null, 1m, null);
+        await Throws<InvalidOperationException>("a yen expense on a container with no yen rate is refused, not read as rupees",
+            () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Customs Duty", 180_000m, null, "JPY"));
+        await Throws<InvalidOperationException>("and zero is not an expense in either currency",
+            () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Sea Freight", 0m, null, "PKR"));
+        await Throws<InvalidOperationException>("nor is a negative one, which would take freight off a cost",
+            () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Rebate", -5_000m, null, "PKR"));
+    }
 
     private static void Head(string text) => Console.WriteLine(Environment.NewLine + "  " + text);
 

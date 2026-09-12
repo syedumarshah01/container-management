@@ -57,6 +57,7 @@ public class AppDbContext : DbContext
         model.Entity<ContainerItem>(e =>
         {
             e.Ignore(x => x.EffectiveCost);
+            e.Ignore(x => x.CostEachFreight);
             e.Property(x => x.QuantityReceived).HasPrecision(18, 3);
             e.Property(x => x.QuantityRemaining).HasPrecision(18, 3);
             e.Property(x => x.UnitCost).HasPrecision(18, 2);
@@ -137,6 +138,10 @@ public class AppDbContext : DbContext
             e.ToTable("Expenses");
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.Category).HasMaxLength(80);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.AmountForeign).HasPrecision(18, 2);
+            e.Property(x => x.RateUsed).HasPrecision(18, 4);
+            e.Ignore(x => x.SourceText);
             e.HasOne(x => x.Container).WithMany(c => c.Expenses).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
         });
 

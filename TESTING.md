@@ -23,6 +23,7 @@ shift a figure on screen.
 | an invoice's standing | the "previous ledger balance" on a printed bill is what their ledger held up to that bill's own line, not today's total with the bill subtracted from it - so re-printing a bill says the same thing about that day whatever has happened since, the money paid after it shows on its own line as today's figure, and the next bill's previous balance carries on from this one through whatever came between |
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
+| the freight in the cost | an item's weight in the sum is what a piece weighs times how many were landed; the shipment's expenses - rupees as written, yen converted once at the container's rate, with that rate kept on the line - are added up, divided by that weight and shared back onto the items, so the **shares equal the expenses to the paisa** and the paisa that will not divide goes on the heaviest lot; the per-piece cost then carries what a piece can carry in paisa and the few rupees left over are named on the page, not folded into a price; **an item with no weight stops the sharing for the whole box** rather than leaving its freight on someone else's cost; and deleting every expense brings every cost back to the goods price, the sold lines with it |
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries, and every line of their book puts its money in exactly one column of the page and of the paper - a bill, a receipt, goods back, money handed over - so the four columns run the balance and nothing is counted twice or left out |
@@ -120,10 +121,32 @@ the bill minus the payments, and the form used to write the bill without looking
 bill past what you had already handed over and the container simply started owing a negative amount. It
 refuses now, and names the figure it is refusing.
 
-**Chosen, not a defect - container expenses stay out of profit.** After the audit, the decision was
-that "profit" on Home and on the Containers list means sold minus the cost of those goods, with
-freight, customs and clearing shown beside it rather than through it. If that ever reads wrong at
-the till, the two words to change are Profit and Margin on those two pages.
+**Replaced: the container's freight, customs and clearing are now inside the cost of the goods.**
+The decision after the audit was that profit meant sold less the goods price, with the shipment's
+expenses shown beside it. That is no longer how it works, and this paragraph is here so the change is
+visible rather than remembered: each item carries a weight, the expenses on the container are added up
+and divided by the weight of everything in the box, and each item's share - by its own weight - is added
+to its cost price. Profit on Home, on the containers list and on the Profit page is sold less *that*
+cost, so a container that was landed at a loss no longer reports a profit. What follows from it:
+
+- A yen expense is converted at the rate written on the container, at the moment it is saved, and the
+  rupee total, the yen figure and the rate are all kept on the line. Changing the rate later re-values
+  nothing: money already paid to a clearing agent is a fact, not a rate. A container with no yen rate
+  yet is *refused* a yen expense rather than having ¥180,000 read as Rs 180,000.
+- The cost of a piece is kept to the paisa, like every money figure in this book, so a bill can be
+  checked against the cost in the grid. A thousand pieces cannot always carry their lot's exact share
+  in whole paisa, so what is left - a few rupees on a large freight bill - is stated on the page instead
+  of being hidden in a cost with three decimals.
+- The divisor is the goods, not the paperwork: what each lot's pieces weigh, added up. The container's own
+  "Weight (kg)" box on Import details is what the shipping papers say the load weighed, and it is
+  deliberately not divided by, because a divisor that cannot be traced back to the items cannot be checked
+  against them. The tape under the expenses prints the figure that *was* used, so when the two differ it is
+  visible on the page rather than quietly changing costs.
+- Weight stops being optional for that container's costs the moment it has expenses: if any item in the
+  box has no weight, nothing is shared out at all, the expense stays on the container, and the page says
+  so. Sharing the unweighed lot's freight onto its neighbours would move prices with no trace.
+- Lines already sold are re-costed with the landed figure, as they are whenever a cost is corrected, so
+  the profit a container made moves when its freight is entered. Deleting the expense moves it back.
 
 **Not changed - noted.** Some tables (`SupplierPayments`, `SaleReturns`, `CashBook`, `ShopExpenses`,
 `StockAdjustments`) were created with money as SQLite `REAL`, a float, while the model writes money as
@@ -197,6 +220,16 @@ rather than assuming it. Say the word and I will move those columns to text for 
    that difference is what a closing balance is for. A month with nothing in it should be a row of dashes,
    not a missing row. Press Print and the paper should carry the same figures, the same twelve-plus-total
    shape, and one line saying what the year was carrying when it opened.
+4e. On a container, type a weight (kg each) on two items and enter a freight expense: the line under the
+   expenses list should read "Rs X over Y kg = Rs Z a kilo", and each item's cost should have risen by its
+   own kilos times that Z, divided by how many pieces were landed. Do it on paper for one item and it
+   should come out the same to the paisa, with the paisa that would not divide sitting on the heaviest lot.
+   Enter an expense in ¥ and the rupee it comes to should be shown *before* Add is pressed and kept on the
+   line afterwards; change the rate afterwards and that line should not move. Put a third item in with no
+   weight and the whole sharing should stop - costs back at the goods prices, and the page saying one item
+   has no weight - and weigh it to see every item in the box re-costed over the new total. Then delete the
+   expenses one by one: the costs, and the sold lines from those lots, should come back to the goods prices
+   paisa for paisa.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

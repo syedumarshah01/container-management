@@ -78,6 +78,10 @@ public class ContainerItem
     public decimal LandedUnitCost { get; set; }
     public decimal? Cartons { get; set; }
     public decimal? Cbm { get; set; }
+    /// <summary>What one piece weighs, in kilograms - the same figure the order sheet asks for, and the
+    /// one written on the carton. The container's freight is shared out over what the lot weighs in all,
+    /// which is this times how many were received. Null means it has not been weighed, which stops the
+    /// sharing for the whole container rather than guessing at it.</summary>
     public decimal? WeightKg { get; set; }
     public string? PhotoPath { get; set; }
     public string? Notes { get; set; }
@@ -85,7 +89,20 @@ public class ContainerItem
 
     public List<SaleLine> SaleLines { get; set; } = new();
 
-    public decimal EffectiveCost => UnitCost;
+    /// <summary>
+    /// What the piece actually cost: the price of the goods plus this item's share of the container's
+    /// expenses, which are shared out by weight (see InventoryService.SplitExpense). Every cost figure in the app - a
+    /// sold line's cost, what stock left in the store is worth, profit - reads this and not UnitCost, so
+    /// freight and customs are in the cost of the goods rather than a number sitting beside them.
+    /// LandedUnitCost is written by that one method, from UnitCost, every time an expense or a weight
+    /// changes: it is never added to, so no amount can be shared out twice.
+    /// </summary>
+    public decimal EffectiveCost => LandedUnitCost > 0 ? LandedUnitCost : UnitCost;
+
+    /// <summary>The freight and customs carried by one piece, on its own - what the cost column shows as
+    /// "of which freight", and the difference a shop can check: it is the item's share of the container's
+    /// expenses divided by how many pieces that share was bought for.</summary>
+    public decimal CostEachFreight => LandedUnitCost > 0 ? LandedUnitCost - UnitCost : 0m;
 }
 
 public class Customer
@@ -230,8 +247,31 @@ public class ContainerExpense
     public CargoContainer Container { get; set; } = null!;
     public DateTime Date { get; set; } = DateTime.Now;
     public string Category { get; set; } = "Other";
+
+    /// <summary>Always Pakistani rupees - what the books, the container's total and each item's cost use -
+    /// whether the line was written in rupees or in yen.</summary>
     public decimal Amount { get; set; }
+
+    /// <summary>The currency the figure was written in, so the shop can keep its own paperwork's number on
+    /// the line instead of only the conversion of it.</summary>
+    public string Currency { get; set; } = "PKR";
+
+    /// <summary>The amount as typed, in Currency. Zero on a line written in rupees.</summary>
+    public decimal AmountForeign { get; set; }
+
+    /// <summary>The yen rate this line was converted at. Kept on the line rather than read from the
+    /// container, because a rate changed next month must not re-value an expense already paid; the figure
+    /// on paper and the figure in the cost are then the same figure forever.</summary>
+    public decimal? RateUsed { get; set; }
+
     public string? Notes { get; set; }
+
+    /// <summary>How a rupee total was arrived at, for the line itself: a yen expense shows the yen figure
+    /// and the rate beside it, so nobody has to trust the conversion after the day it was written.</summary>
+    public string SourceText => Currency == "PKR" || AmountForeign <= 0
+        ? ""
+        : Money.Yen(AmountForeign)
+          + (RateUsed is decimal rate ? " at " + rate.ToString("0.00####") + " = " + Money.Pkr(Amount) : "");
 }
 
 public class Supplier

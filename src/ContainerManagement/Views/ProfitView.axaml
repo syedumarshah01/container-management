@@ -57,7 +57,11 @@
             <DataGridTextColumn Header="Container" Binding="{Binding Title}" Width="*" />
             <DataGridTextColumn Header="Stock left" Binding="{Binding RemainingValueText}" Width="130" />
             <DataGridTextColumn Header="Sales" Binding="{Binding RevenueText}" Width="120" />
-            <DataGridTextColumn Header="Expenses" Binding="{Binding ExpensesText}" Width="120" />
+            <!-- Not a second deduction: these are the container's freight and customs, already inside the
+                 cost of the goods sold, because they were shared out into the item costs by weight. The
+                 column is here so the sharing can be checked against the container page, not subtracted
+                 from Profit again. -->
+            <DataGridTextColumn Header="Freight &amp; customs (in the cost)" Binding="{Binding ExpensesText}" Width="200" />
             <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="130" />
           </DataGrid.Columns>
         </DataGrid>
