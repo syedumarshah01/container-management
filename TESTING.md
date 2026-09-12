@@ -36,6 +36,7 @@ shift a figure on screen.
 | the supplier | one cash-book line per payment, never two, and every payment has one |
 | the container's "we owe" box | the figure typed there is what We owe shows: money handed over at creation is recorded as a payment on top of it, never netted off it, and paying past the figure is refused |
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
+| the printed order sheet | the paper carries each row's own figures and the sheet's own totals - nothing is worked out again for the printer; a yen bill prints in yen with the rate *that row* was taken at; the rows' profit and the sheet's profit differ by exactly the bills; and no money figure on the paper has a third decimal |
 | a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
@@ -93,6 +94,16 @@ sheet to find its expenses missing, and the total is unchanged. From then on it 
 
 The rate box for a bill is the row's own (`Rs for 1 yen` under the amount), not the box at the top of the
 page: the top box prices the *goods*, and clicking an old bill should not quietly re-price the whole sheet.
+
+**Printed.** A sheet prints on the same paper as the customer's statement, with the eleven columns the sheet
+has - item, quantity, yen each, yen total, cost each, cost total, kilos each and in all, selling each and in
+all, and the row's profit - then its bills, then the money the lot adds up to. Nothing is recomputed for the
+printer: every figure is read off the row, the bill or the total it belongs to, which is the only way the
+paper cannot say something the screen never did. Paper carries what the screen leaves out, because a sheet may
+be read by someone with no access to the app and argued about later: the rate the yen was taken at, each bill's
+own rate beside it, why the rows' profit is not the lot's, and that none of it has been posted to stock, the
+supplier or the till. Pressing Print while the sheet has unsaved typing saves it first, as Back does - a
+printout that disagrees with the book is the worst of both.
 
 **Fixed - the order sheet rounded later than the rest.** The sheet's expense figure and its
 yen rate were taken as typed while you worked, and rounded only on the way to the database. A sheet
@@ -277,6 +288,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and the "+ EXPENSE" figure at the top should be exactly the two rows added. Change the rate at the top of
    the sheet to something else and save: the yen bill should not move, while a bill typed after that is taken
    at the new rate. Then delete one row: the expense figure should fall by that row alone, to the paisa.
+4g. Press Print on an order sheet carrying at least one bill in ¥ and one in Rs. The eleven columns should
+   match the grid figure for figure, the bills should print with the rate each was taken at, and the two
+   profit figures - the rows' total in the column and the sheet's line under the bills - should differ by
+   exactly the bills. Then add a bill, print again without pressing Save, and confirm the paper shows it (the
+   save happens under the button). A sheet with no bills should print "No bills on this sheet" rather than an
+   empty table.
 4f. Choose ¥ in the expense row and the *Rs for 1 yen* box should appear there with the container's rate in
    it, together with the rupee the figure comes to - before Add, and the same figure on the line afterwards
    under "Entered as". Leave the rate at nothing (or 1) and Add should refuse, saying why, rather than

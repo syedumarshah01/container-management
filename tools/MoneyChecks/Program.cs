@@ -544,6 +544,47 @@ public static class Program
             copied.Expenses[0].AmountPkr == 192_618m && copied.Expenses[0].RateUsed == 1.0701m,
             $"{copied.Expenses[0].AmountPkr} at {copied.Expenses[0].RateUsed}");
 
+        Head("the printed sheet carries the figures the sheet showed");
+        var print = new PrintService();
+        var html = print.BuyPlanHtml(saved, new ShopSettings { CompanyName = "Check shop" });
+        foreach (var l in saved.Lines)
+        {
+            Check("the printed row carries " + l.ItemNameText + "'s rupees, yen, kilos and profit",
+                html.Contains(l.QuantityText) && html.Contains(l.CostYenText) && html.Contains(l.CostPkrText)
+                && html.Contains(l.UnitWeightText) && html.Contains(l.TotalWeightText)
+                && html.Contains(l.SaleTotalText) && html.Contains(l.ProfitText), l.ItemNameText);
+        }
+        Check("a yen bill is printed in yen, at the rate that row was taken at",
+            Plain(html).Contains(Plain("\u00a5180,000 at 1.0701 = Rs 192,618")), "the bills table reads otherwise");
+        Check("a rupee bill states its amount, and the two are added up under them",
+            Plain(html).Contains(Plain("Rs 100,000.01")) && Plain(html).Contains(Plain("Rs 292,618.01")),
+            "the bills or their total are not on the paper");
+        Check("the rate is on the paper, so the yen figures can be checked without the app",
+            html.Contains("Rs 1.0701 for 1 yen"), "the line under the title");
+        Check("and the totals are the sheet's own, not worked out again for the printer",
+            html.Contains(saved.Total.CostPkrText) && html.Contains(saved.Total.SpendText)
+            && html.Contains(saved.Total.SaleText) && html.Contains(saved.Total.ProfitText)
+            && html.Contains(saved.Total.RowsProfitText) && html.Contains(saved.Total.ItemCountText),
+            "one of them is missing or different");
+        Eq("the rows' profit is before the bills, the sheet's after them - by exactly the bills",
+            292_618.01m, Money.Round(saved.Total.RowsProfitPkr - saved.Total.ProfitPkr));
+        // Money on paper is read with a pencil in the margin, so a figure with a paisa it cannot show is a
+        // figure that will not add up. Rates are allowed their decimals - they are not amounts.
+        var onPaperOnly = System.Text.RegularExpressions.Regex.Replace(html, @"Rs [\d.,]+ for 1 yen", "");
+        Check("nothing printed has a third decimal, so the paper can be added up by hand",
+            !System.Text.RegularExpressions.Regex.IsMatch(onPaperOnly, @"(?:Rs|\u00a5) ?[\d,]+\.\d{3}\b"),
+            "a fraction reached the paper");
+        Check("the paper says what it is: a plan, not a posting",
+            html.Contains("nothing here has been entered in the stock book"), "the footnote is gone");
+
+        var blankId = (await plans.CreateAsync("BLANK print")).Id;
+        var blankSheet = await plans.GetAsync(blankId);
+        var blankHtml = print.BuyPlanHtml(blankSheet, new ShopSettings());
+        Check("a sheet with no bills says so, rather than printing an empty table",
+            blankHtml.Contains("No bills on this sheet") && !blankHtml.Contains("<h2>Bills</h2>")
+            && blankHtml.Contains("Rs 0"), blankHtml.Length.ToString() + " chars");
+        await plans.DeleteAsync(blankId);
+
         Head("saving a sheet again does not re-value the bills already on it");
         // The page sends an untouched row back with the rate that row was converted at, which is what makes
         // this a no-op; the sheet's own rate has moved on, and only the next figure typed follows it.

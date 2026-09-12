@@ -816,6 +816,13 @@ public class BuyPlanTotal
     /// <summary>Sold everything, minus what went in.</summary>
     public decimal ProfitPkr => SalePkr - SpendPkr;
 
+    /// <summary>
+    /// What the goods rows alone come to, before the bills: the column of a printed sheet's per-row profit,
+    /// which does not add up to the profit below it because the bills belong to the lot and not to a row.
+    /// Stated here rather than worked out on the paper, so a printed figure is a figure the model holds.
+    /// </summary>
+    public decimal RowsProfitPkr => Money.Round(SalePkr - CostPkr);
+
     public decimal MarginPct => SalePkr > 0.009m ? ProfitPkr / SalePkr * 100m : 0m;
 
     public bool ProfitIsGood => ProfitPkr >= 0;
@@ -827,6 +834,7 @@ public class BuyPlanTotal
     public string SpendText => Money.Pkr(SpendPkr);
     public string SaleText => Money.Pkr(SalePkr);
     public string ProfitText => Money.Pkr(ProfitPkr);
+    public string RowsProfitText => Money.Pkr(RowsProfitPkr);
     public string MarginText => Money.Pct(MarginPct);
     public string WeightText => Money.Kg(TotalWeightKg) + " kg";
 

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using ContainerManagement.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -15,6 +16,7 @@ namespace ContainerManagement.ViewModels;
 public partial class BuyPlanDetailViewModel : ViewModelBase
 {
     private readonly BuyPlanService _plans;
+    private readonly PrintService _print;
     private readonly AccessService _access;
     private readonly IAppShell _shell;
     private readonly int _id;
@@ -22,10 +24,12 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
     private readonly List<BuyPlanExpenseRow> _expenseDraft = new();
     private bool _busy;
 
-    public BuyPlanDetailViewModel(int id, BuyPlanService plans, AccessService access, IAppShell shell)
+    public BuyPlanDetailViewModel(int id, BuyPlanService plans, PrintService print, AccessService access,
+        IAppShell shell)
     {
         _id = id;
         _plans = plans;
+        _print = print;
         _access = access;
         _shell = shell;
     }
@@ -383,6 +387,36 @@ public partial class BuyPlanDetailViewModel : ViewModelBase
         {
             _shell.Notify(ex.Message, true);
         }
+    }
+
+    /// <summary>
+    /// The sheet on paper. It prints what the book holds, so a sheet with unsaved typing is written first,
+    /// exactly as pressing Back does: paper and screen must not be two answers to one lot. Staff cannot
+    /// write, so theirs prints the saved sheet as it stands rather than failing on a save they are not allowed.
+    /// </summary>
+    [RelayCommand]
+    private async Task PrintAsync()
+    {
+        if (IsDirty && IsOwner)
+        {
+            try
+            {
+                await WriteAsync();
+            }
+            catch (Exception ex)
+            {
+                _shell.Notify(ex.Message, true);
+                return;
+            }
+        }
+
+        var plan = await _plans.GetAsync(_id);
+        if (plan is null)
+        {
+            _shell.Notify("This sheet is gone. It may have been deleted.", true);
+            return;
+        }
+        _print.OpenHtml(_print.BuyPlanHtml(plan, ShopSettings.Load()), $"order-sheet-{_id}.html");
     }
 
     [RelayCommand]
