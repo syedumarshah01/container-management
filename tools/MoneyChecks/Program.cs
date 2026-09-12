@@ -561,11 +561,20 @@ public static class Program
             "the bills or their total are not on the paper");
         Check("the rate is on the paper, so the yen figures can be checked without the app",
             html.Contains("Rs 1.0701 for 1 yen"), "the line under the title");
-        Check("and the totals are the sheet's own, not worked out again for the printer",
-            html.Contains(saved.Total.CostPkrText) && html.Contains(saved.Total.SpendText)
+        Check("and the summary is the sheet's own figures, not worked out again for the printer",
+            html.Contains(saved.Total.CostYenText) && html.Contains(saved.Total.CostPkrText)
+            && html.Contains(saved.Total.ExpenseText) && html.Contains(saved.Total.SpendText)
             && html.Contains(saved.Total.SaleText) && html.Contains(saved.Total.ProfitText)
+            && html.Contains(saved.Total.MarginText) && html.Contains(saved.Total.WeightText)
             && html.Contains(saved.Total.RowsProfitText) && html.Contains(saved.Total.ItemCountText),
             "one of them is missing or different");
+        Check("the summary is a table of figures, with its seven money words on it",
+            html.Contains("<h2>Summary</h2>") && html.Contains("+ expense") && html.Contains("= all in")
+            && html.Contains("All sold for") && html.Contains("Margin"), "the summary block");
+        Check("and nothing on the sheet is explained in prose",
+            !html.Contains("class='muted'>A ") && !html.Contains("A plan, not")
+            && !html.Contains("The last column") && !html.Contains("converted once"),
+            "a sentence came back on the paper");
         Eq("the rows' profit is before the bills, the sheet's after them - by exactly the bills",
             292_618.01m, Money.Round(saved.Total.RowsProfitPkr - saved.Total.ProfitPkr));
         // Money on paper is read with a pencil in the margin, so a figure with a paisa it cannot show is a
@@ -574,15 +583,15 @@ public static class Program
         Check("nothing printed has a third decimal, so the paper can be added up by hand",
             !System.Text.RegularExpressions.Regex.IsMatch(onPaperOnly, @"(?:Rs|\u00a5) ?[\d,]+\.\d{3}\b"),
             "a fraction reached the paper");
-        Check("the paper says what it is: a plan, not a posting",
-            html.Contains("nothing here has been entered in the stock book"), "the footnote is gone");
+
 
         var blankId = (await plans.CreateAsync("BLANK print")).Id;
         var blankSheet = await plans.GetAsync(blankId);
         var blankHtml = print.BuyPlanHtml(blankSheet, new ShopSettings());
-        Check("a sheet with no bills says so, rather than printing an empty table",
-            blankHtml.Contains("No bills on this sheet") && !blankHtml.Contains("<h2>Bills</h2>")
-            && blankHtml.Contains("Rs 0"), blankHtml.Length.ToString() + " chars");
+        Check("a sheet with no bills prints an empty bills table with Rs 0 under it, and no sentence",
+            blankHtml.Contains("no bills") && blankHtml.Contains("<h2>Bills</h2>")
+            && Plain(blankHtml).Contains(Plain("Rs 0")) && !blankHtml.Contains("class='muted'>No"),
+            blankHtml.Length + " chars of paper");
         await plans.DeleteAsync(blankId);
 
         Head("saving a sheet again does not re-value the bills already on it");

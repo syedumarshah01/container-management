@@ -204,12 +204,11 @@ public class PrintService
     }
 
     /// <summary>
-    /// An order sheet on paper, in the eleven columns the sheet itself has, with the bills under it and the
-    /// money the lot adds up to below those. Nothing is worked out here: every figure is read off the row, the
-    /// bill or the total it belongs to, because a paper that recomputes is a paper that can print a number the
-    /// screen never showed. What the screen leaves out and the paper must not is the reasoning - the rate the
-    /// yen was taken at, why a bill's rupees do not move when the rate moves, and why the rows' profit and the
-    /// sheet's profit are two different numbers.
+    /// An order sheet on paper: the eleven columns the sheet has, its bills, and the summary the page shows
+    /// across its top. Nothing is worked out here - every figure is read off the row, the bill or the total it
+    /// belongs to, because a paper that recomputes is a paper that can print a number the screen never showed.
+    /// No prose either: the rate the yen was taken at is in the line under the title, each bill's own rate is
+    /// in its own line, and the goods column says "before bills" where the summary's profit is after them.
     /// </summary>
     public string BuyPlanHtml(BuyPlanRow plan, ShopSettings shop)
     {
@@ -222,7 +221,7 @@ public class PrintService
         sb.Append("<table><tr><th>Item</th><th class='num'>Qty</th><th class='num'>&yen; each</th>"
             + "<th class='num'>Total &yen;</th><th class='num'>Cost each</th><th class='num'>Total cost</th>"
             + "<th class='num'>kg each</th><th class='num'>Total kg</th><th class='num'>Sells each</th>"
-            + "<th class='num'>Total sells</th><th class='num'>Profit</th></tr>");
+            + "<th class='num'>Total sells</th><th class='num'>Profit, before bills</th></tr>");
         foreach (var l in plan.Lines)
         {
             sb.Append("<tr>");
@@ -247,46 +246,42 @@ public class PrintService
             + $"<th class='num'>{H(t.WeightText)}</th><th class='num'>&mdash;</th>"
             + $"<th class='num'>{H(t.SaleText)}</th><th class='num'>{H(t.RowsProfitText)}</th></tr>");
         sb.Append("</table>");
-        sb.Append("<p class='muted'>The last column is each row's sells less its own goods cost. The bills "
-            + "below belong to the whole lot, so they are not shared between the rows: a row's profit here is "
-            + "not yet the lot's.</p>");
 
-        if (plan.Expenses.Count > 0)
+        // The bills, always as a table - an empty one with Rs 0 under it states what the sheet costs, and
+        // needs no sentence beside it. A yen bill carries its own figure and its own rate in the middle
+        // column, and that is the whole explanation: the rupees on the right were multiplied once, at the
+        // rate in the line, and a reprint next month prints the same number whatever the rate is then.
+        sb.Append("<h2>Bills</h2>");
+        sb.Append("<table><tr><th>What it was for</th><th>As it was written</th>"
+            + "<th class='num'>Rs on the sheet</th></tr>");
+        foreach (var e in plan.Expenses)
         {
-            sb.Append("<h2>Bills</h2>");
-            sb.Append("<table><tr><th>What it was for</th><th>As it was written</th>"
-                + "<th class='num'>Rs on the sheet</th></tr>");
-            foreach (var e in plan.Expenses)
-            {
-                sb.Append("<tr>");
-                sb.Append($"<td>{H(e.DescriptionText)}</td>");
-                // A yen bill states its own figure and the rate it was taken at, which is the row's own and
-                // not the sheet's; a rupee bill has nothing to explain, so it states its amount.
-                sb.Append($"<td>{H(e.Note.Length > 0 ? e.Note : e.AmountText)}</td>");
-                sb.Append($"<td class='num'>{H(e.AmountText)}</td>");
-                sb.Append("</tr>");
-            }
-            var bills = plan.Expenses.Count == 1 ? "one bill" : plan.Expenses.Count + " bills";
-            sb.Append($"<tr class='total'><th>Total bills</th><th class='muted'>{H(bills)}</th>"
-                + $"<th class='num'>{H(t.ExpenseText)}</th></tr>");
-            sb.Append("</table>");
-            sb.Append("<p class='muted'>A bill written in yen was converted once, at the rate in the line "
-                + "above, and keeps that rate: re-printing this sheet next month prints the same rupees even "
-                + "if the rate on the sheet has moved. A bill is refused, not guessed at, if a yen figure "
-                + "arrives with no rate - a rate of 1 would book &yen;180,000 as Rs 180,000.</p>");
+            sb.Append("<tr>");
+            sb.Append($"<td>{H(e.DescriptionText)}</td>");
+            sb.Append($"<td>{H(e.Note.Length > 0 ? e.Note : e.AmountText)}</td>");
+            sb.Append($"<td class='num'>{H(e.AmountText)}</td>");
+            sb.Append("</tr>");
         }
-        else
-        {
-            sb.Append("<p class='muted'>No bills on this sheet: it costs the goods alone. Each bill is typed "
-                + "on the sheet, in yen or rupees as it was written, and this figure is those bills added up.</p>");
-        }
+        var bills = plan.Expenses.Count == 0
+            ? "no bills"
+            : plan.Expenses.Count == 1 ? "one bill" : plan.Expenses.Count + " bills";
+        sb.Append($"<tr class='total'><th>Total bills</th><th>{H(bills)}</th>"
+            + $"<th class='num'>{H(t.ExpenseText)}</th></tr>");
+        sb.Append("</table>");
 
-        sb.Append("<p><b>Goods " + H(t.CostPkrText) + " and bills " + H(t.ExpenseText)
-            + " make " + H(t.SpendText) + " all in. Sold for " + H(t.SaleText) + ", that leaves "
-            + H(t.ProfitText) + " - " + H(t.MarginText) + " of the selling.</b></p>");
-        sb.Append("<p class='muted'>A plan, not a purchase: nothing here has been entered in the stock book, "
-            + "the supplier's account or the till. Weights are what the pieces weigh, per piece and in all, so "
-            + "the kilos on this paper are the kilos a container's freight is later shared over.</p>");
+        // The sheet's summary, in the words and the order the figures come in across the top of the page. A
+        // line of figures is a line that gets checked; a sentence about the money is prose that gets skipped.
+        sb.Append("<h2>Summary</h2>");
+        sb.Append("<table><tr><th class='num'>&yen; cost</th><th class='num'>Rs cost</th>"
+            + "<th class='num'>+ expense</th><th class='num'>= all in</th>"
+            + "<th class='num'>All sold for</th><th class='num'>Profit</th><th class='num'>Margin</th>"
+            + "<th class='num'>Weight</th></tr>");
+        sb.Append($"<tr class='total'><th class='num'>{H(t.CostYenText)}</th>"
+            + $"<th class='num'>{H(t.CostPkrText)}</th><th class='num'>{H(t.ExpenseText)}</th>"
+            + $"<th class='num'>{H(t.SpendText)}</th><th class='num'>{H(t.SaleText)}</th>"
+            + $"<th class='num'>{H(t.ProfitText)}</th><th class='num'>{H(t.MarginText)}</th>"
+            + $"<th class='num'>{H(t.WeightText)}</th></tr>");
+        sb.Append("</table>");
         End(sb);
         return sb.ToString();
     }
