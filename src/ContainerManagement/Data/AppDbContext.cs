@@ -229,7 +229,6 @@ public class AppDbContext : DbContext
             // Six decimals, like a container's: the rupees on the row are this number times the yen figure,
             // so the row cannot hold one rate and re-derive another.
             e.Property(x => x.RateUsed).HasPrecision(18, 6);
-            e.Ignore(x => x.SourceText);
             e.HasIndex(x => x.PlanId);
         });
 
