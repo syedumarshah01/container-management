@@ -352,8 +352,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 ExpenseAmount ?? 0, ExpenseNotes, Currencies.CodeOf(ExpenseCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify("Expense added.");
-            ExpenseAmount = 0;
-            ExpenseNotes = "";
+            ClearExpenseForm();
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -390,6 +389,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
             await _inventory.DeleteExpenseAsync(SelectedExpense.Id);
             _shell.MarkChanged();
             _shell.Notify("Expense removed.");
+            // The row it was typed from is gone, so the boxes have nothing left to be true about.
+            ClearExpenseForm();
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -452,6 +453,29 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [RelayCommand] private void ToggleImport() => ShowImportEditor = !ShowImportEditor;
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.Back();
+
+    /// <summary>
+    /// The expense form as it stands before any of it is typed: nothing in the boxes, today on the date,
+    /// rupees at the currency. Add and Remove come through here. Pressing Save on a row does not, because that
+    /// row is still picked and its figures are still honest in the boxes above it - the same convention the
+    /// goods form keeps, so the two halves of the page let go of a draft at the same moment.
+    ///
+    /// The rate box is left alone: it is the container's rate rather than part of this entry, and a run of
+    /// yen bills is typed with one rate showing the whole time, which is also why the yen figures added
+    /// before now keep the rate they were taken at rather than whatever the box is set to next.
+    /// </summary>
+    private void ClearExpenseForm()
+    {
+        ExpenseCategory = "";
+        ExpenseAmount = null;
+        ExpenseNotes = "";
+        ExpenseCurrency = Currencies.EntryLabels[0];
+        ExpenseIsYen = false;
+        ShowExpensePreview = false;
+        ExpensePreview = "";
+        ExpenseDate = DateTimeOffset.Today;
+        SelectedExpense = null;
+    }
 
     private void ClearGoodsForm()
     {

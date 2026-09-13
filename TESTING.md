@@ -313,6 +313,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and the "+ EXPENSE" figure at the top should be exactly the two rows added. Change the rate at the top of
    the sheet to something else and save: the yen bill should not move, while a bill typed after that is taken
    at the new rate. Then delete one row: the expense figure should fall by that row alone, to the paisa.
+4i. On a container's page, add an expense and watch the form when the row appears: the description, the
+   amount, the notes and the currency should be empty again, and the date back on today - while the rate box
+   keeps the number it had, because that is the container's rate and not part of the entry you just made.
+   Pick a row, change it, press Save: the boxes should stay as they are, since the row is still selected.
+   Remove a row: the boxes should let go, since the figures in them belong to a line that no longer exists.
+   The order sheet's Expenses card behaves the same way, on purpose.
 4h. On the sell page, choose a container in the box beside the search and confirm the item search offers
    only that lot's goods; pick an item and confirm the box moves to its container by itself. Bill it, then
    leave Rs 2,000 of the bill unpaid. Open that container: "Collected" and "In the market" should read what
