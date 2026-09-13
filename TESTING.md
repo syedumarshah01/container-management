@@ -326,6 +326,10 @@ rather than assuming it. Say the word and I will move those columns to text for 
    that difference is what a closing balance is for. A month with nothing in it should be a row of dashes,
    not a missing row. Press Print and the paper should carry the same figures, the same twelve-plus-total
    shape, and one line saying what the year was carrying when it opened.
+   The columns are read down, so on the page the figures and the words naming them both sit in the middle of
+   their column - including the total line, which stays tinted and bolder than the months so it does not read
+   as a thirteenth month. The paper keeps its figures right-joined under their headings, because a column of
+   amounts is added up on paper the way it is added up in a ledger; only the page was asked to centre.
 4e. On a container, type a weight (kg each) on two items and enter a freight expense: the line under the
    expenses list should read "Rs X over Y kg = Rs Z a kilo", and each item's cost should have risen by its
    own kilos times that Z, divided by how many pieces were landed. Do it on paper for one item and it

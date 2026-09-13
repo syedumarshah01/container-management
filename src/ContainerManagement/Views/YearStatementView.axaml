@@ -3,12 +3,24 @@
              xmlns:vm="using:ContainerManagement.ViewModels"
              x:Class="ContainerManagement.Views.YearStatementView"
              x:DataType="vm:YearStatementViewModel">
+  <UserControl.Resources>
+    <!-- Every column header in Avalonia's grid keeps a strip at its right for the arrow that says "sorted by
+         this column" - 32 of them, whether a column can be sorted or not. A caption centred in what is left
+         of that strip is not centred over the figures beneath it, and these columns cannot be sorted at all:
+         the room is asked for and never used, so here it is given back. -->
+    <x:Double x:Key="DataGridSortIconMinWidth">0</x:Double>
+  </UserControl.Resources>
   <UserControl.Styles>
     <!--  The year's line at the foot of each table is a total, not a thirteenth month, and it is made to
           look like one: the band runs edge to edge because the cell's own padding is pulled back with a
           negative margin, so the tint does not break into chips between the columns.  -->
     <Style Selector="Border.Tint">
       <Setter Property="Background" Value="{StaticResource LineBrush}" />
+    </Style>
+    <!-- A statement is read down a column, so the figure and the word naming it stand in the same place:
+         both are centred in the column. -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.Bold">
       <Setter Property="FontWeight" Value="SemiBold" />
@@ -39,7 +51,8 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
-                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -49,7 +62,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding InText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -59,7 +72,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding OutText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -69,7 +82,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding NetText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -79,7 +92,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReturnsText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -89,7 +102,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ClosingText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -108,7 +121,8 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
-                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -118,7 +132,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding BillsText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -128,7 +142,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding SoldText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -138,7 +152,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReceivedText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -148,7 +162,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ReturnedText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -158,7 +172,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding StillOwedText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -168,7 +182,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding ProfitText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -187,7 +201,8 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
-                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" VerticalAlignment="Center" />
+                    <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding MonthText}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -197,7 +212,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding CountText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -207,7 +222,7 @@
                 <DataTemplate>
                   <Border Classes.Tint="{Binding Tint}" Margin="-10,0" Padding="10,0">
                     <TextBlock Classes.Bold="{Binding Bold}" Text="{Binding AmountText}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                   </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
