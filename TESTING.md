@@ -39,6 +39,7 @@ shift a figure on screen.
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | the printed order sheet | the paper carries each row's own figures, its bills and the sheet's seven-figure summary - nothing is worked out again for the printer, and no sentence explains anything; a yen bill prints in yen with the rate *that row* was taken at; the rows' profit and the summary's differ by exactly the bills; and no money figure on the paper has a third decimal |
 | a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
+| money received is against a named bill | the bill offered to be settled is stated with its number, its date, what is left on it and which container the goods came out of; the amount it names is the same subtraction the bill's own page runs, a settled or cancelled bill drops out of the list so it cannot be picked again, and money past what is left on the chosen bill is refused rather than split |
 | a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
@@ -120,6 +121,16 @@ sheet and the reports are one number.
 **Fixed - refusals lied about the quantity.** "Only 0.38 in stock" when 0.375 kg was left (the
 quantity formatter showed two decimals) invited you to type 0.38 and be refused again. Stock
 messages show three now.
+
+**Changed - money received has to name the bill it settles.** The form used to open with "Not against a
+specific invoice" already picked, so a receipt recorded without a second thought settled nothing: the money
+was honest, the customer's balance moved, and the bill stayed out there with the same amount on it while the
+advance sat unattributed - which is also money that belongs to no container's figures. The box now opens
+empty, Record refuses while nothing is chosen, and holding money as an advance is a line that has to be
+picked on purpose. What the list offers is read off the book rather than summarised: the number, the date,
+what is left, and the container the goods came out of by name and number, so the figure being settled can be
+seen before it is committed to. A pick survives a reload only while that bill is still owed on, and the box
+empties after a record, because the next receipt is a separate decision.
 
 **Fixed - an item's Save ignored the quantity box.** Saving an item took its landed count from the grid row
 and never from the box beside it, so correcting a miscount - 700 came in, not the 1,000 that was written -
@@ -287,6 +298,13 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and no rows, not vanish from the box - and it is there, even for the current month, even for a customer
    you have never been paid by. Record a payment dated in another month while the box is on one, and the box
    should move to the month the money was written into, so a save never looks like a loss.
+   Above that row, the bill being settled is named before it is recorded: the box opens with nothing chosen,
+   and each line says the invoice number, its date and what is left on it, with the container's name and its
+   number under that. Press Record with nothing picked and it is refused; "No bill - take it as an advance" is
+   the last line, and taking it is the only way money is held against no bill. Paying a bill down to nothing
+   should leave it out of the list altogether, and typing one paisa more than is left on the picked bill
+   should be refused with the amount that is left named back - the money is never quietly moved onto another
+   bill or held back from the one it was aimed at. After a record, the box and the amount are empty again.
 4b. Pay the container down to nothing on the We Owe page and it should read settled; try one paisa more
    and it should be refused, naming the figure that is owed. A container left over from before this rule,
    with money paid past its figure, shows nothing owed and says so in one line on the container form.

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ContainerManagement.ViewModels"
+             xmlns:m="using:ContainerManagement.Models"
              x:Class="ContainerManagement.Views.CustomerDetailView"
              x:DataType="vm:CustomerDetailViewModel">
   <StackPanel>
@@ -37,8 +38,19 @@
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Receive money" />
-        <TextBlock Classes="label" Text="Against invoice (optional)" />
-        <ComboBox ItemsSource="{Binding Unpaid}" SelectedItem="{Binding SelectedUnpaid}" />
+        <!-- Named as "Against invoice" with no (optional) on it, because the form refuses an unchosen one:
+             the figure and the bill it settles are one decision, not two. -->
+        <TextBlock Classes="label" Text="Against invoice" />
+        <ComboBox ItemsSource="{Binding Unpaid}" SelectedItem="{Binding SelectedUnpaid}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="m:UnpaidInvoice">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Label}" />
+                <TextBlock Classes="label" Text="{Binding Containers}" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
         <!-- The picker takes an Auto column and is left to its own width, as everywhere else in the app:
              a date box clipped to a column the page chose is a date that gets recorded wrong. -->
         <Grid ColumnDefinitions="Auto,160,150,*,Auto">

@@ -61,6 +61,7 @@ public class SalesService
         await using var db = await _factory.CreateDbContextAsync();
         var sales = await db.Sales.AsNoTracking()
             .Where(s => s.CustomerId == customerId && s.Status == SaleStatus.Active)
+            .Include(s => s.Lines).ThenInclude(l => l.Container)
             .ToListAsync();
         var pays = await db.Payments.AsNoTracking()
             .Where(p => p.CustomerId == customerId && p.SaleId != null)
@@ -76,11 +77,21 @@ public class SalesService
                 returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount));
             if (left > 0.009m)
             {
+                // Where the goods came from, named as the container page names them. A bill drawn across two
+                // lots says both - the money applies to the bill either way, and the split of it between the
+                // two containers is the reports' business, not a guess made at the till.
+                var lots = s.Lines.Select(l => l.Container)
+                    .DistinctBy(c => c.Id)
+                    .OrderBy(c => c.Title)
+                    .ToList();
                 list.Add(new UnpaidInvoice
                 {
                     SaleId = s.Id,
                     Remaining = left,
-                    Label = $"#{s.Id} {s.Date:dd MMM} · left {Money.Pkr(left)}"
+                    Label = $"#{s.Id} · {s.Date:dd MMM yyyy} · left {Money.Pkr(left)}",
+                    Containers = string.Join(" + ", lots.Select(c => string.IsNullOrWhiteSpace(c.ContainerNumber)
+                        ? c.Title
+                        : $"{c.Title} · {c.ContainerNumber}"))
                 });
             }
         }

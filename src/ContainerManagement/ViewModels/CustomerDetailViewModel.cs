@@ -130,11 +130,16 @@ public partial class CustomerDetailViewModel : ViewModelBase
         ReceivedText = Money.Pkr(rows.Where(l => l.Type != LedgerType.Return).Sum(l => l.Credit));
         OpeningAmount = rows.Where(r => r.Type == LedgerType.Opening).Sum(r => r.Debit - r.Credit);
 
+        // The advance row leads the list and is never picked for you: money that lands against no bill because
+        // the box happened to open on that line is money the shop decided nothing about, and it then belongs to
+        // no container's money either. A pick made before a reload is kept only while that bill is still owed
+        // on, so taking half of what was left leaves the same bill in the box and settling it leaves nothing.
+        var keepInvoice = SelectedUnpaid is { SaleId: > 0 } picked ? picked.SaleId : 0;
         Unpaid.Clear();
-        Unpaid.Add(new UnpaidInvoice { SaleId = 0, Label = "Not against a specific invoice", Remaining = 0 });
+        Unpaid.Add(new UnpaidInvoice { SaleId = 0, Label = "No bill - take it as an advance", Remaining = 0 });
         foreach (var u in await _sales.UnpaidInvoicesAsync(_id))
             Unpaid.Add(u);
-        SelectedUnpaid = Unpaid[0];
+        SelectedUnpaid = keepInvoice > 0 ? Unpaid.FirstOrDefault(u => u.SaleId == keepInvoice) : null;
 
         // The months on offer are the months this customer's receipts span, with the current month always
         // among them. A month where nothing came in is the fact someone most wants to confirm, so it is not
@@ -198,14 +203,28 @@ public partial class CustomerDetailViewModel : ViewModelBase
     [RelayCommand]
     private async Task ReceiveAsync()
     {
+        // The pick is required rather than defaulted, and being required is the whole point: an amount typed
+        // with nothing chosen underneath it used to be booked as an advance by whoever last edited this list.
+        // Taking money as an advance is still allowed, but it has to be the thing that was chosen.
+        if (SelectedUnpaid is null)
+        {
+            _shell.Notify("Say what this money is against: pick the invoice it settles, or the line that takes "
+                          + "it as an advance.", true);
+            return;
+        }
         try
         {
-            int? saleId = SelectedUnpaid is { SaleId: > 0 } u ? u.SaleId : null;
+            // Read through the row's own word for it, so the meaning is in the code as well as in the label:
+            // a bill number, or nothing to apply it to because this money is an advance.
+            int? saleId = SelectedUnpaid.IsAdvance ? null : SelectedUnpaid.SaleId;
             var when = PayDate?.DateTime ?? DateTime.Today;
             await _ledger.ReceivePaymentAsync(_id, when, PayAmount ?? 0, PayMethod, PayNotes, saleId);
             _shell.Notify("Payment recorded. Ledger updated.");
-            PayAmount = 0;
+            PayAmount = null;
             PayNotes = "";
+            // Let go of the bill too: the next receipt is another decision, and a box left showing the last
+            // one is how a receipt gets applied to a bill that had nothing left on it.
+            SelectedUnpaid = null;
             await LoadAsync();
             // A receipt dated into another month than the box is showing disappears from the list the
             // reader is looking at, which looks exactly like a save that failed. The box follows the date

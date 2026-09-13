@@ -1345,6 +1345,30 @@ public static class Program
             at.Previous, at.ThisInvoice, at.DueThatDay, at.DueToday);
         Check("while a bill printed on its own day keeps one total, and no apology about today",
             !quiet.Contains("Outstanding on their book today"), quiet);
+
+        // The money-received form offers its bills from this one method, so what it shows to be picked is the
+        // book's answer and not a summary of it: the number, the date, what is left, and which container the
+        // goods came out of - and nothing that is settled or cancelled, because a bill with no money left on it
+        // is not a thing money can be put against.
+        Head("the list money is received against, and the figures it states");
+        var offered = await sales.UnpaidInvoicesAsync(buyer.Id);
+        Check("one bill is offered: the unpaid one, and not the cancelled one", offered.Count == 1,
+            string.Join(" | ", offered.Select(u => u.Label)));
+        var row = offered[0];
+        Check("it is this bill", row.SaleId == bill.Id, $"{row.SaleId} vs {bill.Id}");
+        Check("its number, its date and what is left on it are all said",
+            row.Label.Contains($"#{bill.Id}") && row.Label.Contains("05 Feb 2026")
+            && row.Label.Contains(Plain(Money.Pkr(250m))), row.Label);
+        Check("and the container is named with its number, as the container page names it",
+            row.Containers.Contains("STANDING container") && row.Containers.Contains("CNT-S1"), row.Containers);
+        Eq("the amount it offers to settle is the amount the bill's own page says is left",
+            await sales.RemainingOnInvoiceAsync(bill.Id), row.Remaining);
+        await Throws<InvalidOperationException>("money past what is left on the chosen bill is refused, not split",
+            () => ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 3, 1), 250.01m, "Cash", null, bill.Id));
+        await ledger.ReceivePaymentAsync(buyer.Id, new DateTime(2026, 3, 1), 250m, "Cash", "the last of it", bill.Id);
+        Check("and a settled bill leaves the list, so it cannot be picked again",
+            (await sales.UnpaidInvoicesAsync(buyer.Id)).Count == 0,
+            string.Join(" | ", (await sales.UnpaidInvoicesAsync(buyer.Id)).Select(u => u.Label)));
     }
 
     /// <summary>Which one of a line's four money columns is filled: the dash is this app's own "nothing

@@ -576,11 +576,25 @@ public class CashBookRow
     public string OutText { get; set; } = "—";
 }
 
+/// <summary>
+/// A bill still carrying money, as the money-received form offers it: its number, its date and what is left
+/// on it in the first line, and the container the goods came out of - name and container number - in the
+/// second, because the number is what a packing list and a bill of lading agree on while the name is what a
+/// person remembers. Every figure here is read off the bill, never retyped: the amount left is the same
+/// subtraction the bill's own page and the customer's ledger run, so picking a line and being told a figure
+/// cannot be two different answers.
+///
+/// A row with SaleId 0 is not a bill. It is the deliberate choice of taking money as an advance, offered
+/// because money arrives before goods sometimes, and because a choice that is not offered is a choice that
+/// gets made by default.
+/// </summary>
 public class UnpaidInvoice
 {
     public int SaleId { get; set; }
     public string Label { get; set; } = "";
+    public string Containers { get; set; } = "";
     public decimal Remaining { get; set; }
+    public bool IsAdvance => SaleId == 0;
     public override string ToString() => Label;
 }
 
