@@ -43,22 +43,28 @@ the payments made on it; and the till's own lines add to the cash in hand the sh
 ## Rules for a check worth adding
 
 1. Drive the app's own services. A row written straight into the table proves the table, not the app.
-2. **Hand-derive the expected figure in rupees and paisa.** If you cannot work it out on paper, it is not a
+2. A wrapped message needs its `+`: writing `Eq("part one "` and then `"part two", a, b)` on the next line is
+   C, not C#. Say it loudly - that slip cost this file four errors, and those four hid five more, because a
+   file with a parse error gets no report on anything it cannot bind.
+3. A check belongs in the method that owns the fixtures it reads. Anything that speaks of the container or the
+   customer built at the top of `Flows` has to live inside `Flows`: the exactness sweep had drifted out to
+   class level, where those names do not exist, and it had therefore never been compiled at all.
+4. **Hand-derive the expected figure in rupees and paisa.** If you cannot work it out on paper, it is not a
    check, it is a screenshot - and it will happily agree with a bug.
-3. Compare a page's figure against the rows the page is built from. Two derivations, one answer, and any
+5. Compare a page's figure against the rows the page is built from. Two derivations, one answer, and any
    drift between them is the bug you were looking for.
-4. Never compare a rounded figure to an unrounded one. Round both sides, or read both from the same `Money`
+6. Never compare a rounded figure to an unrounded one. Round both sides, or read both from the same `Money`
    call. This has bitten this book before: two screens, one figure, a paisa apart.
-5. Prefer *relative* assertions where the fixture has history - the difference before and after the change -
+7. Prefer *relative* assertions where the fixture has history - the difference before and after the change -
    so one group of figures cannot hide in another's total.
-6. No hardcoded years. Derive from `DateTime.Today`, or the check starts failing on its own timetable.
-7. A refused write is a check: use `Throws<T>`. Guards are money rules with the sign left off.
-8. Never launch a browser, a printer, the clipboard or a file from a check.
-9. A detail string is evaluated whether the check passes or fails, so it must not throw: no `.Single()`, no
+8. No hardcoded years. Derive from `DateTime.Today`, or the check starts failing on its own timetable.
+9. A refused write is a check: use `Throws<T>`. Guards are money rules with the sign left off.
+10. Never launch a browser, a printer, the clipboard or a file from a check.
+11. A detail string is evaluated whether the check passes or fails, so it must not throw: no `.Single()`, no
    parse, no `.First()` on something that may be empty.
-10. If a check writes something the later checks do not expect, delete it in the same block. `Reconciliation`
+12. If a check writes something the later checks do not expect, delete it in the same block. `Reconciliation`
     books a throwaway container and takes it away again so the sections after it read the fixture they expect.
-11. **Run it.** A check nobody has run is a rumour about a check.
+13. **Run it.** A check nobody has run is a rumour about a check.
 
 ## Reading a failure
 
