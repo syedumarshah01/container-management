@@ -295,9 +295,9 @@ public static class Program
                 && backwards.TotalContainers == todayOnly.TotalContainers,
             $"{backwards.TotalRevenue} against {todayOnly.TotalRevenue} for {DateTime.Today:dd MMM yyyy} alone");
         var month = await reports.GetHomeMonthAsync();
-        var first = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         Check("the month under the card takes no dates at all, so none of this moved it - it is this month",
-            month.Days.Count == 0 || month.Days.All(d => d.Date >= first && d.Date < first.AddMonths(1)),
+            month.Days.Count == 0 || month.Days.All(d => d.Date >= monthStart && d.Date < monthStart.AddMonths(1)),
             month.Days.Count + " day rows");
 
         Head("a container that has only landed is still a container");
@@ -744,7 +744,326 @@ public static class Program
         await Throws<InvalidOperationException>("a negative cost is refused",
             () => inventory.AddGoodsAsync(container.Id, "Bad", "pcs", null, 5m, -1m, null, null, null, null, null));
 
-        await EverythingIsExactMoney(factory);
+        await EverythingIsExactMoney();
+
+        // The exactness sweep is a local function of this method on purpose: it reads the fixtures built
+        // above - the container, the customer, the two lots - and a method lifted out of here would
+        // lose them and quietly stop checking the shop it was written against.
+        async Task EverythingIsExactMoney()
+        {
+            Head("the day the goods actually landed");
+            Throws<InvalidOperationException>("a container is not created on a guessed arrival date",
+                () => inventory.CreateContainerAsync("No date", null, "China", null, null, null, null, null, null, null, null, null, 0m, 0m, null));
+            var backDated = await inventory.CreateContainerAsync("Back-dated", "CNT-0002", "China",
+                new DateTime(2026, 3, 14), null, null, null, null, null, null, null, null, 0m, 0m, null);
+            Check("a date in the past is kept exactly as written, not pushed to today",
+                backDated.ArrivalDate == new DateTime(2026, 3, 14), "stored " + backDated.ArrivalDate);
+            await inventory.UpdateImportDetailsAsync(backDated.Id, null, backDated.SupplierAmount, null, null,
+                new DateTime(2026, 3, 20));
+            await using (var dbDate = await factory.CreateDbContextAsync())
+            {
+                var corrected = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == backDated.Id);
+                Check("and the container page can put the day right afterwards",
+                    corrected.ArrivalDate == new DateTime(2026, 3, 20), "stored " + corrected.ArrivalDate);
+                // a save that does not show the date must not lose it
+                await inventory.UpdateImportDetailsAsync(backDated.Id, null, corrected.SupplierAmount, null, null);
+                var again = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == backDated.Id);
+                Check("a save that never mentions the date keeps the date it found",
+                    again.ArrivalDate == new DateTime(2026, 3, 20), "stored " + again.ArrivalDate);
+            }
+
+            Head("the figure typed on the container form is what the shop owes");
+            // "Goods worth 20 lac, 20 lac handed over now" is typed as: we owe 20 lac, paid 20 lac. The paid
+            // figure is a payment, not a reduction of the shopkeeper's own number, so the page must still say
+            // 20 lac owed - which is the whole rule, tested at the number.
+            var typedBox = await inventory.CreateContainerAsync("Typed balance", "CNT-0003", "China",
+                new DateTime(2026, 4, 2), null, null, null, null, null, null, null, "Yiwu Trading",
+                500_000m, 500_000m, "Cash");
+            Eq("the bill is stored as that figure plus the money handed over", 1_000_000m, typedBox.SupplierAmount);
+            var typedRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == typedBox.Id);
+            Eq("and We owe shows the figure that was typed", 500_000m, typedRow.Owed);
+            Check("in the shop's words, not in a netted-down one",
+                typedRow.Label.Contains("owe " + Money.Pkr(500_000m)), typedRow.Label);
+            await inventory.PaySupplierAsync(typedBox.Id, new DateTime(2026, 4, 3), 500_000m, "Cash", null);
+            Check("paying that figure settles the container",
+                (await cash.SupplierContainersAsync()).Single(t => t.Id == typedBox.Id).Label.EndsWith("settled"));
+            await Throws<InvalidOperationException>("and a paisa more is refused, because nothing is owed",
+                () => inventory.PaySupplierAsync(typedBox.Id, new DateTime(2026, 4, 4), 0.01m, "Cash", null));
+
+            // The other half: the money handed over at creation must reach the supplier's list and the till
+            // exactly once. A payment filed twice is the other way a container starts owing nothing and
+            // reading as overpaid.
+            await using (var dbAll = await factory.CreateDbContextAsync())
+            {
+                var pays = (await dbAll.SupplierPayments.AsNoTracking().ToListAsync()).Select(p => p.Id).ToList();
+                var links = (await dbAll.CashBook.AsNoTracking()
+                    .Where(e => e.Kind == CashBookKind.SupplierOut && e.SupplierPaymentId != null).ToListAsync())
+                    .Select(e => e.SupplierPaymentId!.Value).ToList();
+                Check("one till line per supplier payment, no line without a payment, no payment without a line",
+                    links.Count == pays.Count && links.Distinct().Count() == links.Count && pays.All(links.Contains),
+                    pays.Count + " payments, " + links.Count + " till lines");
+            }
+
+            Head("the return rule: their debt first, the cash for what is left over");
+            var askBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+            {
+                new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
+            }, 3_499.98m, "Cash", null, 0m, null);
+            var askLine = askBill.Lines.Single(l => l.ProductId == chargers.ProductId);
+            var asked = new List<SaleReturnInput> { new() { SaleLineId = askLine.Id, Quantity = 1m } };
+            var preview = await sales.PreviewReturnAsync(askBill.Id, asked);
+            Eq("the goods are credited back on their ledger", 1_999.99m, preview.Credit);
+            Eq("and only what the debt cannot absorb is paid from the cashbook", 1_499.99m, preview.Cash);
+            Check("so the page can say both halves, in rupees, before anything is pressed",
+                SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("Rs 500.00 comes off")
+                && SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("paid out of the cashbook"),
+                SalesService.DescribeReturn(preview.Credit, preview.Cash));
+            var posted = await sales.ReturnItemsAsync(askBill.Id, asked);
+            Eq("and posting pays out exactly what that line promised", preview.Cash, posted);
+            await using (var dbAsk = await factory.CreateDbContextAsync())
+            {
+                var led = await dbAsk.LedgerEntries.Where(e => e.SaleId == askBill.Id).ToListAsync();
+                Eq("their ledger shows the goods coming back", 1_999.99m,
+                    led.Where(e => e.Type == LedgerType.Return).Sum(e => e.Credit - e.Debit));
+                Eq("and the cash going out, as its own line", 1_499.99m,
+                    led.Where(e => e.Type == LedgerType.Adjustment).Sum(e => e.Debit - e.Credit));
+                Eq("while the bill itself is closed", 0m, await sales.RemainingOnInvoiceAsync(askBill.Id));
+            }
+
+            var second = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+            {
+                new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
+            }, 3_499.98m, "Cash", null, 0m, null);
+            var secondLine = second.Lines.Single(l => l.ProductId == chargers.ProductId);
+            var secondAsk = new List<SaleReturnInput> { new() { SaleLineId = secondLine.Id, Quantity = 1m } };
+            var preview2 = await sales.PreviewReturnAsync(second.Id, secondAsk);
+            var paidOut = await sales.ReturnItemsAsync(second.Id, secondAsk);
+            Eq("the same shape of bill settles the same way, to the paisa", preview2.Cash, paidOut);
+            Check("the same figures again on a second bill, so the preview is not a promise the posting breaks",
+                preview2.Credit == preview.Credit && preview2.Cash == paidOut,
+                "preview " + preview2.Cash + ", posted " + paidOut);
+            await using (var dbAsk2 = await factory.CreateDbContextAsync())
+                Check("looking at a return wrote nothing on its own: one return per bill",
+                    (await dbAsk2.SaleReturns.Where(r => r.SaleId == askBill.Id).ToListAsync()).Count == 1);
+
+            Head("paying a customer back: their book first, and the till by the same figure");
+            var adv = await ledger.CreateCustomerAsync("Advance Cartage", "0344-1112233", null, null);
+            var owesUs = await ledger.CreateCustomerAsync("Still Owes Traders", null, null, null);
+            await ledger.SetOpeningBalanceAsync(adv.Id, -5_000m);      // money they left sitting with the shop
+            await ledger.SetOpeningBalanceAsync(owesUs.Id, 2_000m);     // money they still owe us
+            var inHandBefore = await CashInHandAsync(factory);
+            var refundsSoFar = await RefundedTotalAsync(factory);
+            var bookMonthBefore = await reports.GetHomeMonthAsync();
+            Eq("an advance reads on We owe as what we owe them, without the minus sign",
+                5_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
+            Check("and a customer who still owes us is not on that page at all",
+                (await ledger.GetCustomerOwedAsync()).All(r => r.CustomerId != owesUs.Id));
+            await Throws<InvalidOperationException>(
+                "paying out to someone who owes us is refused outright, not netted against their debt",
+                () => ledger.PayCustomerAsync(owesUs.Id, DateTime.Today, 500m, "Cash", null));
+            Check("and the refusal wrote nothing", (await ledger.ListPayoutsAsync(owesUs.Id)).Count == 0);
+
+            await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 1_000.004m, "Cash", "part, handed at the shop");
+            var payoutSum = (await ledger.ListPayoutsAsync(adv.Id)).Sum(p => p.Amount);
+            Eq("a payout keeps the figure to the paisa, like every other money box", 1_000m, payoutSum);
+            Eq("their balance moves towards nothing by exactly that", -4_000m, await ledger.GetBalanceAsync(adv.Id));
+            Eq("the till is lighter by the same figure, and by nothing else",
+                inHandBefore - 1_000m, await CashInHandAsync(factory));
+            Eq("so what We owe shows is the four thousand left, not the five thousand it started at",
+                4_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
+            Eq("a payout is never counted as a refund of a bill, so the two figures stay separate",
+                refundsSoFar, await RefundedTotalAsync(factory));
+            var advRow = (await ledger.GetLedgerAsync(adv.Id)).Single(r => r.Type == LedgerType.Payout);
+            Check("their page keeps it out of \"Sold\" and shows it under \"Paid out\"",
+                advRow.SoldText == "\u2014" && advRow.PaidOutText == Money.Pkr(1_000m),
+                advRow.SoldText + " / " + advRow.PaidOutText);
+
+            await using (var dbOut = await factory.CreateDbContextAsync())
+            {
+                var till = await dbOut.CashBook.Where(e => e.Kind == CashBookKind.CustomerOut).ToListAsync();
+                Check("one till line, as money out, naming who was paid and how",
+                    till.Count == 1 && till.Sum(e => e.AmountOut) == 1_000m && till.Sum(e => e.AmountIn) == 0m
+                    && till.All(e => e.Description.Contains("Advance Cartage") && e.Description.Contains("Cash")),
+                    till.Count + " till lines");
+                Check("it is not tied to a payment, so deleting one of their payments can never take it away",
+                    till.All(e => e.PaymentId == null));
+                var led = await dbOut.LedgerEntries.Where(e => e.Type == LedgerType.Payout).ToListAsync();
+                Check("and their ledger carries it as a debit, which is what pulls their balance up",
+                    led.Count == 1 && led.Sum(e => e.Debit - e.Credit) == 1_000m, led.Count + " lines");
+                Check("the We Owe page's note is on that line too",
+                    led.Count == 1 && led.All(e => e.Description.Contains("part, handed at the shop")),
+                    string.Join(" | ", led.Select(e => e.Description)));
+                Check("no payment row was invented, so nothing on their bills moved",
+                    (await dbOut.Payments.Where(p => p.CustomerId == adv.Id).ToListAsync()).Count == 0);
+            }
+
+            await Throws<InvalidOperationException>("one paisa past what their book holds is refused",
+                () => ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000.01m, "Cash", null));
+            await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000m, "Bank Transfer", "cleared the advance");
+            Eq("paying the whole of it leaves nothing on either side", 0m, await ledger.GetBalanceAsync(adv.Id));
+            Check("so they are no longer owed, while the money handed over stays visible where it was paid",
+                (await ledger.GetCustomerOwedAsync()).Any(r => r.CustomerId == adv.Id
+                    && r.Owed == 0m && r.PaidOut == 5_000m));
+            var payoutLines = await ledger.ListPayoutsAsync(adv.Id);
+            Check("both payouts are on the record, newest first, and add back to the advance",
+                payoutLines.Count == 2 && payoutLines[0].Amount == 4_000m && payoutLines[1].Amount == 1_000m
+                && payoutLines.Sum(p => p.Amount) == 5_000m,
+                payoutLines.Count + " rows, " + string.Join(" + ", payoutLines.Select(p => p.Amount.ToString("0.00"))));
+            Eq("the till has paid out the whole advance and no more", 5_000m, await PaidOutTotalAsync(factory));
+            await using (var dbAdv = await factory.CreateDbContextAsync())
+            {
+                var linesAdv = await dbAdv.LedgerEntries.Where(e => e.CustomerId == adv.Id).ToListAsync();
+                Eq("their account end to end: an advance in, two payouts out, the book at nothing",
+                    0m, linesAdv.Sum(e => e.Debit - e.Credit));
+            }
+            var bookMonthAfter = await reports.GetHomeMonthAsync();
+            Eq("money paid to a customer settles a debt, it is not an expense, so profit did not move",
+                bookMonthBefore.Profit, bookMonthAfter.Profit);
+            Eq("and the billed money Home shows is untouched either", bookMonthBefore.Sales, bookMonthAfter.Sales);
+
+            Head("the order the book is read in");
+            var customerLedger = await ledger.GetLedgerAsync(customer.Id);
+            Check("the book hands a customer's lines over in the order they were made - by day, and within a day in writing order",
+                customerLedger.Zip(customerLedger.Skip(1), (a, b) => a.Date.Date < b.Date.Date
+                    || (a.Date.Date == b.Date.Date && a.Id < b.Id)).All(x => x),
+                customerLedger.Count + " lines");
+            Check("and numbers them step by step from the first line of the account",
+                customerLedger.First().Step == 1 && customerLedger[^1].Step == customerLedger.Count,
+                "steps " + customerLedger.First().Step + " to " + customerLedger[^1].Step);
+            Eq("so the last line's running figure is the balance at the head of the page",
+                await ledger.GetBalanceAsync(customer.Id), customerLedger[^1].RunningBalance);
+            Check("and every line in between adds up to it, one step at a time",
+                customerLedger.Skip(1).Zip(customerLedger, (now, before) =>
+                    now.RunningBalance - before.RunningBalance == now.Debit - now.Credit).All(x => x));
+
+            Head("the ledger in a chat message");
+            var chatBalance = await ledger.GetBalanceAsync(customer.Id);
+            var chat = PrintService.ShareText("AUDIT shop", customer.Name, customerLedger, chatBalance);
+            Check("the message carries every line of the ledger it was made from",
+                customerLedger.All(r => chat.Contains(r.DateText) && chat.Contains(r.RunningText)),
+                customerLedger.Count + " lines in " + chat.Length + " characters");
+            Check("and it asks for the balance the page shows, to the paisa",
+                chatBalance > 0
+                    ? chat.Contains("Balance due: " + Money.Pkr(Money.Round(chatBalance)))
+                    : chat.Contains("settled") || chat.Contains("over and above"),
+                Money.Pkr(chatBalance));
+            Check("and the total is said once, so nothing else in it can be read as the amount to send",
+                chat.Split("Balance due", StringSplitOptions.None).Length - 1 == (chatBalance > 0 ? 1 : 0),
+                Money.Pkr(chatBalance));
+            var typedNumbers = new[] { "0333-1234567", "+92 333 1234567", "0092-333-1234567", "3331234567", "0333 123 4567" };
+            Check("a number typed any of those ways is dialled as one number",
+                typedNumbers.All(x => PrintService.ShareNumber(x) == "923331234567"),
+                string.Join(" | ", typedNumbers));
+            await Throws<InvalidOperationException>(
+                "a book with no number to dial is refused before a link is built",
+                () => { PrintService.ShareNumber(null); return Task.CompletedTask; });
+            await Throws<InvalidOperationException>(
+                "and a number too short to dial is refused, rather than opened as a link to nowhere",
+                () => { PrintService.ShareNumber("091-445-1"); return Task.CompletedTask; });
+            var lacLine = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m);
+            Check("a balance over a lac is written in words beside the figures, so a typed 0 shows up",
+                lacLine.Contains(Money.Pkr(425_000.50m) + " (" + Money.Words(425_000.50m) + ")"),
+                (lacLine.Contains("Balance due") ? lacLine[lacLine.IndexOf("Balance due", StringComparison.Ordinal)..] : lacLine)
+                    .Replace("\n", " / "));
+            var settled = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 0m);
+            Check("a settled ledger is not asked for money",
+                !settled.Contains("Balance due") && settled.Contains("settled"));
+            var owedToThem = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, -4_000m);
+            Check("and money lying with the shop is offered back, not shown as a debt",
+                owedToThem.Contains(Money.Pkr(4_000m)) && owedToThem.Contains("over and above")
+                    && !owedToThem.Contains("Balance due"));
+            var bigBook = Enumerable.Range(0, 200).Select(i => new LedgerRow
+            {
+                Date = DateTime.Today.AddDays(-i),
+                Description = "Container " + (i + 1) + " sale",
+                Type = LedgerType.Sale,
+                Debit = 1_000m + i,
+                RunningBalance = 1_000m * (i + 1),
+                Step = 200 - i,
+            }).ToList();
+            var cut = PrintService.ShareText("AUDIT shop", "Abdul Rahim", bigBook, 200_000m);
+            Check("a book too long for a link is cut to what a browser reads whole",
+                Uri.EscapeDataString(cut).Length <= PrintService.ShareUrlBudget,
+                Uri.EscapeDataString(cut).Length + " of " + PrintService.ShareUrlBudget);
+            Check("and the cut gives up the oldest lines, never the total or the newest entry",
+                cut.Contains(bigBook[^1].Description) && !cut.Contains(bigBook[0].Description)
+                    && cut.Contains("earlier lines") && cut.Contains(Money.Pkr(200_000m)),
+                cut.Split('\n').Length + " lines sent of " + bigBook.Count);
+
+            Head("a message the shop typed is what goes");
+            var typedMessage = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
+                PrintService.ShareUrlBudget, "Salam {name}, {shop}: {balance} ({words}) on {date}.");
+            Check("the book's figures fill the braces and nothing else is added to what was typed",
+                typedMessage == "Salam Abdul Rahim, Khyber Traders: " + Money.Pkr(425_000.50m)
+                    + " (" + Money.Words(425_000.50m) + ") on " + DateTime.Today.ToString("dd MMM yyyy") + ".",
+                typedMessage);
+            Check("so a shop that wrote its own message is not sent a statement it never asked for",
+                !typedMessage.Contains("Balance due") && !typedMessage.Contains("sold Rs") && !typedMessage.Contains("JazakAllah"),
+                typedMessage);
+            var placed = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
+                PrintService.ShareUrlBudget, "Abdul Rahim, your lines:\n{ledger}\nSend {balance} by Friday.");
+            Check("{ledger} puts the customer's lines exactly where the shop asked, in the order the money moved",
+                placed.StartsWith("Abdul Rahim, your lines:\n" + customerLedger[0].DateText)
+                    && placed.Contains(customerLedger[^1].RunningText) && placed.EndsWith("by Friday."),
+                placed);
+            var tightTyped = PrintService.ShareText("s", "c", bigBook, 200_000m, 600, "{ledger}");
+            Check("the link limit falls on the ledger block only - a shop's own words are never cut off",
+                Uri.EscapeDataString(tightTyped).Length <= 600 && tightTyped.Contains(bigBook[^1].Description)
+                    && !tightTyped.Contains(bigBook[0].Description),
+                Uri.EscapeDataString(tightTyped).Length + " of 600");
+            var small = PrintService.FillTokens("{balance} ({words})", "s", "c", 400m);
+            Check("under a thousand rupees this book has no words, so the figures stand in rather than a hole",
+                small == Money.Pkr(400m) + " (" + Money.Pkr(400m) + ")", small);
+            Check("a word the book cannot fill is named before the message is saved, not sent to a customer",
+                string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")) == "{blance}",
+                string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")));
+            Check("and plain words are nobody's business to refuse",
+                PrintService.UnknownShareTokens("Salam, pay by Friday.").Count == 0
+                    && PrintService.UnknownShareTokens(null).Count == 0
+                    && PrintService.UnknownShareTokens("{ledger} only: {balance}").Count == 0);
+            Check("empty settings leave the book writing the whole message, as it did before anyone typed anything",
+                PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m,
+                    PrintService.ShareUrlBudget, "   ")
+                    == PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m),
+                "blank template vs none");
+            var tillRows = await cash.ListAsync();
+            Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
+                tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),
+                tillRows.Count + " lines");
+
+            Head("scanning every money figure that ended up in the database");
+            var bad = new List<string>();
+            await using var db = await factory.CreateDbContextAsync();
+
+            void Scan<T>(string what, List<T> rows, Func<T, (string, decimal)[]> pick)
+            {
+                foreach (var row in rows)
+                    foreach (var (name, value) in pick(row))
+                        if (Money.Round(value) != value)
+                            bad.Add($$$$$$$$$$$$"e} = {value}");
+            }
+
+            Scan("SaleLine", await db.SaleLines.ToListAsync(), x => new[] { ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost), ("LineTotal", x.LineTotal), ("LineCost", x.LineCost) });
+            Scan("Sale", await db.Sales.ToListAsync(), x => new[] { ("TotalAmount", x.TotalAmount), ("PaidNow", x.PaidNow), ("DiscountAmount", x.DiscountAmount) });
+            Scan("Payment", await db.Payments.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("LedgerEntry", await db.LedgerEntries.ToListAsync(), x => new[] { ("Debit", x.Debit), ("Credit", x.Credit) });
+            Scan("SaleReturn", await db.SaleReturns.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("SaleReturnLine", await db.SaleReturnLines.ToListAsync(), x => new[] { ("Amount", x.Amount), ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost) });
+            Scan("SupplierPayment", await db.SupplierPayments.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("CustomerPayout", await db.CustomerPayouts.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("ContainerExpense", await db.Expenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("ShopExpense", await db.ShopExpenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
+            Scan("CashBookEntry", await db.CashBook.ToListAsync(), x => new[] { ("AmountIn", x.AmountIn), ("AmountOut", x.AmountOut) });
+            Scan("ContainerItem", await db.ContainerItems.ToListAsync(), x => new[] { ("UnitCost", x.UnitCost), ("ForeignCost", x.ForeignCost), ("LandedUnitCost", x.LandedUnitCost) });
+            Scan("Container", await db.Containers.ToListAsync(), x => new[] { ("SupplierAmount", x.SupplierAmount) });
+            Scan("Product", await db.Products.ToListAsync(), x => new[] { ("LastSalePrice", x.LastSalePrice ?? 0m) });
+            Scan("BuyPlanLine", await db.BuyPlanLines.ToListAsync(), x => new[] { ("UnitCostYen", x.UnitCostYen), ("SalePricePkr", x.SalePricePkr) });
+            Scan("BuyPlan", await db.BuyPlans.ToListAsync(), x => new[] { ("ExpensePkr", x.ExpensePkr) });
+            Scan("BuyPlanExpense", await db.BuyPlanExpenses.ToListAsync(),
+                x => new[] { ("AmountPkr", x.AmountPkr), ("AmountForeign", x.AmountForeign) });
+            Check("nothing stored has a third decimal, so printed = stored = summed", bad.Count == 0, string.Join("; ", bad));
+        }
+
     }
 
     /// <summary>Everything the till has handed back, across the whole database.</summary>
@@ -1026,7 +1345,7 @@ public static class Program
         {
             var adj = (await db.StockAdjustments.AsNoTracking().Where(a => a.ContainerItemId == fan.Id).ToListAsync()).Single();
             Check("the count is kept as a record of what it moved from and to, so a shelf that disagrees with "
-                  + "the book can be traced to the day somebody walked round it",
+                + "the book can be traced to the day somebody walked round it",
                 adj.QuantityBefore == 87m && adj.QuantityAfter == 85m && adj.Reason == "twelve in the store room",
                 $"{adj.QuantityBefore} to {adj.QuantityAfter}: {adj.Reason}");
         }
@@ -1131,9 +1450,10 @@ public static class Program
         var allBoxes = await inventory.ListContainersAsync();
         await using (var db = await f.CreateDbContextAsync())
         {
+            var every = await db.Containers.AsNoTracking().Select(c => c.Id).ToListAsync();
             Check("and the containers page sees every box in the book, closed ones too, since a closed box is owed to",
-                allBoxes.Count == await db.Containers.Count(),
-                allBoxes.Count + " rows against " + await db.Containers.Count() + " containers");
+                allBoxes.Count == every.Count,
+                allBoxes.Count + " rows against " + every.Count + " containers");
         }
 
         Head("every row in this shop, reconciled to the figure it belongs to");
@@ -1248,321 +1568,6 @@ public static class Program
     }
 
     /// <summary>The invariant the whole app leans on: no money figure in the database has a third decimal.</summary>
-    private static async Task EverythingIsExactMoney(IDbContextFactory<AppDbContext> factory)
-    {
-        Head("the day the goods actually landed");
-        Throws<InvalidOperationException>("a container is not created on a guessed arrival date",
-            () => inventory.CreateContainerAsync("No date", null, "China", null, null, null, null, null, null, null, null, null, 0m, 0m, null));
-        var landed = await inventory.CreateContainerAsync("Back-dated", "CNT-0002", "China",
-            new DateTime(2026, 3, 14), null, null, null, null, null, null, null, null, 0m, 0m, null);
-        Check("a date in the past is kept exactly as written, not pushed to today",
-            landed.ArrivalDate == new DateTime(2026, 3, 14), "stored " + landed.ArrivalDate);
-        await inventory.UpdateImportDetailsAsync(landed.Id, null, landed.SupplierAmount, null, null,
-            new DateTime(2026, 3, 20));
-        await using (var dbDate = await factory.CreateDbContextAsync())
-        {
-            var corrected = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == landed.Id);
-            Check("and the container page can put the day right afterwards",
-                corrected.ArrivalDate == new DateTime(2026, 3, 20), "stored " + corrected.ArrivalDate);
-            // a save that does not show the date must not lose it
-            await inventory.UpdateImportDetailsAsync(landed.Id, null, corrected.SupplierAmount, null, null);
-            var again = await dbDate.Containers.AsNoTracking().SingleAsync(x => x.Id == landed.Id);
-            Check("a save that never mentions the date keeps the date it found",
-                again.ArrivalDate == new DateTime(2026, 3, 20), "stored " + again.ArrivalDate);
-        }
-
-        Head("the figure typed on the container form is what the shop owes");
-        // "Goods worth 20 lac, 20 lac handed over now" is typed as: we owe 20 lac, paid 20 lac. The paid
-        // figure is a payment, not a reduction of the shopkeeper's own number, so the page must still say
-        // 20 lac owed - which is the whole rule, tested at the number.
-        var typed = await inventory.CreateContainerAsync("Typed balance", "CNT-0003", "China",
-            new DateTime(2026, 4, 2), null, null, null, null, null, null, null, "Yiwu Trading",
-            500_000m, 500_000m, "Cash");
-        Eq("the bill is stored as that figure plus the money handed over", 1_000_000m, typed.SupplierAmount);
-        var typedRow = (await cash.SupplierContainersAsync()).Single(t => t.Id == typed.Id);
-        Eq("and We owe shows the figure that was typed", 500_000m, typedRow.Owed);
-        Check("in the shop's words, not in a netted-down one",
-            typedRow.Label.Contains("owe " + Money.Pkr(500_000m)), typedRow.Label);
-        await inventory.PaySupplierAsync(typed.Id, new DateTime(2026, 4, 3), 500_000m, "Cash", null);
-        Check("paying that figure settles the container",
-            (await cash.SupplierContainersAsync()).Single(t => t.Id == typed.Id).Label.EndsWith("settled"));
-        await Throws<InvalidOperationException>("and a paisa more is refused, because nothing is owed",
-            () => inventory.PaySupplierAsync(typed.Id, new DateTime(2026, 4, 4), 0.01m, "Cash", null));
-
-        // The other half: the money handed over at creation must reach the supplier's list and the till
-        // exactly once. A payment filed twice is the other way a container starts owing nothing and
-        // reading as overpaid.
-        await using (var dbAll = await factory.CreateDbContextAsync())
-        {
-            var pays = (await dbAll.SupplierPayments.AsNoTracking().ToListAsync()).Select(p => p.Id).ToList();
-            var links = (await dbAll.CashBook.AsNoTracking()
-                .Where(e => e.Kind == CashBookKind.SupplierOut && e.SupplierPaymentId != null).ToListAsync())
-                .Select(e => e.SupplierPaymentId!.Value).ToList();
-            Check("one till line per supplier payment, no line without a payment, no payment without a line",
-                links.Count == pays.Count && links.Distinct().Count() == links.Count && pays.All(links.Contains),
-                pays.Count + " payments, " + links.Count + " till lines");
-        }
-
-        Head("the return rule: their debt first, the cash for what is left over");
-        var askBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
-        {
-            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
-        }, 3_499.98m, "Cash", null, 0m, null);
-        var askLine = askBill.Lines.Single(l => l.ProductId == chargers.ProductId);
-        var asked = new List<SaleReturnInput> { new() { SaleLineId = askLine.Id, Quantity = 1m } };
-        var preview = await sales.PreviewReturnAsync(askBill.Id, asked);
-        Eq("the goods are credited back on their ledger", 1_999.99m, preview.Credit);
-        Eq("and only what the debt cannot absorb is paid from the cashbook", 1_499.99m, preview.Cash);
-        Check("so the page can say both halves, in rupees, before anything is pressed",
-            SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("Rs 500.00 comes off")
-            && SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("paid out of the cashbook"),
-            SalesService.DescribeReturn(preview.Credit, preview.Cash));
-        var posted = await sales.ReturnItemsAsync(askBill.Id, asked);
-        Eq("and posting pays out exactly what that line promised", preview.Cash, posted);
-        await using (var dbAsk = await factory.CreateDbContextAsync())
-        {
-            var led = await dbAsk.LedgerEntries.Where(e => e.SaleId == askBill.Id).ToListAsync();
-            Eq("their ledger shows the goods coming back", 1_999.99m,
-                led.Where(e => e.Type == LedgerType.Return).Sum(e => e.Credit - e.Debit));
-            Eq("and the cash going out, as its own line", 1_499.99m,
-                led.Where(e => e.Type == LedgerType.Adjustment).Sum(e => e.Debit - e.Credit));
-            Eq("while the bill itself is closed", 0m, await sales.RemainingOnInvoiceAsync(askBill.Id));
-        }
-
-        var second = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
-        {
-            new() { ContainerId = container.Id, ContainerItemId = chargers.Id, ProductId = chargers.ProductId, ProductName = "Charger", Unit = "pcs", Quantity = 2m, UnitPrice = 1999.99m }
-        }, 3_499.98m, "Cash", null, 0m, null);
-        var secondLine = second.Lines.Single(l => l.ProductId == chargers.ProductId);
-        var secondAsk = new List<SaleReturnInput> { new() { SaleLineId = secondLine.Id, Quantity = 1m } };
-        var preview2 = await sales.PreviewReturnAsync(second.Id, secondAsk);
-        var paidOut = await sales.ReturnItemsAsync(second.Id, secondAsk);
-        Eq("the same shape of bill settles the same way, to the paisa", preview2.Cash, paidOut);
-        Check("the same figures again on a second bill, so the preview is not a promise the posting breaks",
-            preview2.Credit == preview.Credit && preview2.Cash == paidOut,
-            "preview " + preview2.Cash + ", posted " + paidOut);
-        await using (var dbAsk2 = await factory.CreateDbContextAsync())
-            Check("looking at a return wrote nothing on its own: one return per bill",
-                (await dbAsk2.SaleReturns.Where(r => r.SaleId == askBill.Id).ToListAsync()).Count == 1);
-
-        Head("paying a customer back: their book first, and the till by the same figure");
-        var adv = await ledger.CreateCustomerAsync("Advance Cartage", "0344-1112233", null, null);
-        var owesUs = await ledger.CreateCustomerAsync("Still Owes Traders", null, null, null);
-        await ledger.SetOpeningBalanceAsync(adv.Id, -5_000m);      // money they left sitting with the shop
-        await ledger.SetOpeningBalanceAsync(owesUs.Id, 2_000m);     // money they still owe us
-        var inHandBefore = await CashInHandAsync(factory);
-        var refundsSoFar = await RefundedTotalAsync(factory);
-        var homeBefore = await reports.GetHomeMonthAsync();
-        Eq("an advance reads on We owe as what we owe them, without the minus sign",
-            5_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
-        Check("and a customer who still owes us is not on that page at all",
-            (await ledger.GetCustomerOwedAsync()).All(r => r.CustomerId != owesUs.Id));
-        await Throws<InvalidOperationException>(
-            "paying out to someone who owes us is refused outright, not netted against their debt",
-            () => ledger.PayCustomerAsync(owesUs.Id, DateTime.Today, 500m, "Cash", null));
-        Check("and the refusal wrote nothing", (await ledger.ListPayoutsAsync(owesUs.Id)).Count == 0);
-
-        await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 1_000.004m, "Cash", "part, handed at the shop");
-        var payoutSum = (await ledger.ListPayoutsAsync(adv.Id)).Sum(p => p.Amount);
-        Eq("a payout keeps the figure to the paisa, like every other money box", 1_000m, payoutSum);
-        Eq("their balance moves towards nothing by exactly that", -4_000m, await ledger.GetBalanceAsync(adv.Id));
-        Eq("the till is lighter by the same figure, and by nothing else",
-            inHandBefore - 1_000m, await CashInHandAsync(factory));
-        Eq("so what We owe shows is the four thousand left, not the five thousand it started at",
-            4_000m, (await ledger.GetCustomerOwedAsync()).Single(r => r.CustomerId == adv.Id).Owed);
-        Eq("a payout is never counted as a refund of a bill, so the two figures stay separate",
-            refundsSoFar, await RefundedTotalAsync(factory));
-        var advRow = (await ledger.GetLedgerAsync(adv.Id)).Single(r => r.Type == LedgerType.Payout);
-        Check("their page keeps it out of \"Sold\" and shows it under \"Paid out\"",
-            advRow.SoldText == "\u2014" && advRow.PaidOutText == Money.Pkr(1_000m),
-            advRow.SoldText + " / " + advRow.PaidOutText);
-
-        await using (var dbOut = await factory.CreateDbContextAsync())
-        {
-            var till = await dbOut.CashBook.Where(e => e.Kind == CashBookKind.CustomerOut).ToListAsync();
-            Check("one till line, as money out, naming who was paid and how",
-                till.Count == 1 && till.Sum(e => e.AmountOut) == 1_000m && till.Sum(e => e.AmountIn) == 0m
-                && till.All(e => e.Description.Contains("Advance Cartage") && e.Description.Contains("Cash")),
-                till.Count + " till lines");
-            Check("it is not tied to a payment, so deleting one of their payments can never take it away",
-                till.All(e => e.PaymentId == null));
-            var led = await dbOut.LedgerEntries.Where(e => e.Type == LedgerType.Payout).ToListAsync();
-            Check("and their ledger carries it as a debit, which is what pulls their balance up",
-                led.Count == 1 && led.Sum(e => e.Debit - e.Credit) == 1_000m, led.Count + " lines");
-            Check("the We Owe page's note is on that line too",
-                led.Count == 1 && led.All(e => e.Description.Contains("part, handed at the shop")),
-                string.Join(" | ", led.Select(e => e.Description)));
-            Check("no payment row was invented, so nothing on their bills moved",
-                (await dbOut.Payments.Where(p => p.CustomerId == adv.Id).ToListAsync()).Count == 0);
-        }
-
-        await Throws<InvalidOperationException>("one paisa past what their book holds is refused",
-            () => ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000.01m, "Cash", null));
-        await ledger.PayCustomerAsync(adv.Id, DateTime.Today, 4_000m, "Bank Transfer", "cleared the advance");
-        Eq("paying the whole of it leaves nothing on either side", 0m, await ledger.GetBalanceAsync(adv.Id));
-        Check("so they are no longer owed, while the money handed over stays visible where it was paid",
-            (await ledger.GetCustomerOwedAsync()).Any(r => r.CustomerId == adv.Id
-                && r.Owed == 0m && r.PaidOut == 5_000m));
-        var payoutLines = await ledger.ListPayoutsAsync(adv.Id);
-        Check("both payouts are on the record, newest first, and add back to the advance",
-            payoutLines.Count == 2 && payoutLines[0].Amount == 4_000m && payoutLines[1].Amount == 1_000m
-            && payoutLines.Sum(p => p.Amount) == 5_000m,
-            payoutLines.Count + " rows, " + string.Join(" + ", payoutLines.Select(p => p.Amount.ToString("0.00"))));
-        Eq("the till has paid out the whole advance and no more", 5_000m, await PaidOutTotalAsync(factory));
-        await using (var dbAdv = await factory.CreateDbContextAsync())
-        {
-            var linesAdv = await dbAdv.LedgerEntries.Where(e => e.CustomerId == adv.Id).ToListAsync();
-            Eq("their account end to end: an advance in, two payouts out, the book at nothing",
-                0m, linesAdv.Sum(e => e.Debit - e.Credit));
-        }
-        var homeAfter = await reports.GetHomeMonthAsync();
-        Eq("money paid to a customer settles a debt, it is not an expense, so profit did not move",
-            homeBefore.Profit, homeAfter.Profit);
-        Eq("and the billed money Home shows is untouched either", homeBefore.Sales, homeAfter.Sales);
-
-        Head("the order the book is read in");
-        var customerLedger = await ledger.GetLedgerAsync(customer.Id);
-        Check("the book hands a customer's lines over in the order they were made - by day, and within a day in writing order",
-            customerLedger.Zip(customerLedger.Skip(1), (a, b) => a.Date.Date < b.Date.Date
-                || (a.Date.Date == b.Date.Date && a.Id < b.Id)).All(x => x),
-            customerLedger.Count + " lines");
-        Check("and numbers them step by step from the first line of the account",
-            customerLedger.First().Step == 1 && customerLedger[^1].Step == customerLedger.Count,
-            "steps " + customerLedger.First().Step + " to " + customerLedger[^1].Step);
-        Eq("so the last line's running figure is the balance at the head of the page",
-            await ledger.GetBalanceAsync(customer.Id), customerLedger[^1].RunningBalance);
-        Check("and every line in between adds up to it, one step at a time",
-            customerLedger.Skip(1).Zip(customerLedger, (now, before) =>
-                now.RunningBalance - before.RunningBalance == now.Debit - now.Credit).All(x => x));
-
-        Head("the ledger in a chat message");
-        var chatBalance = await ledger.GetBalanceAsync(customer.Id);
-        var chat = PrintService.ShareText("AUDIT shop", customer.Name, customerLedger, chatBalance);
-        Check("the message carries every line of the ledger it was made from",
-            customerLedger.All(r => chat.Contains(r.DateText) && chat.Contains(r.RunningText)),
-            customerLedger.Count + " lines in " + chat.Length + " characters");
-        Check("and it asks for the balance the page shows, to the paisa",
-            chatBalance > 0
-                ? chat.Contains("Balance due: " + Money.Pkr(Money.Round(chatBalance)))
-                : chat.Contains("settled") || chat.Contains("over and above"),
-            Money.Pkr(chatBalance));
-        Check("and the total is said once, so nothing else in it can be read as the amount to send",
-            chat.Split("Balance due", StringSplitOptions.None).Length - 1 == (chatBalance > 0 ? 1 : 0),
-            Money.Pkr(chatBalance));
-        var typed = new[] { "0333-1234567", "+92 333 1234567", "0092-333-1234567", "3331234567", "0333 123 4567" };
-        Check("a number typed any of those ways is dialled as one number",
-            typed.All(x => PrintService.ShareNumber(x) == "923331234567"),
-            string.Join(" | ", typed));
-        await Throws<InvalidOperationException>(
-            "a book with no number to dial is refused before a link is built",
-            () => { PrintService.ShareNumber(null); return Task.CompletedTask; });
-        await Throws<InvalidOperationException>(
-            "and a number too short to dial is refused, rather than opened as a link to nowhere",
-            () => { PrintService.ShareNumber("091-445-1"); return Task.CompletedTask; });
-        var lacLine = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m);
-        Check("a balance over a lac is written in words beside the figures, so a typed 0 shows up",
-            lacLine.Contains(Money.Pkr(425_000.50m) + " (" + Money.Words(425_000.50m) + ")"),
-            (lacLine.Contains("Balance due") ? lacLine[lacLine.IndexOf("Balance due", StringComparison.Ordinal)..] : lacLine)
-                .Replace("\n", " / "));
-        var settled = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 0m);
-        Check("a settled ledger is not asked for money",
-            !settled.Contains("Balance due") && settled.Contains("settled"));
-        var owedToThem = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, -4_000m);
-        Check("and money lying with the shop is offered back, not shown as a debt",
-            owedToThem.Contains(Money.Pkr(4_000m)) && owedToThem.Contains("over and above")
-                && !owedToThem.Contains("Balance due"));
-        var book = Enumerable.Range(0, 200).Select(i => new LedgerRow
-        {
-            Date = DateTime.Today.AddDays(-i),
-            Description = "Container " + (i + 1) + " sale",
-            Type = LedgerType.Sale,
-            Debit = 1_000m + i,
-            RunningBalance = 1_000m * (i + 1),
-            Step = 200 - i,
-        }).ToList();
-        var cut = PrintService.ShareText("AUDIT shop", "Abdul Rahim", book, 200_000m);
-        Check("a book too long for a link is cut to what a browser reads whole",
-            Uri.EscapeDataString(cut).Length <= PrintService.ShareUrlBudget,
-            Uri.EscapeDataString(cut).Length + " of " + PrintService.ShareUrlBudget);
-        Check("and the cut gives up the oldest lines, never the total or the newest entry",
-            cut.Contains(book[^1].Description) && !cut.Contains(book[0].Description)
-                && cut.Contains("earlier lines") && cut.Contains(Money.Pkr(200_000m)),
-            cut.Split('\n').Length + " lines sent of " + book.Count);
-
-        Head("a message the shop typed is what goes");
-        var typed = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
-            PrintService.ShareUrlBudget, "Salam {name}, {shop}: {balance} ({words}) on {date}.");
-        Check("the book's figures fill the braces and nothing else is added to what was typed",
-            typed == "Salam Abdul Rahim, Khyber Traders: " + Money.Pkr(425_000.50m)
-                + " (" + Money.Words(425_000.50m) + ") on " + DateTime.Today.ToString("dd MMM yyyy") + ".",
-            typed);
-        Check("so a shop that wrote its own message is not sent a statement it never asked for",
-            !typed.Contains("Balance due") && !typed.Contains("sold Rs") && !typed.Contains("JazakAllah"),
-            typed);
-        var placed = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
-            PrintService.ShareUrlBudget, "Abdul Rahim, your lines:\n{ledger}\nSend {balance} by Friday.");
-        Check("{ledger} puts the customer's lines exactly where the shop asked, in the order the money moved",
-            placed.StartsWith("Abdul Rahim, your lines:\n" + customerLedger[0].DateText)
-                && placed.Contains(customerLedger[^1].RunningText) && placed.EndsWith("by Friday."),
-            placed);
-        var tightTyped = PrintService.ShareText("s", "c", book, 200_000m, 600, "{ledger}");
-        Check("the link limit falls on the ledger block only - a shop's own words are never cut off",
-            Uri.EscapeDataString(tightTyped).Length <= 600 && tightTyped.Contains(book[^1].Description)
-                && !tightTyped.Contains(book[0].Description),
-            Uri.EscapeDataString(tightTyped).Length + " of 600");
-        var small = PrintService.FillTokens("{balance} ({words})", "s", "c", 400m);
-        Check("under a thousand rupees this book has no words, so the figures stand in rather than a hole",
-            small == Money.Pkr(400m) + " (" + Money.Pkr(400m) + ")", small);
-        Check("a word the book cannot fill is named before the message is saved, not sent to a customer",
-            string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")) == "{blance}",
-            string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")));
-        Check("and plain words are nobody's business to refuse",
-            PrintService.UnknownShareTokens("Salam, pay by Friday.").Count == 0
-                && PrintService.UnknownShareTokens(null).Count == 0
-                && PrintService.UnknownShareTokens("{ledger} only: {balance}").Count == 0);
-        Check("empty settings leave the book writing the whole message, as it did before anyone typed anything",
-            PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m,
-                PrintService.ShareUrlBudget, "   ")
-                == PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m),
-            "blank template vs none");
-        var tillRows = await cash.ListAsync();
-        Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
-            tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),
-            tillRows.Count + " lines");
-
-        Head("scanning every money figure that ended up in the database");
-        var bad = new List<string>();
-        await using var db = await factory.CreateDbContextAsync();
-
-        void Scan<T>(string what, List<T> rows, Func<T, (string, decimal)[]> pick)
-        {
-            foreach (var row in rows)
-                foreach (var (name, value) in pick(row))
-                    if (Money.Round(value) != value)
-                        bad.Add($"{what}.{name} = {value}");
-        }
-
-        Scan("SaleLine", await db.SaleLines.ToListAsync(), x => new[] { ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost), ("LineTotal", x.LineTotal), ("LineCost", x.LineCost) });
-        Scan("Sale", await db.Sales.ToListAsync(), x => new[] { ("TotalAmount", x.TotalAmount), ("PaidNow", x.PaidNow), ("DiscountAmount", x.DiscountAmount) });
-        Scan("Payment", await db.Payments.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("LedgerEntry", await db.LedgerEntries.ToListAsync(), x => new[] { ("Debit", x.Debit), ("Credit", x.Credit) });
-        Scan("SaleReturn", await db.SaleReturns.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("SaleReturnLine", await db.SaleReturnLines.ToListAsync(), x => new[] { ("Amount", x.Amount), ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost) });
-        Scan("SupplierPayment", await db.SupplierPayments.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("CustomerPayout", await db.CustomerPayouts.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("ContainerExpense", await db.Expenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("ShopExpense", await db.ShopExpenses.ToListAsync(), x => new[] { ("Amount", x.Amount) });
-        Scan("CashBookEntry", await db.CashBook.ToListAsync(), x => new[] { ("AmountIn", x.AmountIn), ("AmountOut", x.AmountOut) });
-        Scan("ContainerItem", await db.ContainerItems.ToListAsync(), x => new[] { ("UnitCost", x.UnitCost), ("ForeignCost", x.ForeignCost), ("LandedUnitCost", x.LandedUnitCost) });
-        Scan("Container", await db.Containers.ToListAsync(), x => new[] { ("SupplierAmount", x.SupplierAmount) });
-        Scan("Product", await db.Products.ToListAsync(), x => new[] { ("LastSalePrice", x.LastSalePrice ?? 0m) });
-        Scan("BuyPlanLine", await db.BuyPlanLines.ToListAsync(), x => new[] { ("UnitCostYen", x.UnitCostYen), ("SalePricePkr", x.SalePricePkr) });
-        Scan("BuyPlan", await db.BuyPlans.ToListAsync(), x => new[] { ("ExpensePkr", x.ExpensePkr) });
-        Scan("BuyPlanExpense", await db.BuyPlanExpenses.ToListAsync(),
-            x => new[] { ("AmountPkr", x.AmountPkr), ("AmountForeign", x.AmountForeign) });
-        Check("nothing stored has a third decimal, so printed = stored = summed", bad.Count == 0, string.Join("; ", bad));
-    }
-
     // ------------------------------------------------------------------ the year statement
 
     /// <summary>
@@ -1817,7 +1822,7 @@ public static class Program
         for (var d = new DateTime(2025, 12, 1); d <= new DateTime(2027, 1, 1); d = d.AddMonths(1))
             walked += (await ledger.GetReceiptsAsync(edge.Id, d.Year, d.Month)).Amount;
         Eq("and fourteen months walked one at a time add back to the whole book exactly, with no receipt "
-           "left between two months and none counted twice", whole, Money.Round(walked));
+            + "left between two months and none counted twice", whole, Money.Round(walked));
 
         await Throws<ArgumentException>("a month without a year is refused, rather than quietly read as every month",
             () => ledger.GetReceiptsAsync(edge.Id, 2026, null));
@@ -1852,7 +1857,7 @@ public static class Program
             lines.Count(r => r.Type == LedgerType.Return) + " return lines, "
             + lines.Count(r => r.IsPaidOut) + " paid-out lines");
         Eq("and the four columns run the balance the page prints: billed, less goods back, less money in, "
-           "plus money handed over",
+            + "plus money handed over",
             Money.Round(lines.Where(r => r.SoldText != "\u2014").Sum(r => r.Debit)
                 - lines.Where(r => r.ReturnedText != "\u2014").Sum(r => r.Credit)
                 - lines.Where(r => r.ReceivedText != "\u2014").Sum(r => r.Credit)
@@ -1873,7 +1878,7 @@ public static class Program
         var backRow = "<td class='num'>\u2014</td><td class='num'>" + Money.Pkr(backCredit)
             + "</td><td class='num'>\u2014</td><td class='num'>\u2014</td>";
         Check("and the goods that came back stand in their own column on paper, with nothing beside them - "
-              "they were never sold and never paid",
+            + "they were never sold and never paid",
             stmt.Contains(backRow), backRow);
     }
 
@@ -1931,7 +1936,7 @@ public static class Program
             }, 0m, "Cash", null, 0m, null);
         var nextAt = await ledger.GetInvoiceStandingAsync(next.Id);
         Eq("and the next bill's previous balance carries this one on: what this bill left due, less the "
-           "payment made between them", again.DueThatDay - 500m, nextAt.Previous);
+            + "payment made between them", again.DueThatDay - 500m, nextAt.Previous);
 
         await sales.CancelSaleAsync(next.Id);
         var cancelled = await ledger.GetInvoiceStandingAsync(next.Id);
@@ -2278,11 +2283,11 @@ public static class Program
             () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Rebate", -5_000m, null, "PKR"));
 
         Head("what a container has collected, and what is still out in the market");
-        var buyer = await ledger.CreateCustomerAsync("MARKET customer", null, null, null);
+        var marketCustomer = await ledger.CreateCustomerAsync("MARKET customer", null, null, null);
         var market = await inventory.CreateContainerAsync(
             "MARKET box", null, "Japan", new DateTime(2026, 3, 4), null);
         var cups = await inventory.AddGoodsAsync(market.Id, "Cup", "pcs", "CUP-1", 100m, 200m, null, null, null, 0.4m, null);
-        var first = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 3, 4), new List<NewSaleLineInput>
+        var first = await sales.CreateSaleAsync(marketCustomer.Id, new DateTime(2026, 3, 4), new List<NewSaleLineInput>
         {
             new() { ContainerId = market.Id, ContainerItemId = cups.Id, ProductId = cups.ProductId, ProductName = "Cup", Unit = "pcs", Quantity = 10m, UnitPrice = 500m }
         }, 2_000m, "Cash", null, 0m, null);
@@ -2296,7 +2301,7 @@ public static class Program
         // Rs 800 received against it. The outstanding is shared by what each lot was billed for, so the
         // split is 1 to 3, and it has to add back to Rs 3,200 to the paisa.
         var mugRow = mug; // the freight box's mugs, already in scope and still holding 590 of them
-        await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 3, 5), new List<NewSaleLineInput>
+        await sales.CreateSaleAsync(marketCustomer.Id, new DateTime(2026, 3, 5), new List<NewSaleLineInput>
         {
             new() { ContainerId = market.Id, ContainerItemId = cups.Id, ProductId = cups.ProductId, ProductName = "Cup", Unit = "pcs", Quantity = 2m, UnitPrice = 500m },
             new() { ContainerId = box.Id, ContainerItemId = mugRow.Id, ProductId = mugRow.ProductId, ProductName = "Mug", Unit = "pcs", Quantity = 1m, UnitPrice = 3_000m }
@@ -2335,7 +2340,7 @@ public static class Program
                 owed, spread);
             foreach (var r in await reports.GetContainerProfitsAsync())
                 Check("sold = collected + in the market, on every lot",
-                    Money.Round(r.Collected + r.InMarket) == r.Revenue, $"{r.Title}: {r.Revenue}");
+                    Money.Round(r.Collected + r.InMarket) == r.Revenue, $$"r.Title}: {r.Revenue}");
         }
 
         // The Qty box on an item's form is the landed count, and Save has to be heard by it: a shop that wrote
