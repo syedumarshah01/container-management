@@ -71,7 +71,7 @@ public partial class DashboardViewModel : ViewModelBase
         BookHint = from is null && to is null
             ? ""
             : PeriodWords(from, to) + ": what was sold, what those bills still have out there, and profit. "
-              + "Containers are the ones that did business in them, and stock is the shelf as at today.";
+              + "Containers are the ones that landed in them, sold or not, and stock is the shelf as at today.";
 
         var (sales, profit, days) = await _reports.GetHomeMonthAsync();
         MonthSales = Money.Pkr(sales);

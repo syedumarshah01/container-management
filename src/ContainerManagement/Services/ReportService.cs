@@ -18,8 +18,9 @@ public class ReportService
     ///
     /// What a range does to each figure is not the same thing, and the card says so rather than pretending:
     /// sales, profit and what is still out there are the bills inside the dates; the container count is the
-    /// containers that did business in them; and the shelf is what is on it today, because stock between two
-    /// dates would have to be rebuilt from every movement since, which this book does not keep.
+    /// containers that landed inside them, by their own arrival date - a lot that has only arrived counts,
+    /// though it has nothing to add to the money; and the shelf is what is on it today, because stock between
+    /// two dates would have to be rebuilt from every movement since, which this book does not keep.
     /// The lists under the card - the bills needing attention, low stock - stay the shop's whole situation,
     /// because a short list is not a safe thing to act on.
     /// </summary>
@@ -64,12 +65,19 @@ public class ReportService
         var inv = await GetGrandInventoryAsync(shop.LowStockQty);
 
         var containers = await db.Containers.AsNoTracking().ToListAsync();
-        // Ranged, "containers" can only mean the ones with money moving on them in the dates: a container with
-        // nothing sold, returned or spent in them has no figure to contribute, and counting it would say the
-        // shop did business on a lot it did not. Unranged it is the book's own count, as it always was.
+        // Ranged, this is the containers that came in over those dates - by the arrival date the shop wrote
+        // when it booked the lot, which is a fact in the book rather than an inference from it. Counting the
+        // containers that merely sold in the period would hide a container added on 1 August for the whole of
+        // August if nothing had left it yet, and a shop that has just landed a container and is told it has
+        // none is being told something about the software, not about its stock. Unranged it is the book's own
+        // count, as it always was.
         var counted = start is null && end is null
             ? containers.Count
-            : profits.Count(p => p.Revenue != 0m || p.Cogs != 0m || p.Expenses != 0m);
+            : containers.Count(c =>
+            {
+                var when = c.ArrivalDate ?? c.CreatedAt;
+                return (start is null || when >= start.Value) && (end is null || when < end.Value.AddDays(1));
+            });
         var onContainers = Money.Round(profits.Sum(p => p.Expenses));
         var atTheShop = Money.Round((await db.ShopExpenses.AsNoTracking().ToListAsync()).Sum(e => e.Amount));
 

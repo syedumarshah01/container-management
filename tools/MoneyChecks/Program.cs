@@ -299,6 +299,49 @@ public static class Program
             month.Days.Count == 0 || month.Days.All(d => d.Date >= first && d.Date < first.AddMonths(1)),
             month.Days.Count + " day rows");
 
+        Head("a container that has only landed is still a container");
+        // A lot booked on a date and not yet sold off is the case the count got wrong: it had no bill and no
+        // expense, so counting the containers that did business in a period showed a shop zero containers in the
+        // very month it landed one. Written here and taken away again, so nothing after it reads a fixture row.
+        var landed = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddDays(-9);
+        var quietId = 0;
+        await using (var dbc = await factory.CreateDbContextAsync())
+        {
+            var quiet = new CargoContainer
+            {
+                Title = "Only landed, nothing sold",
+                ContainerNumber = "IDLE0001",
+                ArrivalDate = landed,
+                CreatedAt = landed,
+            };
+            dbc.Containers.Add(quiet);
+            await dbc.SaveChangesAsync();
+            quietId = quiet.Id;
+        }
+        var landedDay = await reports.GetDashboardAsync(landed, landed);
+        Check("the day it arrived counts it, though no money has ever been written on it",
+            landedDay.TotalContainers >= 1,
+            $"{landedDay.TotalContainers} containers counted on {landed:dd MMM yyyy}");
+        var rowsOfQuiet = await reports.GetContainerProfitsAsync(landed, landed);
+        var quietRow = rowsOfQuiet.Single(p => p.ContainerId == quietId);
+        Check("and there is indeed nothing on it - the count is not including it because it sold something",
+            quietRow.Revenue == 0m && quietRow.Cogs == 0m && quietRow.Expenses == 0m && quietRow.QtySold == 0m,
+            $"{quietRow.Revenue} sold, {quietRow.Expenses} spent on the lot");
+        var beforeItLanded = await reports.GetDashboardAsync(landed.AddDays(-6), landed.AddDays(-1));
+        Check("a week before it landed does not count it, so the date the shop wrote is the only thing moving",
+            beforeItLanded.TotalContainers == landedDay.TotalContainers - 1,
+            $"{beforeItLanded.TotalContainers} before, {landedDay.TotalContainers} on the day");
+        await using (var dbc = await factory.CreateDbContextAsync())
+        {
+            var row = await dbc.Containers.FindAsync(quietId);
+            if (row is not null)
+                dbc.Containers.Remove(row);
+            await dbc.SaveChangesAsync();
+        }
+        Check("and the book is left as it was found",
+            (await reports.GetDashboardAsync()).TotalContainers == homeBefore.TotalContainers,
+            $"{(await reports.GetDashboardAsync()).TotalContainers} against {homeBefore.TotalContainers}");
+
         Head("profit follows a corrected cost - the case that stayed wrong for one release");
         Eq("the three sold lines cost 758.57 + 386.19 + 758.57 with the freight in", 1903.33m, beforeReprice.Cogs);
         var repriced = await inventory.UpdateGoodsAsync(bulbs.Id, "LED bulb", "pcs", "LB-1", 1000m, 999.25m, 2000m, null, null, 0.375m, null);
