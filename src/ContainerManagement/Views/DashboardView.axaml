@@ -47,7 +47,21 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="This month" />
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
+          <TextBlock Classes="h2" Text="{Binding MonthLabel}" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding FromDate}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+            <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding ToDate}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Content="This month" Command="{Binding ThisMonthCommand}" IsVisible="{Binding HasRange}" />
+            <Button Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" />
+          </StackPanel>
+        </Grid>
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total sales" />
@@ -56,8 +70,8 @@
           <StackPanel Grid.Column="1">
             <TextBlock Classes="label" Text="Total profit" />
             <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
-            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0"
-                       Text="Sales profit minus this month’s expense ledger." />
+            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                       Text="{Binding MonthHint}" />
           </StackPanel>
         </Grid>
       </StackPanel>

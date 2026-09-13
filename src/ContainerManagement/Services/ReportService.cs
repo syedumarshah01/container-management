@@ -83,10 +83,23 @@ public class ReportService
         };
     }
 
-    public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync()
+    /// <summary>
+    /// Sales, cost and the till's own bills between two dates, day by day, with the same rules Home's month
+    /// line has always used: a bill is its total after the discount shared over its lines, a return comes off
+    /// the day it was made, and an expense belongs to the day it was written. The dates are optional because
+    /// Home opens on this month and only narrows when someone asks it to - and a range with one end missing
+    /// stays open on that side, which is how "everything since the 1st" and "up to the 20th" are read.
+    /// </summary>
+    public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync(
+        DateTime? from = null, DateTime? to = null)
     {
-        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        var end = start.AddMonths(1);
+        var firstOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var start = from?.Date ?? firstOfMonth;
+        var end = to is DateTime last ? last.Date.AddDays(1)
+                : from is null ? firstOfMonth.AddMonths(1)
+                : DateTime.Today.AddDays(1);
+        if (end <= start)
+            end = start.AddDays(1);   // a range turned around the wrong way still reads its own first day
         await using var db = await _factory.CreateDbContextAsync();
 
         var lines = await db.SaleLines.AsNoTracking()

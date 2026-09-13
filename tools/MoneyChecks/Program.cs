@@ -266,9 +266,32 @@ public static class Program
             beforeReprice.Revenue - first.Revenue == payBill.Lines[0].LineTotal,
             $"{beforeReprice.Revenue - first.Revenue} added for an undiscounted line of {payBill.Lines[0].LineTotal}");
 
+        var homeBefore = await reports.GetDashboardAsync();
+        Head("Home's dates: the range is the same sum, read over fewer days");
+        var year = new DateTime(DateTime.Today.Year, 1, 1);
+        var wide = await reports.GetHomeMonthAsync(year, DateTime.Today);
+        Check("a range that holds both bills sees the whole book's sales, and not a rounding of it twice",
+            Money.Round(wide.Sales) == homeBefore.TotalRevenue,
+            $"ranged {Money.Round(wide.Sales)}, whole book {homeBefore.TotalRevenue}");
+        Check("and the days under the figure are the figure",
+            Money.Round(wide.Days.Sum(d => d.Sales)) == Money.Round(wide.Sales),
+            $"rows add to {Money.Round(wide.Days.Sum(d => d.Sales))}, the figure says {Money.Round(wide.Sales)}");
+        var biggest = wide.Days.OrderByDescending(d => d.Sales).First();
+        var oneDay = await reports.GetHomeMonthAsync(biggest.Date, biggest.Date);
+        Check("asking for one day brings that day's money, and only that day",
+            Money.Round(oneDay.Sales) == Money.Round(biggest.Sales) && oneDay.Days.Count == 1,
+            $"{biggest.Date:dd MMM yyyy}: day {Money.Round(biggest.Sales)}, asked {Money.Round(oneDay.Sales)} over {oneDay.Days.Count} rows");
+        var lastYear = await reports.GetHomeMonthAsync(new DateTime(year.Year - 1, 1, 1), new DateTime(year.Year - 1, 12, 31));
+        Check("a year with no bills in it says zero, rather than borrowing from this one",
+            lastYear.Sales == 0m && lastYear.Days.Count == 0, $"{lastYear.Sales} over {lastYear.Days.Count} days");
+        var openEnded = await reports.GetHomeMonthAsync(DateTime.Today, null);
+        var closedToday = await reports.GetHomeMonthAsync(DateTime.Today, DateTime.Today);
+        Check("and a range left open at the far end has run to today",
+            Money.Round(openEnded.Sales) == Money.Round(closedToday.Sales),
+            $"open {Money.Round(openEnded.Sales)}, closed at today {Money.Round(closedToday.Sales)}");
+
         Head("profit follows a corrected cost - the case that stayed wrong for one release");
         Eq("the three sold lines cost 758.57 + 386.19 + 758.57 with the freight in", 1903.33m, beforeReprice.Cogs);
-        var homeBefore = await reports.GetDashboardAsync();
         var repriced = await inventory.UpdateGoodsAsync(bulbs.Id, "LED bulb", "pcs", "LB-1", 1000m, 999.25m, 2000m, null, null, 0.375m, null);
         Check("both sold lines of that lot were re-costed", repriced == 2, repriced + " lines touched");
         var later = await reports.GetContainerProfitAsync(container.Id);

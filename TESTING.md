@@ -31,6 +31,7 @@ shift a figure on screen.
 | the customer | bills − payments − returns equals the ledger's own entries, and every line of their book puts its money in exactly one column of the page and of the paper - a bill, a receipt, goods back, money handed over - so the four columns run the balance and nothing is counted twice or left out |
 | a customer's month | the receipts figure a month box shows is the payments dated in that month, and the lines under it are those payments - a payout to them and a return credit are not money collected, so neither is netted off it; five paisa is a month with five paisa in it, not an empty one; and fourteen months walked one at a time add back to the whole book, so no receipt can hide between two months or be counted twice |
 | the landed count on an item | the Qty box on an item's form is how many came in, and Save moves it: correcting 1,000 to 700 re-shares the container's expenses over 700 pieces, so a piece's freight doubles from Rs 0.70 to Rs 1.00. The shelf count in the other box moves the stock and nothing else, and stock above what landed is refused rather than written |
+| Home's dates | the page opens on this month and reads whatever range it is given, by the same rules: a range wide enough to hold the bills sees the whole book's sales, the day rows under the figure add up to it to the paisa, one day asked for brings that day and no other, a year with nothing in it says zero rather than borrowing from its neighbour, and a range left open at the far end has run to today |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
@@ -410,6 +411,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    yen figure back when the row is selected again, and multiplying it by the rate on the line should give
    the rupee cost to the paisa. Change the container's rate the next day and neither that item's cost nor
    that expense's rupees should move - only the next figure typed picks up the new rate.
+4m. Home has a range: set From and To around one trading day and press Apply. "This month" should read "In the
+   period", the line under the title should name those two dates, and the sales and profit there should be that
+   day alone - the days listed under the figure should add up to it without a calculator. Clear one of the two
+   dates and Apply again: the page should read "from" or "up to" and run open on the missing side. Press "This
+   month" - which appears only once a date is set - and the page should land back exactly where it opened. The "Whole book" card should not stir at any of it, and
+   neither should the containers or stock figures in it: those are as at today, whatever the dates say.
 4k. On Home, the "Whole book" card holds five figures: containers, sales, what is receivable in the market,
    stock value, profit. The market figure should be the containers list's "In the market" column added up, and
    To collect should show the same total on its container box when that box is on "All containers" - those two
