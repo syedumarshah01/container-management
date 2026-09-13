@@ -211,11 +211,15 @@ cost, so a container that was landed at a loss no longer reports a profit. What 
 - Lines already sold are re-costed with the landed figure, as they are whenever a cost is corrected, so
   the profit a container made moves when its freight is entered. Deleting the expense moves it back.
 
-**A container's money, and one container per bill.** The sell page now has a *Container* box beside the
-search: choose a lot and only that lot's goods are offered, and picking an item sets the box to its container
-on its own, so a bill is one shipment's goods without anyone having to remember. That is not a restriction -
-"All containers" is there, and every line stores the container it came out of either way - but a bill from
-one lot needs no arithmetic to attribute its money, which is why the figures below are worth reading.
+**A container's money, and one container per bill.** The sell page has a *Container* box beside the search:
+choose a lot and only that lot's goods are offered, and picking an item sets the box to its container on its
+own. Once the bill has a line, the box shuts at that container: the search offers nothing else, and another
+lot's item - a row left in a list typed a moment earlier - is put back with the bill's own container named as
+the reason. Removing that container's last line opens the box again. That is the rule rather than a
+convenience: the lines are what say where a bill's goods came from, so the box, the search, the money below
+and the printed invoice are all made to agree with them, and one is never allowed to be edited out of line
+with the others. "All containers" is what the box says while the bill is empty - and while an older bill
+being edited turns out to span two lots, which is left as it was found rather than pinned to either half.
 
 Each container then carries three money figures, and they are one subtraction apart: what its goods brought
 (sold, after the discount share and any returns), what is still out there (in the market), and what has
@@ -334,13 +338,15 @@ rather than assuming it. Say the word and I will move those columns to text for 
    now divided over fewer pieces. Then change only "In stock (when editing)" and the cost should not move at
    all; set the stock above what landed and Save should refuse in words.
 4h. On the sell page, choose a container in the box beside the search and confirm the item search offers
-   only that lot's goods; pick an item and confirm the box moves to its container by itself. Bill it, then
-   leave Rs 2,000 of the bill unpaid. Open that container: "Collected" and "In the market" should read what
-   you paid and what you left, with no calculator work - and the containers list should show the same two
-   figures for it. Now sell across two containers on one bill, pay part of it, and check that the two
-   containers' market figures add back to the bill's outstanding to the paisa. Print the bill from the
-   single-container sale and confirm the invoice names the container under the customer's name, and that the
-   mixed one does not.
+   only that lot's goods; pick an item and confirm the box moves to its container by itself. Add the line and
+   confirm the box is grey with that container in it: try to change it, then search another container's item
+   and confirm the pick is refused in words that name the bill's own container. Remove the line and confirm
+   the box opens. Bill from one container and leave Rs 2,000 unpaid: that container's page should read
+   "Collected" and "In the market" as what you paid and what you left, with no calculator work, and the
+   containers list should show the same two figures. A bill across two containers cannot be typed any more,
+   so the sharing that attributes a mixed bill's money is checked by the harness rather than by hand - it
+   still matters to any bill already in the book. Print the bill from the single-container sale and confirm
+   the invoice names the container under the customer's name.
 4g. Press Print on an order sheet carrying at least one bill in ¥ and one in Rs. The eleven columns should
    match the grid figure for figure, the bills should print with the rate each was taken at, and the two profit
    figures - the rows' total under "Profit, before bills" and the summary's Profit - should differ by exactly

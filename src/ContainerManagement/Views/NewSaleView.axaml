@@ -38,7 +38,10 @@
         <Grid ColumnDefinitions="*,160,160">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Container" />
+            <!-- Shut once the bill has a line: the lines say where the goods came from, and the invoice
+                 printed from them names one container. Remove the line to choose another. -->
             <ComboBox ItemsSource="{Binding ContainerChoices}" SelectedItem="{Binding ContainerChoice}"
+                      IsEnabled="{Binding !IsContainerLocked}"
                       HorizontalAlignment="Stretch" Margin="0,0,0,12" />
           </StackPanel>
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
