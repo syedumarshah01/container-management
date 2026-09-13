@@ -72,6 +72,22 @@
     </Border>
     <Border Classes="card">
       <StackPanel>
+        <TextBlock Classes="h2" Text="Updates" />
+        <TextBlock Classes="muted" TextWrapping="Wrap"
+                   Text="Asks the branch this book is built from what is waiting, then builds it here. Your books are not part of an update - they are backed up first, and nothing else in the data folder is opened." />
+        <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,10,0,0">
+          <Button Content="Check for updates" Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding !UpdateBusy}" />
+          <Button Grid.Column="1" Classes="primary" Content="Update now" Command="{Binding ApplyUpdateCommand}"
+                  IsVisible="{Binding UpdateAvailable}" Margin="8,0,0,0" />
+        </Grid>
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding UpdateLine}" />
+        <TextBlock FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,8,0,0"
+                   IsVisible="{Binding HasUpdateNotes}" Text="{Binding UpdateNotes}" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
         <TextBlock Classes="h2" Text="Two computers" />
         <TextBlock Classes="muted" TextWrapping="Wrap"
                    Text="Do not type on two PCs at the same time. Keep one PC as the books. Use Backup + Google Drive or a USB to copy the file. Restore on the other PC if this one dies." />

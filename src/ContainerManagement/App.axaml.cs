@@ -106,6 +106,7 @@ public partial class App : Application
         services.AddTransient<CashBookService>();
         services.AddTransient<PrintService>();
         services.AddTransient<ExportService>();
+        services.AddTransient<UpdateService>();
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<IAppShell>(sp => sp.GetRequiredService<MainViewModel>());

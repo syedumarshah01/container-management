@@ -16,9 +16,9 @@
     <ApplicationIcon>Assets\probooks.ico</ApplicationIcon>
     <Company>Syntaxia Solutions</Company>
     <Copyright>Syntaxia Solutions</Copyright>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Description>Desktop container inventory, customer ledger, and profit tracker for importers.</Description>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>

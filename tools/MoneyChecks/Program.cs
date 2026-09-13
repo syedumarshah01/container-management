@@ -31,6 +31,7 @@ public static class Program
         CultureInfo.DefaultThreadCurrentUICulture = culture;
 
         FormatRules();
+        Updates();
 
         var dir = Path.Combine(Path.GetTempPath(), "probooks-moneychecks-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
@@ -107,7 +108,18 @@ public static class Program
             new() { ItemName = "LED bulb", Quantity = 250, UnitCostYen = 1m, UnitWeightKg = 0.375m, SalePricePkr = 450m, YenRate = 1.0701m },
             new() { ItemName = "Charger", Quantity = 40, UnitCostYen = 640.5m, UnitWeightKg = 0.12m, SalePricePkr = 1999.99m, YenRate = 1.0701m }
         };
-        var plan = new BuyPlanRow { YenRate = 1.0701m, ExpensePkr = 100_000.005m, Lines = rows };
+        // The bills are rows, and the sheet's expense figure is those rows added up - a total typed beside
+        // them was retired on purpose, because two answers to "what did this cost" is one too many.
+        var plan = new BuyPlanRow
+        {
+            YenRate = 1.0701m,
+            Lines = rows,
+            Expenses = new List<BuyPlanExpenseRow>
+            {
+                new() { Description = "Sea freight", AmountPkr = 192_618m },
+                new() { Description = "Local clearing", AmountPkr = 100_000.005m }
+            }
+        };
         plan.RefreshTotals();
         Eq("¥250 at 1.0701 = Rs 267.53, rounded up not to even", 267.53m, rows[0].CostPkr);
         Eq("250 pieces at Rs 450 sell for 112,500", 112_500m, rows[0].SalePkr);
@@ -116,8 +128,9 @@ public static class Program
             rows[0].CostPkr + rows[1].CostPkr, plan.Total.CostPkr);
         Eq("the sheet's sell total is the rows' sell added",
             rows[0].SalePkr + rows[1].SalePkr, plan.Total.SalePkr);
-        Eq("the one expense figure is kept once", 100_000.01m, plan.Total.ExpensePkr);
-        Eq("all in = goods + that one expense", plan.Total.CostPkr + 100_000.01m, plan.Total.SpendPkr);
+        Eq("so the sheet's expense figure is its bills, added and rounded once", 292_618.01m, plan.Total.ExpensePkr);
+        Eq("and a bill typed to three decimals is a paisa figure before it is ever saved", 292_618.01m, plan.ExpensePkr);
+        Eq("all in = goods + the bills", plan.Total.CostPkr + plan.Total.ExpensePkr, plan.Total.SpendPkr);
         Eq("profit = sold − all in", plan.Total.SalePkr - plan.Total.SpendPkr, plan.Total.ProfitPkr);
         Eq("weight = the rows' weight added", 93.75m + 4.8m, plan.Total.TotalWeightKg);
         Eq("a row's profit is its own sell less its own cost, expense excluded",
@@ -129,8 +142,11 @@ public static class Program
             Lines = new List<BuyPlanLineRow> { new() { Quantity = 250m, UnitCostYen = 640.5m, SalePricePkr = 1999.99m } }
         };
         fussy.RefreshTotals();
-        Eq("a nine-decimal rate prices the row by the six decimals the save keeps", 171353.51m,
-            fussy.Lines[0].CostPkr);
+        Eq("a nine-decimal rate prices the row by the six decimals the save keeps",
+            Money.Round(250m * 640.5m * 1.070123m), fussy.Lines[0].CostPkr);
+        Check("and that is not what the uncut rate would have said, so the cut is doing real work",
+            fussy.Lines[0].CostPkr != Money.Round(250m * 640.5m * 1.0701234567m),
+            fussy.Lines[0].CostPkr + " against the nine-decimal " + Money.Round(250m * 640.5m * 1.0701234567m));
         Eq("and the row holds that rate, not the one typed", 1.070123m, fussy.Lines[0].YenRate);
         // The same expense, pinned to the rupee figure a re-opened sheet will hold (line above holds
         // the field; this one holds the total, which is what the tape and the printout read).
@@ -139,6 +155,125 @@ public static class Program
         var noRate = new BuyPlanRow { YenRate = 0m, Lines = rows };
         noRate.RefreshTotals();
         Eq("a rate of 0 counts as 1 rather than dividing by nothing", 250m + 40m * 640.5m, noRate.Total.CostPkr);
+    }
+
+    // ------------------------------------------------------------------ the update rules
+    // The decision an update makes is checked here, in the open, without a network: what a version means, what
+    // the shop's facts allow, and what the script that does the work is and is not allowed to say.
+    private static void Updates()
+    {
+        Head("updates: a version is three numbers, not a piece of text");
+        Check("1.10.0 is newer than 1.9.0, which a string compare gets backwards",
+            UpdateRules.Compare("1.9.0", "1.10.0") < 0,
+            UpdateRules.Compare("1.9.0", "1.10.0").ToString());
+        Check("and a shorter version reads as the same book with nothing left off",
+            UpdateRules.Compare("1.10", "1.10.0") == 0 && UpdateRules.Compare("2", "2.0.0") == 0);
+        Eq("patch numbers are compared too", 1, Math.Sign(UpdateRules.Compare("1.0.1", "1.0.2")));
+        Check("a v, a suffix and a build tag all read as the version under them",
+            UpdateRules.Parse("v1.2.3-beta") == (1, 2, 3) && UpdateRules.Parse("1.2.3+build7") == (1, 2, 3),
+            UpdateRules.Parse("v1.2.3-beta").ToString());
+        Check("four parts, junk and nothing at all are no version",
+            UpdateRules.Parse("1.2.3.4") is null && UpdateRules.Parse("n/a") is null && UpdateRules.Parse(null) is null);
+        Check("and when a version cannot be read there is no update - guessing one is worse than asking twice",
+            !UpdateRules.IsUpdate("1.0.0", null) && !UpdateRules.IsUpdate(null, "1.4.0")
+                && !UpdateRules.IsUpdate("1.0.0", "1.0.0") && UpdateRules.IsUpdate("1.0.0", "1.0.1"));
+        Eq("the project file's version is the one a build carries", "1.1.0",
+            Plain(UpdateRules.VersionFromProject("<Project><PropertyGroup><Version>1.1.0</Version></PropertyGroup></Project>") ?? ""));
+        Check("and a project file with no version says so rather than inventing one",
+            UpdateRules.VersionFromProject("<Project><PropertyGroup></PropertyGroup></Project>") is null);
+
+        Head("updates: what the shop is told, and what the page may do");
+        var free = UpdateRules.Decide(true, true, true, true, false, false, "1.0.0", "1.0.0");
+        Check("nothing waiting is an answer, not an error: up to date, and no button",
+            free.State == UpdateState.UpToDate && !free.CanApply && !free.ChangesWaiting, free.Message);
+        var ready = UpdateRules.Decide(true, true, true, true, true, false, "1.0.0", "1.1.0");
+        Check("work waiting, tools to build it, and nothing in the way is the only state that offers Update now",
+            ready.State == UpdateState.Available && ready.CanApply && ready.ChangesWaiting, ready.Message);
+        Check("and the line names both versions, so the shop knows what it is being moved to",
+            ready.Message.Contains("1.0.0 to 1.1.0"), ready.Message);
+        var dirty = UpdateRules.Decide(true, true, true, false, true, false, "1.0.0", "1.1.0");
+        Check("a folder with unsaved work is stopped before the update is offered, however much is waiting",
+            dirty.State == UpdateState.BlockedLocalChanges && !dirty.CanApply, dirty.Message);
+        var split = UpdateRules.Decide(true, true, true, false, true, true, "1.0.0", "1.1.0");
+        Check("and work on both sides is named first, because that one has no safe automatic answer",
+            split.State == UpdateState.Diverged && !split.CanApply, split.Message);
+        var offline = UpdateRules.Decide(true, true, false, true, false, false, "1.0.0", null);
+        Check("a dead line is told as a dead line, and nothing is said about being up to date",
+            offline.State == UpdateState.Offline && !offline.CanApply, offline.Message);
+        var installed = UpdateRules.Decide(false, true, true, true, true, false, "1.0.0", "1.1.0");
+        Check("an installed copy is not told to pull itself: it is not a folder anyone builds in",
+            installed.State == UpdateState.NotInstall && !installed.CanApply, installed.Message);
+        var noBuild = UpdateRules.Decide(true, false, true, true, true, false, "1.0.0", "1.1.0");
+        Check("changes without a way to build them are still changes: the shop is told, and no button appears",
+            noBuild.State == UpdateState.NoSdk && !noBuild.CanApply && noBuild.ChangesWaiting, noBuild.Message);
+        var sameVersionButNew = UpdateRules.Decide(true, true, true, true, true, false, "1.1.0", "1.1.0");
+        Check("a folder behind the branch on commits is behind even when nobody bumped the number - "
+              + "the fixes are in the work, not in the label",
+            sameVersionButNew.State == UpdateState.Available && sameVersionButNew.CanApply, sameVersionButNew.Message);
+
+        Head("updates: the newest changelog entry, and nothing older than it");
+        var notes = UpdateRules.NotesFrom("# Title\n\n## 1.2.0\n- one thing\n- another\n\n## 1.1.0\n- old thing\n");
+        Check("the entry the shop sees is the newest one, headings and all",
+            notes.Contains("1.2.0") && notes.Contains("one thing") && notes.Contains("another"), notes);
+        Check("and it stops there, so a screen the size of a card never recites the book's history",
+            !notes.Contains("old thing"), notes);
+        Check("a missing changelog is no notes, not an error at the moment someone is deciding to update",
+            UpdateRules.NotesFrom(null) == "" && UpdateRules.NotesFrom("") == "");
+
+        Head("updates: what the script that does the work may and may not say");
+        var script = UpdateRules.BuildScript(@"C:\shop\container", "main", 4321, new DateTime(2026, 9, 13, 21, 4, 0));
+        foreach (var need in UpdateRules.ScriptMustContain)
+        {
+            Check($"the script says {need}, because the update is held to exactly this list",
+                script.Contains(need, StringComparison.Ordinal), need);
+        }
+        foreach (var ban in UpdateRules.ScriptMustNotContain)
+        {
+            Check($"and it never says {ban} - a folder that cannot be fast-forwarded is reported, not overwritten",
+                !script.Contains(ban, StringComparison.OrdinalIgnoreCase), ban);
+        }
+        Check("the merge comes after the fetch, so nothing is merged from a stale view of the branch",
+            script.IndexOf("git fetch", StringComparison.Ordinal) < script.IndexOf("--ff-only", StringComparison.Ordinal));
+        Check("it waits for this very process to close before it touches the files it is running from",
+            script.Contains("PID eq 4321") && script.Contains("waitloop"), "the pid it waits on");
+        Check("it starts the build the shop already starts, not a second copy somewhere else",
+            script.Contains(UpdateRules.ExePath), "the path it starts");
+        Check("and it leaves a log, because the run that goes wrong is the one nobody saw",
+            script.Contains("update.log"), "no log");
+        // A check must not create the shop's data folder to look at its name, so the script is asked what it
+        // may touch instead: one folder, the source folder it was written for, and no database file at all.
+        var named = System.Text.RegularExpressions.Regex.Matches(script, @"[A-Za-z]:[^""\s>]+")
+            .Cast<System.Text.RegularExpressions.Match>().Select(x => x.Value).ToList();
+        Check("the only folder an update may name is the source folder it was written for",
+            named.Count > 0 && named.All(x => x.StartsWith(@"C:\shop\container", StringComparison.OrdinalIgnoreCase)),
+            string.Join(" | ", named));
+        Check("and it never names a database file, which is the one way an update could reach a shop's books",
+            !script.Contains(".db", StringComparison.OrdinalIgnoreCase), "a .db path reached the script");
+
+        Head("updates: the release the shop is offered is described honestly");
+        var root = FindRepoRootForChecks();
+        if (root is null)
+        {
+            Warn("the shipped project file and changelog agree on the version", true, "not a source folder - nothing to compare");
+            return;
+        }
+        var csproj = File.ReadAllText(Path.Combine(root, "src", "ContainerManagement", "ContainerManagement.csproj"));
+        var log = File.ReadAllText(Path.Combine(root, "CHANGELOG.md"));
+        var shipped = UpdateRules.VersionFromProject(csproj) ?? "";
+        var newest = System.Text.RegularExpressions.Regex.Match(log, @"(?m)^## (\S+)").Groups[1].Value;
+        Check("the newest changelog entry is the version the build carries, so the notes match what arrives",
+            Plain(shipped) == Plain(newest), $"the build says {shipped}, the changelog heads with {newest}");
+        Check("and that entry has something in it, because an empty promise is worse than none",
+            UpdateRules.NotesFrom(log).Split('\n').Length > 1, UpdateRules.NotesFrom(log));
+    }
+
+    /// <summary>The source folder the checks were built in, found the same patient way the update looks for it.</summary>
+    private static string FindRepoRootForChecks()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CHANGELOG.md")))
+            dir = dir.Parent;
+        return dir?.FullName;
     }
 
     // ------------------------------------------------------------------ the flows
@@ -637,27 +772,51 @@ public static class Program
         Head("the printed sheet carries the figures the sheet showed");
         var print = new PrintService();
         var html = print.BuyPlanHtml(saved, new ShopSettings { CompanyName = "Check shop" });
+        var paper = OnPaper(html);
         foreach (var l in saved.Lines)
         {
+            // Named one at a time, so a failure says which figure did not reach the paper rather than leaving
+            // somebody to hunt through eleven columns of HTML.
+            var missing = new List<string>();
+            void Need(string what, string text)
+            {
+                if (!paper.Contains(Plain(text))) missing.Add(what + " (" + text + ")");
+            }
+            Need("qty", l.QuantityText);
+            Need("yen cost", l.CostYenText);
+            Need("rupee cost", l.CostPkrText);
+            Need("kg each", l.UnitWeightText);
+            Need("kg total", l.TotalWeightText);
+            Need("sold for", l.SaleTotalText);
+            Need("profit", l.ProfitText);
             Check("the printed row carries " + l.ItemNameText + "'s rupees, yen, kilos and profit",
-                html.Contains(l.QuantityText) && html.Contains(l.CostYenText) && html.Contains(l.CostPkrText)
-                && html.Contains(l.UnitWeightText) && html.Contains(l.TotalWeightText)
-                && html.Contains(l.SaleTotalText) && html.Contains(l.ProfitText), l.ItemNameText);
+                missing.Count == 0, "not on the paper: " + string.Join(", ", missing));
         }
         Check("a yen bill is printed in yen, at the rate that row was taken at",
-            Plain(html).Contains(Plain("\u00a5180,000 at 1.0701 = Rs 192,618")), "the bills table reads otherwise");
+            paper.Contains(Plain("\u00a5180,000 at 1.0701 = Rs 192,618")),
+            "the note the row carries is: " + saved.Expenses[0].Note);
         Check("a rupee bill states its amount, and the two are added up under them",
             Plain(html).Contains(Plain("Rs 100,000.01")) && Plain(html).Contains(Plain("Rs 292,618.01")),
             "the bills or their total are not on the paper");
         Check("the rate is on the paper, so the yen figures can be checked without the app",
             html.Contains("Rs 1.0701 for 1 yen"), "the line under the title");
+        var absent = new List<string>();
+        void OnSheet(string what, string text)
+        {
+            if (!paper.Contains(Plain(text))) absent.Add(what + " (" + text + ")");
+        }
+        OnSheet("yen cost", saved.Total.CostYenText);
+        OnSheet("rupee cost", saved.Total.CostPkrText);
+        OnSheet("bills", saved.Total.ExpenseText);
+        OnSheet("all in", saved.Total.SpendText);
+        OnSheet("sold for", saved.Total.SaleText);
+        OnSheet("profit", saved.Total.ProfitText);
+        OnSheet("margin", saved.Total.MarginText);
+        OnSheet("weight", saved.Total.WeightText);
+        OnSheet("rows' profit", saved.Total.RowsProfitText);
+        OnSheet("row count", saved.Total.ItemCountText);
         Check("and the summary is the sheet's own figures, not worked out again for the printer",
-            html.Contains(saved.Total.CostYenText) && html.Contains(saved.Total.CostPkrText)
-            && html.Contains(saved.Total.ExpenseText) && html.Contains(saved.Total.SpendText)
-            && html.Contains(saved.Total.SaleText) && html.Contains(saved.Total.ProfitText)
-            && html.Contains(saved.Total.MarginText) && html.Contains(saved.Total.WeightText)
-            && html.Contains(saved.Total.RowsProfitText) && html.Contains(saved.Total.ItemCountText),
-            "one of them is missing or different");
+            absent.Count == 0, "not on the paper: " + string.Join(", ", absent));
         Check("the summary is a table of figures, with its seven money words on it",
             html.Contains("<h2>Summary</h2>") && html.Contains("+ expense") && html.Contains("= all in")
             && html.Contains("All sold for") && html.Contains("Margin"), "the summary block");
@@ -698,8 +857,14 @@ public static class Program
         Eq("the rupee bill is taken as written", 100_000.01m, after.Expenses[1].AmountPkr);
         Eq("and the bill typed after the rate moved is taken at the new one", 60_000m, after.Expenses[2].AmountPkr);
         Eq("the sheet totals the three", 352_618.01m, after.ExpensePkr);
-        Eq("so the profit moved by exactly what the new bill added", 60_000m,
-            saved.Total.ProfitPkr - after.Total.ProfitPkr);
+        // The sheet's rate moved from 1.0701 to 1.20, and a row holds the sheet's rate - so the goods were
+        // re-priced by the same save. Profit moves by the new bill AND by that re-cost: an identity between the
+        // two sheets' own totals, rather than a figure remembered from only one of them.
+        Eq("so profit moved by the new bill plus the goods the moved rate re-priced, and by nothing else",
+            Money.Round((after.Total.ExpensePkr - saved.Total.ExpensePkr)
+                + (after.Total.CostPkr - saved.Total.CostPkr)
+                - (after.Total.SalePkr - saved.Total.SalePkr)),
+            Money.Round(saved.Total.ProfitPkr - after.Total.ProfitPkr));
 
         Head("what a bill row will not accept");
         await plans.SaveAsync(planId, "AUDIT sheet", 1.20m, goodsRows, new List<BuyPlanExpenseInput>
@@ -815,7 +980,7 @@ public static class Program
             Eq("the goods are credited back on their ledger", 1_999.99m, preview.Credit);
             Eq("and only what the debt cannot absorb is paid from the cashbook", 1_499.99m, preview.Cash);
             Check("so the page can say both halves, in rupees, before anything is pressed",
-                SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("Rs 500.00 comes off")
+                SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("Rs 500 comes off")
                 && SalesService.DescribeReturn(preview.Credit, preview.Cash).Contains("paid out of the cashbook"),
                 SalesService.DescribeReturn(preview.Credit, preview.Cash));
             var posted = await sales.ReturnItemsAsync(askBill.Id, asked);
@@ -938,7 +1103,9 @@ public static class Program
 
             Head("the ledger in a chat message");
             var chatBalance = await ledger.GetBalanceAsync(customer.Id);
-            var chat = PrintService.ShareText("AUDIT shop", customer.Name, customerLedger, chatBalance);
+            // A budget of its own here, because this check asks *which* lines a message holds, and the real
+            // limit would already have cut a long book before the question was put.
+            var chat = PrintService.ShareText("AUDIT shop", customer.Name, customerLedger, chatBalance, 100_000);
             Check("the message carries every line of the ledger it was made from",
                 customerLedger.All(r => chat.Contains(r.DateText) && chat.Contains(r.RunningText)),
                 customerLedger.Count + " lines in " + chat.Length + " characters");
@@ -1229,12 +1396,17 @@ public static class Program
         await Throws<InvalidOperationException>(
             "nor cancelled, which would take the return with it - what is left over goes back as a return",
             () => sales.CancelSaleAsync(bill2.Id));
+        var oldBill = await sales.CreateSaleAsync(customer.Id, DateTime.Today.AddDays(-2), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 1m, UnitPrice = 2_600m }
+        }, 0m, "Cash", null, 0m, null);
         await Throws<InvalidOperationException>(
-            "and yesterday's bill is not editable at all: it is cancelled and written again",
-            () => sales.UpdateSaleAsync(bill.Id, customer.Id, DateTime.Today.AddDays(-1), new List<NewSaleLineInput>
+            "and a bill written two days ago is not editable at all, however its date is typed now: it is cancelled and made again",
+            () => sales.UpdateSaleAsync(oldBill.Id, customer.Id, DateTime.Today, new List<NewSaleLineInput>
             {
-                new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 12m, UnitPrice = 2_700m }
-            }, 4_000m, "Cash", null, 0m, null));
+                new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 1m, UnitPrice = 2_700m }
+            }, 0m, "Cash", null, 0m, null));
+        Eq("and the refusal left that bill standing at what it was", 2_600m, oldBill.TotalAmount);
 
         Head("a sale cancelled: goods back on the shelf, money out of the till");
         var bill3 = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
@@ -1243,7 +1415,6 @@ public static class Program
         }, 1_000m, "Cash", null, 0m, null);
         var beforeCancel = await reports.GetContainerProfitAsync(box.Id);
         var shelfBefore = (await ReadItemAsync(f, fan.Id)).QuantityRemaining;
-        var owedBeforeBill3 = await ledger.GetBalanceAsync(customer.Id);
         await sales.CancelSaleAsync(bill3.Id);
         Eq("the shelf has the three pieces back", shelfBefore + 3m, (await ReadItemAsync(f, fan.Id)).QuantityRemaining);
         var afterCancel = await reports.GetContainerProfitAsync(box.Id);
@@ -1259,8 +1430,16 @@ public static class Program
             Check("the bill is kept and marked cancelled - a deleted bill is a bill nobody can explain later",
                 st.Status == SaleStatus.Cancelled && st.CancelledAt is not null, st.Status.ToString());
         }
-        Eq("and the customer is left owing what they owed before the bill existed - bill and receipt both come off",
-            owedBeforeBill3, await ledger.GetBalanceAsync(customer.Id));
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var lines3 = await db.LedgerEntries.AsNoTracking().Where(e => e.SaleId == bill3.Id).ToListAsync();
+            Eq("every line that bill ever wrote - the billing, the receipt, the cancellation, the refund - "
+                + "nets to nothing, so calling a bill off leaves the customer neither better nor worse off",
+                0m, Money.Round(lines3.Sum(e => e.Debit - e.Credit)));
+            Warn("and all four of those lines are on the record, so the paper can be read back afterwards",
+                lines3.Count == 4,
+                lines3.Count + " lines: " + string.Join(" | ", lines3.Select(x => x.Type + " " + Money.Round(x.Debit - x.Credit))));
+        }
         await Throws<InvalidOperationException>("and cancelling it a second time is refused, not repeated",
             () => sales.CancelSaleAsync(bill3.Id));
 
@@ -1442,10 +1621,13 @@ public static class Program
         await using (var db = await f.CreateDbContextAsync())
         {
             var withRows = (await db.Containers.AsNoTracking().Include(c => c.Items).ToListAsync())
-                .Where(c => c.Items.Any(i => i.QuantityRemaining > 0)).Select(c => c.Id).ToList();
-            Check("the box a bill is drawn from offers exactly the containers the shelf says are not empty",
-                withStock.Select(c => c.Id).OrderBy(x => x).SequenceEqual(withRows.OrderBy(x => x)),
-                withStock.Count + " offered, " + withRows.Count + " with stock");
+                .Where(c => c.Status == ContainerStatus.Open && c.Items.Any(i => i.QuantityRemaining > 0))
+                .Select(c => c.Id).ToList();
+            Check("the picker offers every open container the shelf says is not empty, and not the one just closed",
+                withStock.Select(c => c.Id).OrderBy(x => x).SequenceEqual(withRows.OrderBy(x => x))
+                    && !withStock.Any(c => c.Id == box.Id),
+                withStock.Count + " offered, " + withRows.Count + " open with stock, closed box listed: "
+                    + withStock.Any(c => c.Id == box.Id));
         }
         var allBoxes = await inventory.ListContainersAsync();
         await using (var db = await f.CreateDbContextAsync())
@@ -1470,20 +1652,28 @@ public static class Program
             var entries = await db.LedgerEntries.AsNoTracking().ToListAsync();
             var pays = await db.Payments.AsNoTracking().ToListAsync();
             var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
-            var payouts = await db.CustomerPayouts.AsNoTracking().ToListAsync();
+            // Per bill rather than per customer, in totals: a pair of mistakes can cancel in a customer's
+            // balance and cannot cancel inside one bill's own lines.
             var off = new List<string>();
-            foreach (var g in entries.Where(e => e.Type != LedgerType.Opening).GroupBy(e => e.CustomerId))
+            foreach (var sale in allSales)
             {
-                var booked = allSales.Where(s => s.CustomerId == g.Key && s.Status == SaleStatus.Active).Sum(s => s.TotalAmount);
-                var paid = pays.Where(p => p.CustomerId == g.Key).Sum(p => p.Amount);
-                var back = returns.Where(r => r.CustomerId == g.Key).Sum(r => r.Amount);
-                var handed = payouts.Where(p => p.CustomerId == g.Key).Sum(p => p.Amount);
-                var byLedger = Money.Round(g.Sum(e => e.Debit - e.Credit));
-                if (byLedger != Money.Round(booked - paid - back + handed))
-                    off.Add($"customer {g.Key}: their book says {byLedger}, their documents {Money.Round(booked - paid - back + handed)}");
+                var mine = entries.Where(e => e.SaleId == sale.Id).ToList();
+                var paid = pays.Where(x => x.SaleId == sale.Id).Sum(x => x.Amount);
+                var back = returns.Where(x => x.SaleId == sale.Id).Sum(x => x.Amount);
+                var should = sale.Status == SaleStatus.Cancelled
+                    ? 0m
+                    : Money.Round(sale.TotalAmount - paid - back);
+                var written = Money.Round(mine.Sum(e => e.Debit - e.Credit));
+                if (written != should)
+                    off.Add($"bill {sale.Id} ({sale.Status}): its lines say {written}, the bill says {should}");
             }
-            Check("every customer's ledger adds back to their bills, receipts, returns and money handed over",
+            Check("every bill's own ledger lines say what that bill, its receipts and its returns say - cancelled ones say nothing",
                 off.Count == 0, string.Join(" | ", off));
+            var orphans = entries.Where(e => e.SaleId is null && e.PaymentId is null && e.PayoutId is null
+                && e.Type != LedgerType.Opening && e.Type != LedgerType.Adjustment).ToList();
+            Check("and no entry floats free of a document unless it is one a person wrote by hand",
+                orphans.Count == 0, orphans.Count + " lines with nothing behind them: "
+                    + string.Join(" | ", orphans.Take(3).Select(x => x.Type + " " + x.Date.ToString("dd MMM yyyy") + " " + x.Description)));
 
             var boxes = await db.Containers.AsNoTracking().Include(c => c.Items).ToListAsync();
             var saleLines = await db.SaleLines.AsNoTracking().Include(l => l.Sale).ToListAsync();
@@ -2466,4 +2656,10 @@ public static class Program
 
     // Grouping separators differ between Windows and Linux for en-PK, so compare without them.
     private static string Plain(string s) => s.Replace(",", "");
+
+    /// <summary>The printed page as a reader sees it rather than as a string: the entities unfolded before the
+    /// comparison, because a check that asks whether "&amp;yen;" is on the paper is only ever asking about HTML.</summary>
+    private static string OnPaper(string html) => Plain(html
+        .Replace("&yen;", "\u00a5").Replace("&#165;", "\u00a5").Replace("&nbsp;", " ")
+        .Replace("&amp;", "&").Replace("&#39;", "'").Replace("&quot;", "\""));
 }

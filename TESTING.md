@@ -57,6 +57,7 @@ has to follow to be worth adding.
 | a container closed | nothing moves: its sales, its profit and what is still out there stay where they were, and the box stays in the lists the pages are added up from, because a closed box is still owed to and still pays |
 | the lists, against the rows under them | To collect shows each customer the figure their own page holds and leaves out anyone even or holding money back; the inventory page is the shelf added up and worth what Home's stock line says; the sell page offers exactly what the shelf holds; correcting a customer's name or number moves no money at all |
 | every row, swept | over the whole fixture shop: each bill's lines less its discount are its total, each customer's ledger adds back to their bills, receipts, returns and money handed over, each lot's shelf is what came in less what went out plus what was handed back and any count made since, what We Owe per container is that container's bill less the payments on it, and the till's own lines add to the cash in hand shown |
+| updates | the decision is made from the facts, not from what a folder looks like: a version is compared by its three numbers (1.10.0 is newer than 1.9.0, which a text compare gets backwards), unsaved work in the folder stops an update before it is offered, a folder and a branch that have each moved are handed to a person, and the script that does the work may only fetch, fast-forward, build and start - it is refused if it ever says reset or clean or names the folder holding the books |
 | a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
@@ -486,3 +487,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    "We owe" to 0 while payments stand against the container: the container settles, it does not refuse -
    "We owe" here is what is left to pay, and the bill is that figure plus every payment. The words line
    and this box must say the same amount, since both are the same money.
+
+8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
+   nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
+   branch could not be reached, or this folder has work in it that has to be put away first. When an update is
+   ready, "Update now" appears; press it twice and ProBooks should close, and a few minutes later the new
+   ProBooks should open by itself. Then check three things: the ledger you left is the ledger you came back to,
+   the backup taken just before is in the backups list with "before update" on it, and the version in Settings
+   - About (or the exe's own properties) is the new one. On a PC whose folder is not a source checkout, the
+   card should say it cannot update itself rather than failing.
