@@ -24,6 +24,16 @@ public class PrintService
         if (!string.IsNullOrWhiteSpace(sale.Customer.Address))
             sb.Append($"<br/>{H(sale.Customer.Address)}");
         sb.Append("</p>");
+        // Which lot the goods came out of, when the whole bill came from one: the shop wants its paper to tie
+        // the money to the container it paid for, and a customer holding the bill can see what was sold to
+        // them. A bill drawn across two lots says nothing, because naming one of them would be a half-truth.
+        var lots = sale.Lines.Select(l => l.Container).Where(c => c is not null).DistinctBy(c => c.Id).ToList();
+        if (lots.Count == 1)
+        {
+            var lot = lots[0];
+            var number = string.IsNullOrWhiteSpace(lot.ContainerNumber) ? "" : " · " + lot.ContainerNumber;
+            sb.Append($"<p class='muted'>From container: {H(lot.Title)}{H(number)}</p>");
+        }
 
         sb.Append("<table><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>");
         foreach (var l in sale.Lines)

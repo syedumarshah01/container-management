@@ -21,6 +21,8 @@
             <DataGridTextColumn Header="Arrival" Binding="{Binding ArrivalText}" Width="120" />
             <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
             <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
+            <DataGridTextColumn Header="Collected" Binding="{Binding CollectedText}" Width="150" />
+            <DataGridTextColumn Header="In the market" Binding="{Binding InMarketText}" Width="150" />
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>

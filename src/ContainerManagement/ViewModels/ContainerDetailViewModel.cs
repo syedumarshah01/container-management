@@ -28,6 +28,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string subtitle = "";
     [ObservableProperty] private string stockValue = "—";
     [ObservableProperty] private string stockSold = "—";
+    [ObservableProperty] private string stockCollected = "—";
+    [ObservableProperty] private string stockMarket = "—";
 
     [ObservableProperty] private string goodsName = "";
     [ObservableProperty] private string goodsSku = "";
@@ -180,6 +182,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             StockValue = Money.Pkr(p.RemainingValue);
             StockSold = p.SoldAmountText;
+            StockCollected = p.CollectedText;
+            StockMarket = p.InMarketText;
         }
     }
 

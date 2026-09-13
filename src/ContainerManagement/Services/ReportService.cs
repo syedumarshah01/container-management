@@ -368,6 +368,76 @@ public class ReportService
     }
 
     /// <summary>
+    /// What is still owing on the goods each container sold: every bill's outstanding figure - taken from the
+    /// bill itself, by the same formula the bill's page and the customer's ledger read - shared across the
+    /// containers its lines came from in proportion to what each was billed for, with the paisa that will not
+    /// divide going on the biggest share. That is the sharing a discount already gets across a bill's lines,
+    /// and for the same reason: the parts have to add back to the whole exactly. A bill drawn from one
+    /// container, which is what the sell page's container box is for, needs no sharing at all - its money is
+    /// that container's, paisa for paisa.
+    /// </summary>
+    private static async Task<Dictionary<int, decimal>> OutstandingByContainerAsync(
+        AppDbContext db, List<SaleLine> saleLines)
+    {
+        var map = new Dictionary<int, decimal>();
+        var saleIds = saleLines.Select(l => l.SaleId).Distinct().ToList();
+        if (saleIds.Count == 0)
+            return map;
+
+        var bills = await db.Sales.AsNoTracking().Where(s => saleIds.Contains(s.Id)).ToListAsync();
+        var pays = await db.Payments.AsNoTracking()
+            .Where(p => p.SaleId != null && saleIds.Contains(p.SaleId.Value)).ToListAsync();
+        var backs = await db.SaleReturns.AsNoTracking()
+            .Where(r => saleIds.Contains(r.SaleId)).ToListAsync();
+
+        foreach (var bill in bills)
+        {
+            var left = SalesService.RemainingOf(bill,
+                pays.Where(p => p.SaleId == bill.Id).Sum(p => p.Amount),
+                backs.Where(r => r.SaleId == bill.Id).Sum(r => r.Amount));
+            if (left == 0m)
+                continue;
+
+            var parts = saleLines.Where(l => l.SaleId == bill.Id)
+                .GroupBy(l => l.ContainerId)
+                .Select(g => (Container: g.Key, Weight: g.Sum(x => x.LineTotal)))
+                .ToList();
+            foreach (var (container, share) in ShareByWeight(parts, left))
+            {
+                map.TryGetValue(container, out var had);
+                map[container] = Money.Round(had + share);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>One amount, shared across containers by weight, ordered the same way every time so the same
+    /// lot keeps the odd paisa on every re-run rather than trading it with another.</summary>
+    private static List<(int Container, decimal Share)> ShareByWeight(
+        List<(int Container, decimal Weight)> parts, decimal amount)
+    {
+        var ordered = parts.OrderByDescending(p => p.Weight).ThenBy(p => p.Container).ToList();
+        if (ordered.Count == 0)
+            return new List<(int, decimal)>();
+        var total = ordered.Sum(p => p.Weight);
+        if (total <= 0m)
+        {
+            // Nothing to weigh the parts by, and money still owing: it goes on the lot at the top of the bill
+            // rather than vanishing, so the containers always add back to the bill.
+            return new List<(int, decimal)> { (ordered[0].Container, Money.Round(amount)) };
+        }
+
+        var factor = amount / total;
+        var shares = ordered.Select(p => Money.Round(p.Weight * factor)).ToList();
+        shares[0] = Money.Round(shares[0] + (amount - shares.Sum()));
+        var out2 = new List<(int, decimal)>(ordered.Count);
+        for (var i = 0; i < ordered.Count; i++)
+            out2.Add((ordered[i].Container, shares[i]));
+        return out2;
+    }
+
+    /// <summary>
     /// What each line of a bill is worth once that bill's discount is taken off, keyed by line id.
     ///
     /// A discount is not one item's loss, so it is shared across the bill's lines in proportion to what
@@ -435,6 +505,7 @@ public class ReportService
         if (to is DateTime rt) returnLines = returnLines.Where(l => l.Return.Date < rt.Date.AddDays(1)).ToList();
 
         var netted = await NetRevenueByLineAsync(db, saleLines.Select(l => l.SaleId));
+        var stillOut = await OutstandingByContainerAsync(db, saleLines);
         var lines = saleLines
             .GroupBy(l => l.ContainerId)
             .Select(g => new
@@ -472,7 +543,11 @@ public class ReportService
                 RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.EffectiveCost),
                 RemainingQty = c.Items.Sum(i => i.QuantityRemaining),
                 QtySold = (s?.QtySold ?? 0) - rets.Sum(x => x.Quantity),
-                QtyReceived = c.Items.Sum(i => i.QuantityReceived)
+                QtyReceived = c.Items.Sum(i => i.QuantityReceived),
+                // One subtraction apart, so the three money figures on a container cannot disagree with each
+                // other: what its goods brought, what is still out there, and what has arrived.
+                InMarket = stillOut.GetValueOrDefault(c.Id, 0m),
+                Collected = Money.Round(revenue - stillOut.GetValueOrDefault(c.Id, 0m))
             };
         }).ToList();
     }

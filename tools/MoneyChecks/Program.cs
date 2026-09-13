@@ -1646,6 +1646,67 @@ public static class Program
             () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Sea Freight", 0m, null, "PKR"));
         await Throws<InvalidOperationException>("nor is a negative one, which would take freight off a cost",
             () => inventory.AddExpenseAsync(bare.Id, new DateTime(2026, 3, 5), "Rebate", -5_000m, null, "PKR"));
+
+        Head("what a container has collected, and what is still out in the market");
+        var buyer = await ledger.CreateCustomerAsync("MARKET customer", null, null, null);
+        var market = await inventory.CreateContainerAsync(
+            "MARKET box", null, "Japan", new DateTime(2026, 3, 4), null);
+        var cups = await inventory.AddGoodsAsync(market.Id, "Cup", "pcs", "CUP-1", 100m, 200m, null, null, null, 0.4m, null);
+        var first = await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 3, 4), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = market.Id, ContainerItemId = cups.Id, ProductId = cups.ProductId, ProductName = "Cup", Unit = "pcs", Quantity = 10m, UnitPrice = 500m }
+        }, 2_000m, "Cash", null, 0m, null);
+        Eq("the bill is 10 cups at Rs 500, and Rs 2,000 of it was handed over", 5_000m, first.TotalAmount);
+        var firstRow = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == market.Id);
+        Eq("a bill drawn from one container is that container's, sold for the whole of it", 5_000m, firstRow.Revenue);
+        Eq("its money in the market is the bill's own outstanding, with nothing shared", 3_000m, firstRow.InMarket);
+        Eq("and what has come in is the rest", 2_000m, firstRow.Collected);
+
+        // A second bill, this one across two lots: Rs 1,000 of cups and Rs 3,000 of the freight box's mugs,
+        // Rs 800 received against it. The outstanding is shared by what each lot was billed for, so the
+        // split is 1 to 3, and it has to add back to Rs 3,200 to the paisa.
+        var mugRow = mug; // the freight box's mugs, already in scope and still holding 590 of them
+        await sales.CreateSaleAsync(buyer.Id, new DateTime(2026, 3, 5), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = market.Id, ContainerItemId = cups.Id, ProductId = cups.ProductId, ProductName = "Cup", Unit = "pcs", Quantity = 2m, UnitPrice = 500m },
+            new() { ContainerId = box.Id, ContainerItemId = mugRow.Id, ProductId = mugRow.ProductId, ProductName = "Mug", Unit = "pcs", Quantity = 1m, UnitPrice = 3_000m }
+        }, 800m, "Cash", null, 0m, null);
+        var afterMixed = await reports.GetContainerProfitsAsync();
+        var market2 = afterMixed.Single(r => r.ContainerId == market.Id);
+        var box2 = afterMixed.Single(r => r.ContainerId == box.Id);
+        Eq("the cups' lot is billed a further Rs 1,000", 6_000m, market2.Revenue);
+        Eq("and carries a quarter of that bill's outstanding", 3_800m, market2.InMarket);
+        Eq("three quarters of it sits with the mugs' lot", 2_400m, box2.InMarket);
+        Eq("and the two lots' money add back to the two bills, to the paisa", 3_000m + 3_200m,
+            market2.InMarket + box2.InMarket);
+        Eq("what came in is billed less owed, for each lot", 2_200m, market2.Collected);
+        Eq("and for the other one too", 600m, box2.Collected);
+
+        // Two cups come back. The money the shop received does not move - the credit goes against what the
+        // customer owes - so the sold figure and the market figure both fall by Rs 1,000, and collected
+        // stands where it was. That is the test of the definition, not of arithmetic.
+        var cupLine = first.Lines.Single();
+        await sales.ReturnItemsAsync(first.Id, new List<SaleReturnInput> { new() { SaleLineId = cupLine.Id, Quantity = 2m } });
+        var backRow = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == market.Id);
+        Eq("the lot's sold figure is what it brought, less what walked back", 5_000m, backRow.Revenue);
+        Eq("the market figure falls by the credit that was taken against the bill", 2_800m, backRow.InMarket);
+        Eq("and the money that came in is exactly what came in", 2_200m, backRow.Collected);
+
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var bills = await db.Sales.AsNoTracking().Where(x => x.Status == SaleStatus.Active).ToListAsync();
+            var pays = await db.Payments.AsNoTracking().ToListAsync();
+            var backs = await db.SaleReturns.AsNoTracking().ToListAsync();
+            var owed = bills.Sum(x => Math.Max(0m, x.TotalAmount
+                - pays.Where(y => y.SaleId == x.Id).Sum(y => y.Amount)
+                - backs.Where(y => y.SaleId == x.Id).Sum(y => y.Amount)));
+            var spread = (await reports.GetContainerProfitsAsync()).Sum(x => x.InMarket);
+            Eq("no container's money is invented or lost by the sharing: the lots owe what the bills owe",
+                owed, spread);
+            foreach (var r in await reports.GetContainerProfitsAsync())
+                Check("sold = collected + in the market, on every lot",
+                    Money.Round(r.Collected + r.InMarket) == r.Revenue, $"{r.Title}: {r.Revenue}");
+        }
     }
 
     private static void Head(string text) => Console.WriteLine(Environment.NewLine + "  " + text);

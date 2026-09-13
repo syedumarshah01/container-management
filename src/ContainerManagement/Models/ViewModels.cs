@@ -151,7 +151,18 @@ public class ContainerProfitRow
     public decimal RemainingQty { get; set; }
     public decimal QtySold { get; set; }
     public decimal QtyReceived { get; set; }
+
+    /// <summary>What the bills for this container's goods still have owing - payments and returns counted,
+    /// as the bills themselves count them. This is the money in the market.</summary>
+    public decimal InMarket { get; set; }
+
+    /// <summary>What has arrived for them: the sold figure less what is still out. One subtraction, so the
+    /// three money figures on a container add up in front of whoever is reading them.</summary>
+    public decimal Collected { get; set; }
+
     public string StatusText => Status == ContainerStatus.Open ? "Open" : "Closed";
+    public string InMarketText => Money.Pkr(InMarket);
+    public string CollectedText => Money.Pkr(Collected);
     public string ArrivalText => ArrivalDate?.ToString("dd MMM yyyy") ?? "—";
     public string ProfitText => Money.Pkr(Profit);
     public string RemainingValueText => Money.Pkr(RemainingValue);
@@ -408,6 +419,19 @@ public class LedgerRow
     public string ReturnedText => Type == LedgerType.Return && Credit != 0 ? Money.Pkr(Credit) : "—";
     public string ReceivedText => Type == LedgerType.Return || Credit == 0 ? "—" : Money.Pkr(Credit);
     public string RunningText => Money.Pkr(RunningBalance);
+}
+
+/// <summary>An entry in the sell page's container box: the lot to bill from, or the choice that leaves a
+/// bill open to every lot. The title alone would do for a label, but two lots can share a name, so the box
+/// carries the id and never has to guess which one is meant.</summary>
+public class ContainerChoice
+{
+    public int ContainerId { get; init; }
+    public string Title { get; init; } = string.Empty;
+
+    public static ContainerChoice All { get; } = new() { ContainerId = 0, Title = "All containers" };
+
+    public override string ToString() => Title;
 }
 
 public class StockOption

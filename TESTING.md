@@ -38,6 +38,7 @@ shift a figure on screen.
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | the printed order sheet | the paper carries each row's own figures, its bills and the sheet's seven-figure summary - nothing is worked out again for the printer, and no sentence explains anything; a yen bill prints in yen with the rate *that row* was taken at; the rows' profit and the summary's differ by exactly the bills; and no money figure on the paper has a third decimal |
 | a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
+| a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
 | the return outcome | the page states, in rupees and before the button is pressed, what the rule will do - and the figures it names are the posting's own arithmetic, run with writing switched off, so the line can promise nothing the book does not write |
@@ -201,6 +202,27 @@ cost, so a container that was landed at a loss no longer reports a profit. What 
 - Lines already sold are re-costed with the landed figure, as they are whenever a cost is corrected, so
   the profit a container made moves when its freight is entered. Deleting the expense moves it back.
 
+**A container's money, and one container per bill.** The sell page now has a *Container* box beside the
+search: choose a lot and only that lot's goods are offered, and picking an item sets the box to its container
+on its own, so a bill is one shipment's goods without anyone having to remember. That is not a restriction -
+"All containers" is there, and every line stores the container it came out of either way - but a bill from
+one lot needs no arithmetic to attribute its money, which is why the figures below are worth reading.
+
+Each container then carries three money figures, and they are one subtraction apart: what its goods brought
+(sold, after the discount share and any returns), what is still out there (in the market), and what has
+arrived (collected). The market figure is built from the bills themselves - each bill's outstanding is
+calculated by the same formula the bill's own page and the customer's ledger read, then shared across the
+containers its lines came from in proportion to what each was billed for, with the paisa that will not divide
+going on the bigger share, as a discount's does across a bill's lines. Collected is sold less that, so the
+three cannot disagree and no rupee is invented or dropped by the sharing; the checks add the lots back and
+compare them to the bills.
+
+What that definition means where money has moved oddly, stated plainly: a return credited against a bill
+lowers the sold figure and the market figure together, so the collected figure stays exactly where the cash
+arrived - which is the point, since the question is how much of a lot's money is in the market and how much
+has come in, not how the customer's ledger happened to be netted. A bill cancelled after the sale is excluded
+with the bill itself, and money received that was never pointed at a bill belongs to no container until it is.
+
 **Not changed - noted.** Some tables (`SupplierPayments`, `SaleReturns`, `CashBook`, `ShopExpenses`,
 `StockAdjustments`) were created with money as SQLite `REAL`, a float, while the model writes money as
 exact text. A fresh install gets text; a database upgraded from an earlier release keeps the float
@@ -291,6 +313,14 @@ rather than assuming it. Say the word and I will move those columns to text for 
    and the "+ EXPENSE" figure at the top should be exactly the two rows added. Change the rate at the top of
    the sheet to something else and save: the yen bill should not move, while a bill typed after that is taken
    at the new rate. Then delete one row: the expense figure should fall by that row alone, to the paisa.
+4h. On the sell page, choose a container in the box beside the search and confirm the item search offers
+   only that lot's goods; pick an item and confirm the box moves to its container by itself. Bill it, then
+   leave Rs 2,000 of the bill unpaid. Open that container: "Collected" and "In the market" should read what
+   you paid and what you left, with no calculator work - and the containers list should show the same two
+   figures for it. Now sell across two containers on one bill, pay part of it, and check that the two
+   containers' market figures add back to the bill's outstanding to the paisa. Print the bill from the
+   single-container sale and confirm the invoice names the container under the customer's name, and that the
+   mixed one does not.
 4g. Press Print on an order sheet carrying at least one bill in ¥ and one in Rs. The eleven columns should
    match the grid figure for figure, the bills should print with the rate each was taken at, and the two profit
    figures - the rows' total under "Profit, before bills" and the summary's Profit - should differ by exactly

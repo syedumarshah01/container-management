@@ -31,6 +31,15 @@ public partial class NewSaleViewModel : ViewModelBase
     public int? EditingSaleId { get; set; }
 
     public ObservableCollection<Customer> Customers { get; } = new();
+
+    /// <summary>
+    /// The lot to bill from. Choose it and the item search below offers only what came in it, so a bill is one
+    /// container's goods and its money is that container's money figure for figure, shared with nothing.
+    /// Picking an item sets it by itself, and "All containers" is there for a customer buying across two lots
+    /// in one visit: every line keeps the container it came from either way, so a container's collected and
+    /// outstanding figures do not depend on how a bill happened to be typed.
+    /// </summary>
+    public ObservableCollection<ContainerChoice> ContainerChoices { get; } = new();
     public ObservableCollection<NewSaleLineInput> Lines { get; } = new();
     public IReadOnlyList<string> Methods { get; } = PaymentMethods.All;
 
@@ -38,9 +47,9 @@ public partial class NewSaleViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? saleDate = DateTimeOffset.Now;
     [ObservableProperty] private DateTimeOffset? dueDate;
     [ObservableProperty] private string notes = "";
+    [ObservableProperty] private ContainerChoice? containerChoice;
     [ObservableProperty] private StockOption? selectedStock;
     [ObservableProperty] private string stockSearch = "";
-    [ObservableProperty] private string selectedStockContainer = "—";
     [ObservableProperty] private string selectedStockQty = "—";
     [ObservableProperty] private string selectedStockCost = "—";
     [ObservableProperty] private decimal? pickQty = 1;
@@ -61,6 +70,7 @@ public partial class NewSaleViewModel : ViewModelBase
         var keepCustomerId = SelectedCustomer?.Id;
         var alreadyOpen = HasLoaded;
         _stock = await _inventory.GetSellableStockAsync();
+        RebuildContainerChoices();
         await RefreshCustomersAsync(keepCustomerId);
 
         if (EditingSaleId is int sid && !alreadyOpen)
@@ -111,18 +121,28 @@ public partial class NewSaleViewModel : ViewModelBase
             : SelectedCustomer;
     }
 
+    partial void OnContainerChoiceChanged(ContainerChoice? value)
+    {
+        // An item already picked from another lot cannot be added under this choice, so it is put back.
+        if (value is { ContainerId: > 0 } && SelectedStock is { } pick && pick.ContainerId != value.ContainerId)
+            SelectedStock = null;
+    }
+
     partial void OnSelectedStockChanged(StockOption? value)
     {
         if (value is null)
         {
-            SelectedStockContainer = "—";
             SelectedStockQty = "—";
             SelectedStockCost = "—";
             QtyError = "";
             return;
         }
 
-        SelectedStockContainer = value.ContainerTitle;
+        // Picking an item decides which lot this bill is against, and the box above shows and holds it, so
+        // the next pick comes from the same container without anyone having to remember to filter.
+        if (ContainerChoice?.ContainerId != value.ContainerId)
+            ContainerChoice = ContainerChoices.FirstOrDefault(c => c.ContainerId == value.ContainerId)
+                              ?? ContainerChoice.All;
         SelectedStockQty = Money.Qty(value.Remaining) + " " + value.Unit;
         // The landed cost, not the goods price alone: it is the figure this line will be costed at, and a
         // picker that shows a smaller one teaches a shop to under-price a piece.
@@ -252,13 +272,40 @@ public partial class NewSaleViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(search))
             return Array.Empty<object>();
 
-        return _stock
+        var pool = ContainerChoice is { ContainerId: > 0 } lot
+            ? _stock.Where(s => s.ContainerId == lot.ContainerId)
+            : _stock;
+
+        return pool
             .Where(s =>
                 s.ProductName.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || (s.Sku ?? "").Contains(search, StringComparison.OrdinalIgnoreCase))
             .Take(40)
             .Cast<object>()
             .ToList();
+    }
+
+    /// <summary>The box beside the search, built from what is actually in stock and no longer than the lots
+    /// that still have goods to sell. A choice made before is kept across a reload; a bill being edited takes
+    /// its container from its own lines, when they all agree on one.</summary>
+    private void RebuildContainerChoices()
+    {
+        var keep = ContainerChoice?.ContainerId ?? 0;
+        ContainerChoices.Clear();
+        ContainerChoices.Add(ContainerChoice.All);
+        foreach (var lot in _stock
+                     .GroupBy(o => o.ContainerId)
+                     .Select(g => (Id: g.Key, Title: g.First().ContainerTitle))
+                     .OrderBy(x => x.Title))
+        {
+            ContainerChoices.Add(new ContainerChoice { ContainerId = lot.Id, Title = lot.Title });
+        }
+
+        ContainerChoice = ContainerChoices.FirstOrDefault(c => c.ContainerId == keep) ?? ContainerChoices[0];
+
+        var only = Lines.Select(l => l.ContainerId).Distinct().ToList();
+        if (only.Count == 1)
+            ContainerChoice = ContainerChoices.FirstOrDefault(c => c.ContainerId == only[0]) ?? ContainerChoice;
     }
 
     private async Task ResetDraftAsync()
@@ -272,9 +319,11 @@ public partial class NewSaleViewModel : ViewModelBase
         DueDate = null;
         SelectedStock = null;
         StockSearch = "";
+        ContainerChoice = null;
         PickQty = 1;
         PickPrice = null;
         _stock = await _inventory.GetSellableStockAsync();
+        RebuildContainerChoices();
         Recalc();
     }
 

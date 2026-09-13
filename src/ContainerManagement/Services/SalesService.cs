@@ -36,6 +36,15 @@ public class SalesService
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
+    /// <summary>
+    /// What a bill still has owing: what it was billed for, less every payment pointed at it and every return
+    /// credited against it, and never below nil. One formula, because three pages ask the question - the bill,
+    /// the list of unpaid bills, and a container's money - and a bill's outstanding is the one figure a
+    /// customer can also read off their own ledger, so it cannot be allowed to differ by a paisa per page.
+    /// </summary>
+    internal static decimal RemainingOf(Sale sale, decimal paid, decimal returned)
+        => Math.Max(0m, Money.Round(sale.TotalAmount - paid - returned));
+
     public async Task<decimal> RemainingOnInvoiceAsync(int saleId)
     {
         await using var db = await _factory.CreateDbContextAsync();
@@ -44,7 +53,7 @@ public class SalesService
             return 0;
         var paid = await db.Payments.AsNoTracking().Where(p => p.SaleId == saleId).ToListAsync();
         var returned = await db.SaleReturns.AsNoTracking().Where(r => r.SaleId == saleId).ToListAsync();
-        return Math.Max(0, sale.TotalAmount - paid.Sum(p => p.Amount) - returned.Sum(r => r.Amount));
+        return RemainingOf(sale, paid.Sum(p => p.Amount), returned.Sum(r => r.Amount));
     }
 
     public async Task<List<UnpaidInvoice>> UnpaidInvoicesAsync(int customerId)
@@ -62,9 +71,9 @@ public class SalesService
         var list = new List<UnpaidInvoice>();
         foreach (var s in sales.OrderBy(s => s.Date))
         {
-            var left = s.TotalAmount
-                       - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
-                       - returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount);
+            var left = RemainingOf(s,
+                pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount),
+                returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount));
             if (left > 0.009m)
             {
                 list.Add(new UnpaidInvoice

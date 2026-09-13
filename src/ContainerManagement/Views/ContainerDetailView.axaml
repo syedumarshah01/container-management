@@ -34,17 +34,31 @@
           </StackPanel>
         </DockPanel>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,0,0,16">
-          <Border Classes="statcard" Margin="0,0,8,0">
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,0,0,16">
+          <Border Classes="statcard" Margin="0,0,8,8">
             <StackPanel>
               <TextBlock Classes="label" Text="Valuation" />
               <TextBlock Classes="stat" Text="{Binding StockValue}" />
             </StackPanel>
           </Border>
-          <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,0">
+          <Border Classes="statcard" Grid.Column="1" Margin="8,0,0,8">
             <StackPanel>
               <TextBlock Classes="label" Text="Stock sold" />
               <TextBlock Classes="stat" Text="{Binding StockSold}" />
+            </StackPanel>
+          </Border>
+          <!-- The money this container's goods brought and where it is now: what has come in, and what is
+               still out in the market. Sold less collected is the market figure, by construction. -->
+          <Border Classes="statcard" Grid.Row="1" Margin="0,0,8,0">
+            <StackPanel>
+              <TextBlock Classes="label" Text="Collected" />
+              <TextBlock Classes="stat" Text="{Binding StockCollected}" />
+            </StackPanel>
+          </Border>
+          <Border Classes="statcard" Grid.Row="1" Grid.Column="1" Margin="8,0,0,0">
+            <StackPanel>
+              <TextBlock Classes="label" Text="In the market" />
+              <TextBlock Classes="stat" Text="{Binding StockMarket}" />
             </StackPanel>
           </Border>
         </Grid>
