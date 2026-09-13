@@ -1040,7 +1040,7 @@ public static class Program
                 foreach (var row in rows)
                     foreach (var (name, value) in pick(row))
                         if (Money.Round(value) != value)
-                            bad.Add($$$$$$$$$$$$"e} = {value}");
+                            bad.Add($"{what}.{name} = {value}");
             }
 
             Scan("SaleLine", await db.SaleLines.ToListAsync(), x => new[] { ("UnitPrice", x.UnitPrice), ("UnitCost", x.UnitCost), ("LineTotal", x.LineTotal), ("LineCost", x.LineCost) });
@@ -2340,7 +2340,7 @@ public static class Program
                 owed, spread);
             foreach (var r in await reports.GetContainerProfitsAsync())
                 Check("sold = collected + in the market, on every lot",
-                    Money.Round(r.Collected + r.InMarket) == r.Revenue, $$"r.Title}: {r.Revenue}");
+                    Money.Round(r.Collected + r.InMarket) == r.Revenue, $"{r.Title}: {r.Revenue}");
         }
 
         // The Qty box on an item's form is the landed count, and Save has to be heard by it: a shop that wrote
