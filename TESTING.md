@@ -29,6 +29,7 @@ shift a figure on screen.
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
 | the customer | bills − payments − returns equals the ledger's own entries, and every line of their book puts its money in exactly one column of the page and of the paper - a bill, a receipt, goods back, money handed over - so the four columns run the balance and nothing is counted twice or left out |
 | a customer's month | the receipts figure a month box shows is the payments dated in that month, and the lines under it are those payments - a payout to them and a return credit are not money collected, so neither is netted off it; five paisa is a month with five paisa in it, not an empty one; and fourteen months walked one at a time add back to the whole book, so no receipt can hide between two months or be counted twice |
+| the landed count on an item | the Qty box on an item's form is how many came in, and Save moves it: correcting 1,000 to 700 re-shares the container's expenses over 700 pieces, so a piece's freight doubles from Rs 0.70 to Rs 1.00. The shelf count in the other box moves the stock and nothing else, and stock above what landed is refused rather than written |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
@@ -119,6 +120,14 @@ sheet and the reports are one number.
 **Fixed - refusals lied about the quantity.** "Only 0.38 in stock" when 0.375 kg was left (the
 quantity formatter showed two decimals) invited you to type 0.38 and be refused again. Stock
 messages show three now.
+
+**Fixed - an item's Save ignored the quantity box.** Saving an item took its landed count from the grid row
+and never from the box beside it, so correcting a miscount - 700 came in, not the 1,000 that was written -
+did nothing at all: the number snapped back and the freight stayed shared over the wrong count. Before that
+it was worse, not better: the count was overwritten by whatever the stock box said, so a shelf count of 950
+quietly rewrote what the container had imported. Now the Qty box is heard and the stock box is not, which is
+the only arrangement that keeps the freight honest: expenses are divided over the pieces that came in, so a
+corrected count *should* re-share them, and a re-count of the stack should not.
 
 **Not changed - needs your decision.** "Profit" does not mean one thing on every page:
 
@@ -319,6 +328,11 @@ rather than assuming it. Say the word and I will move those columns to text for 
    Pick a row, change it, press Save: the boxes should stay as they are, since the row is still selected.
    Remove a row: the boxes should let go, since the figures in them belong to a line that no longer exists.
    The order sheet's Expenses card behaves the same way, on purpose.
+4j. Pick an item row on a container's page, change Qty landed from what it says to a smaller number, and
+   press Save: the Purchased column should show the new number and stay showing it after the page reloads.
+   Watch "Cost each" - the freight part should move in the opposite direction, because the same expenses are
+   now divided over fewer pieces. Then change only "In stock (when editing)" and the cost should not move at
+   all; set the stock above what landed and Save should refuse in words.
 4h. On the sell page, choose a container in the box beside the search and confirm the item search offers
    only that lot's goods; pick an item and confirm the box moves to its container by itself. Bill it, then
    leave Rs 2,000 of the bill unpaid. Open that container: "Collected" and "In the market" should read what

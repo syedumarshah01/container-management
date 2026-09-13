@@ -158,7 +158,7 @@
                 <TextBox Text="{Binding GoodsSku}" Watermark="optional" HorizontalAlignment="Stretch" />
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                <TextBlock Classes="label" Text="Qty" />
+                <TextBlock Classes="label" Text="Qty landed" />
                 <NumericUpDown Value="{Binding GoodsQty}" Minimum="0" HorizontalAlignment="Stretch" />
               </StackPanel>
               <StackPanel Grid.Column="2" Margin="0,0,8,0">

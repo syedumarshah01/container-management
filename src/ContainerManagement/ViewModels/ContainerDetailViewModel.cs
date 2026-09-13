@@ -327,11 +327,17 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             var stock = GoodsInStock ?? SelectedItem.InStock;
-            // What was landed, not what is on the shelf now: the container's expenses are divided over the
-            // pieces that came in, so a count must not quietly re-share the freight onto fewer pieces.
+            // The Qty box is the landed count and Save has to hear it: a shop that wrote 1,000 and finds 700
+            // in the packing corrects the item, and the freight each piece carries follows that number,
+            // because the expenses are shared over the pieces that came in. What must not move it is the
+            // other box - "In stock" is a shelf count, and letting a stock check re-share the freight onto
+            // fewer pieces would re-price the whole lot from a miscount. The box is filled from the row
+            // before it is edited, so a save that never touched Qty sends the same count back and the
+            // freight lands where it already was.
             var repriced = await _inventory.UpdateGoodsAsync(
-                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, SelectedItem.Purchased, stock, GoodsCost ?? 0,
-                null, null, Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
+                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? SelectedItem.Purchased, stock,
+                GoodsCost ?? 0, null, null,
+                Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
                 SelectedItem.PhotoPath, Currencies.CodeOf(GoodsCurrency), EditYenRate);
             _shell.MarkChanged();
             _shell.Notify(repriced == 0

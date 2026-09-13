@@ -1707,6 +1707,43 @@ public static class Program
                 Check("sold = collected + in the market, on every lot",
                     Money.Round(r.Collected + r.InMarket) == r.Revenue, $"{r.Title}: {r.Revenue}");
         }
+
+        // The Qty box on an item's form is the landed count, and Save has to be heard by it: a shop that wrote
+        // 1,000 and finds 700 in the packing corrects the item, and because the expenses are divided over the
+        // pieces that came in, the freight each piece carries moves with the corrected number. The shelf count
+        // in the other box must not move it - a re-count of the stack is not a fresh import - and stock above
+        // what landed is refused out loud rather than written.
+        Head("the landed count an item's Save sends, and the freight that follows it");
+        var tally = await inventory.CreateContainerAsync(
+            "COUNT box", "BOX-9", "Japan", new DateTime(2026, 3, 9), null, "JPY", 0.4231m);
+        var caps = await inventory.AddGoodsAsync(tally.Id, "Cap", "pcs", "CAP-1", 1000m, 100m, null, null, null, 1m, null);
+        await inventory.AddExpenseAsync(tally.Id, new DateTime(2026, 3, 9), "Clearing", 700m, null);
+        Eq("a thousand pieces of a kilo each is the weight the freight is divided by", 1000m,
+            (await inventory.GetExpenseSplitAsync(tally.Id)).TotalWeightKg);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var at = await db.ContainerItems.AsNoTracking().FirstAsync(x => x.Id == caps.Id);
+            Eq("so each piece carries Rs 0.70 of the Rs 700", 0.70m, at.LandedUnitCost - at.UnitCost);
+        }
+
+        await inventory.UpdateGoodsAsync(caps.Id, "Cap", "pcs", "CAP-1", 700m, 700m, 100m, null, null, 1m, null);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var at = await db.ContainerItems.AsNoTracking().FirstAsync(x => x.Id == caps.Id);
+            Eq("the corrected count is what the item says landed", 700m, at.QuantityReceived);
+            Eq("and the freight on a piece doubles with it, to the paisa", 1.00m, at.LandedUnitCost - at.UnitCost);
+        }
+
+        await inventory.UpdateGoodsAsync(caps.Id, "Cap", "pcs", "CAP-1", 700m, 640m, 100m, null, null, 1m, null);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var at = await db.ContainerItems.AsNoTracking().FirstAsync(x => x.Id == caps.Id);
+            Eq("a shelf count moves the stock", 640m, at.QuantityRemaining);
+            Eq("but not the landed count", 700m, at.QuantityReceived);
+            Eq("so a piece carries exactly what it did before the count", 1.00m, at.LandedUnitCost - at.UnitCost);
+        }
+        await Throws<InvalidOperationException>("stock above what landed is refused, not stored",
+            () => inventory.UpdateGoodsAsync(caps.Id, "Cap", "pcs", "CAP-1", 600m, 650m, 100m, null, null, 1m, null));
     }
 
     private static void Head(string text) => Console.WriteLine(Environment.NewLine + "  " + text);
