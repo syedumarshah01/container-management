@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using ContainerManagement.Data;
 using ContainerManagement.Models;
 
@@ -148,9 +149,32 @@ public class PrintService
         return digits;
     }
 
+    /// <summary>Where in a typed message the book's own lines go. A shop that does not want them has only to
+    /// leave the word out - nothing is added to a message somebody wrote themselves.</summary>
+    public const string LedgerToken = "{ledger}";
+
+    /// <summary>The words a typed message may put the book's figures into it with.</summary>
+    public const string ShareTokenList = "{name}  {shop}  {date}  {balance}  {words}  " + LedgerToken;
+
+    /// <summary>
+    /// The braces in a typed message that the book cannot fill. Asked for when the settings are saved, so a
+    /// shop finds out there instead of a customer finding out in a chat - a message that goes out reading
+    /// "you owe {blance}" is a message about the software, not about the money.
+    /// </summary>
+    public static IReadOnlyList<string> UnknownShareTokens(string? template)
+    {
+        var known = new[] { "{name}", "{shop}", "{date}", "{balance}", "{words}", LedgerToken };
+        return Regex.Matches(template ?? "", @"\{[a-zA-Z ]+\}")
+            .Cast<Match>()
+            .Select(m => m.Value)
+            .Where(v => !known.Contains(v, StringComparer.OrdinalIgnoreCase))
+            .Distinct()
+            .ToList();
+    }
+
     /// <summary>The ledger as a chat message, at the length a link can carry.</summary>
     public static string ShareText(string shop, string customerName, IReadOnlyList<LedgerRow> rows, decimal balance)
-        => ShareText(shop, customerName, rows, balance, ShareUrlBudget);
+        => ShareText(shop, customerName, rows, balance, ShareUrlBudget, null);
 
     /// <summary>
     /// A customer's ledger written out as a chat message: the same lines, in the same order and the same words
@@ -160,39 +184,81 @@ public class PrintService
     /// recent ones and the total; what is dropped is pointed at the statement, not quietly removed.
     /// </summary>
     public static string ShareText(
-        string shop, string customerName, IReadOnlyList<LedgerRow> rows, decimal balance, int maxUrlChars)
+        string shop, string customerName, IReadOnlyList<LedgerRow> rows, decimal balance,
+        int maxUrlChars, string? template = null)
     {
-        var head = $"Assalamualaikum {customerName},"
-            + "\n\n"
-            + $"{shop} - your ledger as at {DateTime.Today:dd MMM yyyy}:";
-        var tail = ShareBalance(balance);
         var lines = rows.Select(ShareLine).ToList();
 
-        // Filled from the newest line backwards, so the first thing the cut gives up is the oldest entry.
+        // A message the shop typed is the message. The book's lines go where the shop put {ledger} and
+        // nowhere else, so a shop that wrote "Salam, pay {balance} by Friday" is not sent a statement it
+        // never asked for - and is never sent one with its own ending cut off, either.
+        if (!string.IsNullOrWhiteSpace(template))
+        {
+            var typed = FillTokens(template.Trim(), shop, customerName, balance);
+            if (!typed.Contains(LedgerToken))
+                return typed;
+            // Only the ledger block is trimmed to fit, because that is the part that grows with the book.
+            var spare = Math.Max(80, maxUrlChars - Uri.EscapeDataString(typed).Length);
+            return typed.Replace(LedgerToken, LedgerBlock(lines, spare));
+        }
+
+        var greeting = $"Assalamualaikum {customerName},"
+            + "\n\n"
+            + $"{shop} - your ledger as at {DateTime.Today:dd MMM yyyy}:";
+        var signOff = ShareBalance(balance);
+        var frame = greeting + "\n\n\n\n" + signOff;
+        var body = LedgerBlock(lines, Math.Max(80, maxUrlChars - Uri.EscapeDataString(frame).Length));
+        return body.Length == 0
+            ? greeting + "\n\n" + signOff
+            : greeting + "\n\n" + body + "\n\n" + signOff;
+    }
+
+    /// <summary>
+    /// The book's lines, newest entries kept when there is not room for all of them. Filled from the newest
+    /// line backwards, so the first thing a cut gives up is the oldest entry and the total is never the part
+    /// that goes missing; what was left out is said in the message rather than dropped quietly, since the
+    /// customer may well ask about the month that isn't in it.
+    /// </summary>
+    private static string LedgerBlock(List<string> lines, int maxUrlChars)
+    {
         var kept = new List<string>();
         for (var i = lines.Count - 1; i >= 0; i--)
         {
             var trial = new List<string> { lines[i] };
             trial.AddRange(kept);
-            if (kept.Count > 0
-                && Uri.EscapeDataString(Build(head, trial, lines.Count - trial.Count, tail)).Length > maxUrlChars)
+            if (kept.Count > 0 && Uri.EscapeDataString(Join(trial, lines.Count - trial.Count)).Length > maxUrlChars)
                 break;
             kept.Insert(0, lines[i]);
         }
-        return Build(head, kept, lines.Count - kept.Count, tail);
+        return Join(kept, lines.Count - kept.Count);
 
-        // The parts are passed in rather than read from the enclosing method, because that is what lets the
-        // same builder be used to try a message on for length before it is kept.
-        static string Build(string greeting, IReadOnlyList<string> body, int skipped, string signOff)
+        static string Join(IReadOnlyList<string> body, int skipped)
         {
-            var sb = new StringBuilder(greeting).Append("\n\n");
+            var sb = new StringBuilder();
             foreach (var line in body)
                 sb.Append(line).Append('\n');
             if (skipped > 0)
                 sb.Append($"{skipped} earlier line{(skipped == 1 ? "" : "s")} - they are on the printed statement")
                     .Append('\n');
-            return sb.Append('\n').Append(signOff).ToString();
+            return sb.ToString().TrimEnd('\n');
         }
+    }
+
+    /// <summary>
+    /// The shop's words, with the book's figures in the places they asked for. {balance} and {words} are the
+    /// rounded figure the page shows and the same figure in the till's own words - a sum under a thousand has
+    /// no words in this book, so the figures stand in for it rather than leaving a hole in a sentence.
+    /// </summary>
+    public static string FillTokens(string template, string shop, string customerName, decimal balance)
+    {
+        var owed = Money.Round(balance);
+        var words = Money.Words(owed);
+        return template
+            .Replace("{name}", customerName)
+            .Replace("{shop}", shop)
+            .Replace("{date}", DateTime.Today.ToString("dd MMM yyyy"))
+            .Replace("{balance}", Money.Pkr(owed))
+            .Replace("{words}", words.Length == 0 ? Money.Pkr(owed) : words);
     }
 
     /// <summary>

@@ -13,11 +13,27 @@
               VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
+    <!-- The dates are the page's, not a card's: they belong to the book figures below and to nothing else,
+         and putting them at the head of one card would suggest the other cards quietly moved with them. -->
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+        <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
+        <DatePicker SelectedDate="{Binding FromDate}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+        <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
+        <DatePicker SelectedDate="{Binding ToDate}" />
+      </StackPanel>
+      <Button Grid.Column="2" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" Margin="0,0,8,0" />
+      <Button Grid.Column="3" Content="Whole book" Command="{Binding WholeBookCommand}"
+              IsVisible="{Binding HasRange}" HorizontalAlignment="Left" />
+    </Grid>
+
     <!-- The book as a whole, so the day can start with what came in and what is still out. Each figure is the
          one the page behind it shows, added up once - nothing is worked out a second way to fill this card. -->
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Whole book" />
+        <TextBlock Classes="h2" Text="{Binding BookLabel}" />
         <Grid ColumnDefinitions="*,*,*,*,*">
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total containers" />
@@ -42,26 +58,14 @@
                        Text="sales, less what the goods cost landed" />
           </StackPanel>
         </Grid>
+        <TextBlock Classes="muted" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"
+                   Text="{Binding BookHint}" IsVisible="{Binding HasRange}" />
       </StackPanel>
     </Border>
 
     <Border Classes="card">
       <StackPanel>
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
-          <TextBlock Classes="h2" Text="{Binding MonthLabel}" VerticalAlignment="Center" />
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
-            <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
-            <DatePicker SelectedDate="{Binding FromDate}" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
-            <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
-            <DatePicker SelectedDate="{Binding ToDate}" />
-          </StackPanel>
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <Button Content="This month" Command="{Binding ThisMonthCommand}" IsVisible="{Binding HasRange}" />
-            <Button Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" />
-          </StackPanel>
-        </Grid>
+        <TextBlock Classes="h2" Text="This month" Margin="0,0,0,10" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total sales" />
@@ -71,7 +75,7 @@
             <TextBlock Classes="label" Text="Total profit" />
             <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
             <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="{Binding MonthHint}" />
+                       Text="Sales profit minus this month’s expense ledger." />
           </StackPanel>
         </Grid>
       </StackPanel>

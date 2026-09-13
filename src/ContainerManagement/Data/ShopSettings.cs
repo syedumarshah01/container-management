@@ -13,6 +13,14 @@ public class ShopSettings
     public string StaffPinHash { get; set; } = "";
     public decimal LowStockQty { get; set; } = 10;
     public int DefaultDueDays { get; set; } = 30;
+
+    /// <summary>
+    /// The words the shop wants a customer to read, typed by the shop. Empty means the book writes the
+    /// message itself - the customer's own lines and the balance. Nothing is folded into this text and
+    /// nothing is added to it at the last moment: what is typed here is what goes, apart from the words in
+    /// braces, which the book fills with its own figures.
+    /// </summary>
+    public string WhatsAppMessage { get; set; } = "";
     public bool DemoWiped { get; set; }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };

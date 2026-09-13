@@ -33,6 +33,7 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string phone = "";
     [ObservableProperty] private string address = "";
     [ObservableProperty] private decimal? lowStock = 10;
+    [ObservableProperty] private string whatsAppMessage = "";
     [ObservableProperty] private decimal? dueDays = 30;
     [ObservableProperty] private string ownerPin = "";
     [ObservableProperty] private string staffPin = "";
@@ -40,6 +41,10 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private bool confirmWipe;
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showWipeDemo = true;
+
+    /// <summary>The words a typed message may borrow the book's figures with, straight off the list the
+    /// sending code uses, so the settings page cannot name a token the message cannot fill.</summary>
+    public string ShareTokens => PrintService.ShareTokenList;
 
     public override Task LoadAsync()
     {
@@ -53,6 +58,7 @@ public partial class SettingsViewModel : ViewModelBase
         Address = s.Address;
         LowStock = s.LowStockQty;
         DueDays = s.DefaultDueDays;
+        WhatsAppMessage = s.WhatsAppMessage;
         PinNote = s.PinRequired
             ? "A PIN is set. Leave the boxes empty to keep it. Type a new PIN to change it."
             : "No PIN yet. Anyone at this PC has full access.";
@@ -68,11 +74,20 @@ public partial class SettingsViewModel : ViewModelBase
             _shell.Notify("Owner PIN needed to change settings.", true);
             return;
         }
+        // A message with a token the book cannot fill would go out to a customer reading "you owe {blance}",
+        // so it is refused here rather than saved to be discovered in a chat.
+        var unknown = PrintService.UnknownShareTokens(WhatsAppMessage);
+        if (unknown.Count > 0)
+        {
+            _shell.Notify($"{string.Join(", ", unknown)} cannot be filled in from the book. It can use: {PrintService.ShareTokenList}", true);
+            return;
+        }
         var s = ShopSettings.Load();
         s.CompanyName = _license.IsActivated ? _license.BusinessName : CompanyName.Trim();
         s.Phone = Phone.Trim();
         s.Address = Address.Trim();
         s.LowStockQty = LowStock ?? 10;
+        s.WhatsAppMessage = WhatsAppMessage.Trim();
         s.DefaultDueDays = (int)Math.Max(0, DueDays ?? 30);
         if (!string.IsNullOrWhiteSpace(OwnerPin))
             s.OwnerPinHash = ShopSettings.HashPin(OwnerPin);

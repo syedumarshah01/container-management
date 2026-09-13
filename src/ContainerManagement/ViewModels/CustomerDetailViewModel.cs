@@ -305,10 +305,20 @@ public partial class CustomerDetailViewModel : ViewModelBase
             if (rows.Count == 0)
                 throw new InvalidOperationException("This customer's ledger is empty - there is nothing to send.");
             var bal = await _ledger.GetBalanceAsync(_id);
-            var message = PrintService.ShareText(ShopSettings.Load().CompanyName, c.Name, rows, bal);
+            var shop = ShopSettings.Load();
+            var typed = !string.IsNullOrWhiteSpace(shop.WhatsAppMessage);
+            var message = PrintService.ShareText(shop.CompanyName, c.Name, rows, bal,
+                PrintService.ShareUrlBudget, shop.WhatsAppMessage);
             text = message;
             var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone, message));
-            _shell.Notify($"WhatsApp opened for {dialed} with {rows.Count} line{(rows.Count == 1 ? "" : "s")} of the ledger. Press send there.");
+            // A message longer than a link usually carries is not cut up - it is the shop's own text, and
+            // taking the ending out of it unasked would be worse than the risk - but a browser that runs out of
+            // room stops reading it silently, so the page tells them to look at what arrived.
+            var tooLong = Uri.EscapeDataString(message).Length > PrintService.ShareUrlBudget;
+            _shell.Notify($"WhatsApp opened for {dialed} with "
+                + (typed ? "your message" : $"{rows.Count} line{(rows.Count == 1 ? "" : "s")} of the ledger")
+                + ". Press send there."
+                + (tooLong ? " This one is long - check the whole of it arrived." : ""));
         }
         catch (Exception ex)
         {

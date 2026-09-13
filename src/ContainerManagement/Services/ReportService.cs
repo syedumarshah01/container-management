@@ -10,10 +10,24 @@ public class ReportService
 
     public ReportService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
-    public async Task<DashboardVm> GetDashboardAsync()
+    /// <summary>
+    /// Home's book: the containers, their selling, what their bills still have out there, the shelf and the
+    /// profit. Two dates are optional - with neither, this is the book entire, which is what the page opens
+    /// on; with them, the sums cover those days and nothing else, by the same rules the container pages use,
+    /// because this method reads those rows rather than adding the money a second way.
+    ///
+    /// What a range does to each figure is not the same thing, and the card says so rather than pretending:
+    /// sales, profit and what is still out there are the bills inside the dates; the container count is the
+    /// containers that did business in them; and the shelf is what is on it today, because stock between two
+    /// dates would have to be rebuilt from every movement since, which this book does not keep.
+    /// The lists under the card - the bills needing attention, low stock - stay the shop's whole situation,
+    /// because a short list is not a safe thing to act on.
+    /// </summary>
+    public async Task<DashboardVm> GetDashboardAsync(DateTime? from = null, DateTime? to = null)
     {
+        var (start, end) = BookRange(from, to);
         await using var db = await _factory.CreateDbContextAsync();
-        var profits = await GetContainerProfitsAsync(db, null, null);
+        var profits = await GetContainerProfitsAsync(db, start, end);
         var receivables = await GetReceivableSnapshotAsync(db);
         var sales = await db.Sales
             .AsNoTracking()
@@ -50,13 +64,19 @@ public class ReportService
         var inv = await GetGrandInventoryAsync(shop.LowStockQty);
 
         var containers = await db.Containers.AsNoTracking().ToListAsync();
+        // Ranged, "containers" can only mean the ones with money moving on them in the dates: a container with
+        // nothing sold, returned or spent in them has no figure to contribute, and counting it would say the
+        // shop did business on a lot it did not. Unranged it is the book's own count, as it always was.
+        var counted = start is null && end is null
+            ? containers.Count
+            : profits.Count(p => p.Revenue != 0m || p.Cogs != 0m || p.Expenses != 0m);
         var onContainers = Money.Round(profits.Sum(p => p.Expenses));
         var atTheShop = Money.Round((await db.ShopExpenses.AsNoTracking().ToListAsync()).Sum(e => e.Amount));
 
         return new DashboardVm
         {
             OpenContainers = containers.Count(c => c.Status == ContainerStatus.Open),
-            TotalContainers = containers.Count,
+            TotalContainers = counted,
             TotalPurchases = Money.Round(containers.Sum(c => c.SupplierAmount)),
             InventoryValue = Money.Round(profits.Sum(p => p.RemainingValue)),
             MoneyInMarket = Money.Round(profits.Sum(p => p.InMarket)),
@@ -84,22 +104,17 @@ public class ReportService
     }
 
     /// <summary>
-    /// Sales, cost and the till's own bills between two dates, day by day, with the same rules Home's month
-    /// line has always used: a bill is its total after the discount shared over its lines, a return comes off
-    /// the day it was made, and an expense belongs to the day it was written. The dates are optional because
-    /// Home opens on this month and only narrows when someone asks it to - and a range with one end missing
-    /// stays open on that side, which is how "everything since the 1st" and "up to the 20th" are read.
+    /// This month's sales, cost and the till's own bills, day by day, by the rules this line has always used:
+    /// a bill is its total after the discount shared over its lines, a return comes off the day it was made,
+    /// and an expense belongs to the day it was written. The month is the month - Home's date boxes move the
+    /// book above it, not this figure, so the page always has one number that says what the shop has done
+    /// since the 1st without being told what "told" means.
     /// </summary>
-    public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync(
-        DateTime? from = null, DateTime? to = null)
+    public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync()
     {
         var firstOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        var start = from?.Date ?? firstOfMonth;
-        var end = to is DateTime last ? last.Date.AddDays(1)
-                : from is null ? firstOfMonth.AddMonths(1)
-                : DateTime.Today.AddDays(1);
-        if (end <= start)
-            end = start.AddDays(1);   // a range turned around the wrong way still reads its own first day
+        var start = firstOfMonth;
+        var end = firstOfMonth.AddMonths(1);
         await using var db = await _factory.CreateDbContextAsync();
 
         var lines = await db.SaleLines.AsNoTracking()
@@ -513,6 +528,24 @@ public class ReportService
         }
 
         return map;
+    }
+
+    /// <summary>
+    /// The dates Home reads its book over. No dates at all is no filter: the book entire, which is what the
+    /// page opens on. One date typed leaves the other side open, because "everything since the 1st" is asked
+    /// for far more often than a closed range that happens to be one day, and a shop should not have to know
+    /// when its records start to use them. A range turned around the wrong way reads its own first day, which
+    /// is a day of the shop's figures, rather than answering with nothing.
+    /// </summary>
+    private static (DateTime? From, DateTime? To) BookRange(DateTime? from, DateTime? to)
+    {
+        if (from is null && to is null)
+            return (null, null);
+        var start = from?.Date;
+        var end = to?.Date;
+        if (start is DateTime f && end is DateTime t && t < f)
+            end = f;
+        return (start, end);
     }
 
     private static async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(AppDbContext db, DateTime? from, DateTime? to)

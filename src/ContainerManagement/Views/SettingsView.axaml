@@ -30,6 +30,11 @@
         <TextBox Text="{Binding Phone}" />
         <TextBlock Classes="label" Text="Address" />
         <TextBox Text="{Binding Address}" />
+        <TextBlock Classes="label" Text="WhatsApp message" />
+        <TextBox Text="{Binding WhatsAppMessage}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" />
+        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                   Text="Empty, the book writes the message off the customer's ledger. What you type goes as you typed it." />
+        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding ShareTokens}" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Low stock at or below" />

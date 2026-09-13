@@ -35,6 +35,31 @@
       </Border>
     </Grid>
 
+    <!-- The number is what the WhatsApp button dials, and a customer's details are written down once and
+         corrected all the time: an old SIM, a name misspelt, a shop that moved. The page could already save
+         these - only the boxes were never put on it. -->
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Details" />
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Name" />
+            <TextBox Text="{Binding EditName}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Mobile (for WhatsApp)" />
+            <TextBox Text="{Binding EditPhone}" Watermark="03xx xxxxxxx" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="label" Text="Address" Margin="0,10,0,0" />
+        <TextBox Text="{Binding EditAddress}" />
+        <TextBlock Classes="label" Text="Note" Margin="0,10,0,0" />
+        <TextBox Text="{Binding EditNotes}" />
+        <Button Classes="primary" Content="Save details" Command="{Binding SaveMetaCommand}"
+                HorizontalAlignment="Left" Margin="0,12,0,0" />
+      </StackPanel>
+    </Border>
+
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Receive money" />

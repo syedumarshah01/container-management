@@ -267,28 +267,37 @@ public static class Program
             $"{beforeReprice.Revenue - first.Revenue} added for an undiscounted line of {payBill.Lines[0].LineTotal}");
 
         var homeBefore = await reports.GetDashboardAsync();
-        Head("Home's dates: the range is the same sum, read over fewer days");
+        Head("Home's dates: the range moves the book card, and the month under it stays the month");
         var year = new DateTime(DateTime.Today.Year, 1, 1);
-        var wide = await reports.GetHomeMonthAsync(year, DateTime.Today);
-        Check("a range that holds both bills sees the whole book's sales, and not a rounding of it twice",
-            Money.Round(wide.Sales) == homeBefore.TotalRevenue,
-            $"ranged {Money.Round(wide.Sales)}, whole book {homeBefore.TotalRevenue}");
-        Check("and the days under the figure are the figure",
-            Money.Round(wide.Days.Sum(d => d.Sales)) == Money.Round(wide.Sales),
-            $"rows add to {Money.Round(wide.Days.Sum(d => d.Sales))}, the figure says {Money.Round(wide.Sales)}");
-        var biggest = wide.Days.OrderByDescending(d => d.Sales).First();
-        var oneDay = await reports.GetHomeMonthAsync(biggest.Date, biggest.Date);
-        Check("asking for one day brings that day's money, and only that day",
-            Money.Round(oneDay.Sales) == Money.Round(biggest.Sales) && oneDay.Days.Count == 1,
-            $"{biggest.Date:dd MMM yyyy}: day {Money.Round(biggest.Sales)}, asked {Money.Round(oneDay.Sales)} over {oneDay.Days.Count} rows");
-        var lastYear = await reports.GetHomeMonthAsync(new DateTime(year.Year - 1, 1, 1), new DateTime(year.Year - 1, 12, 31));
-        Check("a year with no bills in it says zero, rather than borrowing from this one",
-            lastYear.Sales == 0m && lastYear.Days.Count == 0, $"{lastYear.Sales} over {lastYear.Days.Count} days");
-        var openEnded = await reports.GetHomeMonthAsync(DateTime.Today, null);
-        var closedToday = await reports.GetHomeMonthAsync(DateTime.Today, DateTime.Today);
-        Check("and a range left open at the far end has run to today",
-            Money.Round(openEnded.Sales) == Money.Round(closedToday.Sales),
-            $"open {Money.Round(openEnded.Sales)}, closed at today {Money.Round(closedToday.Sales)}");
+        var wide = await reports.GetDashboardAsync(year, DateTime.Today.AddYears(1));
+        Eq("a range wide enough to hold the book sees the book's own sales, added once and not twice",
+            homeBefore.TotalRevenue, wide.TotalRevenue);
+        Eq("the same profit", homeBefore.TotalProfit, wide.TotalProfit);
+        Eq("the same money still out there", homeBefore.MoneyInMarket, wide.MoneyInMarket);
+        Eq("and the same shelf, because stock is today's whatever the dates say",
+            homeBefore.InventoryValue, wide.InventoryValue);
+        Check("the containers counted are only the ones that did business in the dates, so never more than the book holds",
+            wide.TotalContainers <= homeBefore.TotalContainers,
+            wide.TotalContainers + " in the period of " + homeBefore.TotalContainers + " in the book");
+        var lastYear = await reports.GetDashboardAsync(new DateTime(year.Year - 1, 1, 1), new DateTime(year.Year - 1, 12, 31));
+        Check("a year with nothing in it says zero on every figure rather than borrowing this year's",
+            lastYear.TotalRevenue == 0m && lastYear.TotalProfit == 0m && lastYear.MoneyInMarket == 0m
+                && lastYear.TotalContainers == 0,
+            $"{lastYear.TotalRevenue} billed, {lastYear.TotalContainers} containers");
+        var openEnded = await reports.GetDashboardAsync(year, null);
+        var closedToday = await reports.GetDashboardAsync(year, DateTime.Today);
+        Eq("a range left open at the far end has run to today", closedToday.TotalRevenue, openEnded.TotalRevenue);
+        var backwards = await reports.GetDashboardAsync(DateTime.Today, year);
+        var todayOnly = await reports.GetDashboardAsync(DateTime.Today, DateTime.Today);
+        Check("and a range typed the wrong way round reads its own first day rather than answering with nothing",
+            backwards.TotalRevenue == todayOnly.TotalRevenue
+                && backwards.TotalContainers == todayOnly.TotalContainers,
+            $"{backwards.TotalRevenue} against {todayOnly.TotalRevenue} for {DateTime.Today:dd MMM yyyy} alone");
+        var month = await reports.GetHomeMonthAsync();
+        var first = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        Check("the month under the card takes no dates at all, so none of this moved it - it is this month",
+            month.Days.Count == 0 || month.Days.All(d => d.Date >= first && d.Date < first.AddMonths(1)),
+            month.Days.Count + " day rows");
 
         Head("profit follows a corrected cost - the case that stayed wrong for one release");
         Eq("the three sold lines cost 758.57 + 386.19 + 758.57 with the freight in", 1903.33m, beforeReprice.Cogs);
@@ -1010,6 +1019,43 @@ public static class Program
             cut.Contains(book[^1].Description) && !cut.Contains(book[0].Description)
                 && cut.Contains("earlier lines") && cut.Contains(Money.Pkr(200_000m)),
             cut.Split('\n').Length + " lines sent of " + book.Count);
+
+        Head("a message the shop typed is what goes");
+        var typed = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
+            PrintService.ShareUrlBudget, "Salam {name}, {shop}: {balance} ({words}) on {date}.");
+        Check("the book's figures fill the braces and nothing else is added to what was typed",
+            typed == "Salam Abdul Rahim, Khyber Traders: " + Money.Pkr(425_000.50m)
+                + " (" + Money.Words(425_000.50m) + ") on " + DateTime.Today.ToString("dd MMM yyyy") + ".",
+            typed);
+        Check("so a shop that wrote its own message is not sent a statement it never asked for",
+            !typed.Contains("Balance due") && !typed.Contains("sold Rs") && !typed.Contains("JazakAllah"),
+            typed);
+        var placed = PrintService.ShareText("Khyber Traders", "Abdul Rahim", customerLedger, 425_000.50m,
+            PrintService.ShareUrlBudget, "Abdul Rahim, your lines:\n{ledger}\nSend {balance} by Friday.");
+        Check("{ledger} puts the customer's lines exactly where the shop asked, in the order the money moved",
+            placed.StartsWith("Abdul Rahim, your lines:\n" + customerLedger[0].DateText)
+                && placed.Contains(customerLedger[^1].RunningText) && placed.EndsWith("by Friday."),
+            placed);
+        var tightTyped = PrintService.ShareText("s", "c", book, 200_000m, 600, "{ledger}");
+        Check("the link limit falls on the ledger block only - a shop's own words are never cut off",
+            Uri.EscapeDataString(tightTyped).Length <= 600 && tightTyped.Contains(book[^1].Description)
+                && !tightTyped.Contains(book[0].Description),
+            Uri.EscapeDataString(tightTyped).Length + " of 600");
+        var small = PrintService.FillTokens("{balance} ({words})", "s", "c", 400m);
+        Check("under a thousand rupees this book has no words, so the figures stand in rather than a hole",
+            small == Money.Pkr(400m) + " (" + Money.Pkr(400m) + ")", small);
+        Check("a word the book cannot fill is named before the message is saved, not sent to a customer",
+            string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")) == "{blance}",
+            string.Join(",", PrintService.UnknownShareTokens("you owe {blance} in {words}")));
+        Check("and plain words are nobody's business to refuse",
+            PrintService.UnknownShareTokens("Salam, pay by Friday.").Count == 0
+                && PrintService.UnknownShareTokens(null).Count == 0
+                && PrintService.UnknownShareTokens("{ledger} only: {balance}").Count == 0);
+        Check("empty settings leave the book writing the whole message, as it did before anyone typed anything",
+            PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m,
+                PrintService.ShareUrlBudget, "   ")
+                == PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m),
+            "blank template vs none");
         var tillRows = await cash.ListAsync();
         Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
             tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),

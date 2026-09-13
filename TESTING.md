@@ -31,7 +31,8 @@ shift a figure on screen.
 | the customer | bills − payments − returns equals the ledger's own entries, and every line of their book puts its money in exactly one column of the page and of the paper - a bill, a receipt, goods back, money handed over - so the four columns run the balance and nothing is counted twice or left out |
 | a customer's month | the receipts figure a month box shows is the payments dated in that month, and the lines under it are those payments - a payout to them and a return credit are not money collected, so neither is netted off it; five paisa is a month with five paisa in it, not an empty one; and fourteen months walked one at a time add back to the whole book, so no receipt can hide between two months or be counted twice |
 | the landed count on an item | the Qty box on an item's form is how many came in, and Save moves it: correcting 1,000 to 700 re-shares the container's expenses over 700 pieces, so a piece's freight doubles from Rs 0.70 to Rs 1.00. The shelf count in the other box moves the stock and nothing else, and stock above what landed is refused rather than written |
-| Home's dates | the page opens on this month and reads whatever range it is given, by the same rules: a range wide enough to hold the bills sees the whole book's sales, the day rows under the figure add up to it to the paisa, one day asked for brings that day and no other, a year with nothing in it says zero rather than borrowing from its neighbour, and a range left open at the far end has run to today |
+| Home's dates | the two boxes at the head of Home belong to the book card and to nothing else: a range wide enough to hold the bills sees the whole book's sales, profit and market figure, a year with nothing in it says zero on every figure including the containers counted, a range left open at the far end has run to today, and one typed the wrong way round reads its own first day rather than answering with nothing. "This month" under the card takes no dates at all - the page keeps one figure that needs no reading of the headings first - and stock stays the shelf as at today, which the card says out loud |
+| the customer's own details | name, mobile, address and note are editable on the customer's page, because the number there is what the WhatsApp button dials: a SIM that changed should not put the page out of use |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
 | the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
@@ -47,6 +48,7 @@ shift a figure on screen.
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
 | the ledger in a chat message | WhatsApp carries the ledger itself - the same lines, the same order and the same words as the printed statement - closing on the balance at the head of the page, in figures and in words together; a book too long for a link loses its oldest lines and says how many, and a number that cannot be dialled is refused with the digits it found |
+| a message the shop typed | what is typed in Settings goes exactly as it was typed, with the book's figures only where {name} {shop} {date} {balance} {words} {ledger} were put and no statement added that nobody asked for; a word the book cannot fill is refused when the settings are saved, not in front of a customer, and the link limit falls on the ledger block only - a shop's own words are never cut off |
 | the return outcome | the page states, in rupees and before the button is pressed, what the rule will do - and the figures it names are the posting's own arithmetic, run with writing switched off, so the line can promise nothing the book does not write |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
@@ -412,18 +414,25 @@ rather than assuming it. Say the word and I will move those columns to text for 
    yen figure back when the row is selected again, and multiplying it by the rate on the line should give
    the rupee cost to the paisa. Change the container's rate the next day and neither that item's cost nor
    that expense's rupees should move - only the next figure typed picks up the new rate.
-4m. Home has a range: set From and To around one trading day and press Apply. "This month" should read "In the
-   period", the line under the title should name those two dates, and the sales and profit there should be that
-   day alone - the days listed under the figure should add up to it without a calculator. Clear one of the two
-   dates and Apply again: the page should read "from" or "up to" and run open on the missing side. Press "This
-   month" - which appears only once a date is set - and the page should land back exactly where it opened. The "Whole book" card should not stir at any of it, and
-   neither should the containers or stock figures in it: those are as at today, whatever the dates say.
+4m. Home has two date boxes at the top of the page, over both cards: set From and To around one trading day
+   and press Apply. The book card should read "In the period", the line under the title should name those two
+   dates, and its sales, market figure and profit should be that day alone. The month card under it should not
+   stir - it is this month whatever the boxes say - and neither should the stock figure, which the line under
+   the card says is the shelf as at today. Clear one of the two boxes and Apply again: it should read "from" or
+   "up to" and run open on the missing side. Press "Whole book", which appears only once a date is set, and the
+   page should land back exactly where it opened.
 4n. On a customer with bills open, press WhatsApp. A chat should open with their ledger typed out in it - the
    lines in the order the money moved, each one's balance, and the total owed at the end with its words beside
    it - and the status line at the bottom should name the number that was dialled and how many lines went in.
    Nothing is attached and nothing is sent by itself: the last press is yours, in the chat. A customer with no
    number saved, or one that is not a mobile, should say so in red at the bottom of the window rather than
-   sit there doing nothing.
+   sit there doing nothing - their page's "Details" card is where the number is put in or corrected, and Save
+   there is enough; the page does not have to be left.
+4o. In Settings, type a WhatsApp message using the words it lists - "{name}, you owe {balance} ({words})" -
+   and Save. A token spelled wrong should be refused on the spot, with the list of what the book can fill. Save
+   a good one, then open a customer and press WhatsApp: the chat should carry exactly what was typed, with
+   their name and their figure in place of the braces and nothing added. Empty the box, Save, and it is the
+   ledger itself that goes, as in the step above.
 4k. On Home, the "Whole book" card holds five figures: containers, sales, what is receivable in the market,
    stock value, profit. The market figure should be the containers list's "In the market" column added up, and
    To collect should show the same total on its container box when that box is on "All containers" - those two
