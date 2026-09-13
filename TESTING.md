@@ -39,6 +39,7 @@ shift a figure on screen.
 | order sheets | the saved sheet re-opens with the figures the sheet showed, and the tape is the sum of the rows |
 | the printed order sheet | the paper carries each row's own figures, its bills and the sheet's seven-figure summary - nothing is worked out again for the printer, and no sentence explains anything; a yen bill prints in yen with the rate *that row* was taken at; the rows' profit and the summary's differ by exactly the bills; and no money figure on the paper has a third decimal |
 | a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
+| the home page's figures | the eight are read off the book instead of worked out again beside it: expenses are the shipments' bills plus the till's own and add exactly to the two halves named under them, purchases are what the containers were billed before freight, stock is what is left at landed cost, and what is out there on the containers' goods is the same sum as what the bills still owe - one counted by container, one by bill, which is the pair that would first show a rupee going missing |
 | money received is against a named bill | the bill offered to be settled is stated with its number, its date, what is left on it and which container the goods came out of; the amount it names is the same subtraction the bill's own page runs, a settled or cancelled bill drops out of the list so it cannot be picked again, and money past what is left on the chosen bill is refused rather than split |
 | a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
@@ -121,6 +122,15 @@ sheet and the reports are one number.
 **Fixed - refusals lied about the quantity.** "Only 0.38 in stock" when 0.375 kg was left (the
 quantity formatter showed two decimals) invited you to type 0.38 and be refused again. Stock
 messages show three now.
+
+**Changed - Home shows the whole book, not only the month.** The page used to carry this month's sales and
+profit, a daily list and the backup line, while the figures for the book as a whole were built in
+`GetDashboardAsync` and read by no page at all. They are on the page now, and two of their names mean something
+plainer than they did: *expenses* is the shipments' bills and the till's own added together, with both halves
+shown under it, and *in the market* is what the containers' pages call In the market - the money out there on
+their goods - rather than the sum of the customers' positive balances, which is a wider question and is kept in
+the model under its own name. What is owed on bills is measured by the one formula a bill is measured by
+everywhere, so the list of bills needing attention totals to the same figure the card above it shows.
 
 **Changed - money received has to name the bill it settles.** The form used to open with "Not against a
 specific invoice" already picked, so a receipt recorded without a second thought settled nothing: the money
@@ -385,6 +395,14 @@ rather than assuming it. Say the word and I will move those columns to text for 
    yen figure back when the row is selected again, and multiplying it by the rate on the line should give
    the rupee cost to the paisa. Change the container's rate the next day and neither that item's cost nor
    that expense's rupees should move - only the next figure typed picks up the new rate.
+4k. On Home, the "Whole book" card holds the eight figures in the order a day is planned in: containers,
+   sales, purchase, expenses, what is in the market, what is outstanding, stock value, profit. Add the two
+   halves named under "Total expenses" and they should be it, to the paisa. The market figure and Outstanding
+   should be the same number, and the line under the card should say that they are one sum cut two ways - if it
+   ever names a figure instead, that difference is money that has stopped reaching a container, and it is worth
+   chasing the same day. Then read "Total purchase" against the We Owe page's billed totals for the containers
+   rather than against the till: it is what the goods were billed for, before the freight and clearing that the
+   expenses line holds.
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

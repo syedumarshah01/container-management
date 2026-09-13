@@ -101,15 +101,46 @@ public static class Money
     }
 }
 
+/// <summary>
+/// The shop's whole book in one go, for the page read at the start of the day. Every figure here is added up
+/// once, over rows this method already holds, so the same question cannot get two answers on two pages: sales
+/// and profit come from the containers' own rows, the money out there comes from the sharing that the
+/// containers' pages show, and what is owed on bills comes from the one formula a bill is measured by
+/// everywhere else. The two are expected to be the same figure - the same money, counted by container and
+/// counted by bill - and the home page says so, which is also what makes it visible if they ever are not.
+///
+/// Purchases are what the suppliers were billed for the goods, before the freight and clearing that the
+/// expenses figure holds, so the two can be added by hand and checked against what left the till.
+/// </summary>
 public class DashboardVm
 {
     public int OpenContainers { get; set; }
     public int TotalContainers { get; set; }
     public decimal InventoryValue { get; set; }
+
+    /// <summary>What is still out there on this lot's goods, added over every container.</summary>
     public decimal MoneyInMarket { get; set; }
+
+    /// <summary>What is still owed on the bills, bill by bill.</summary>
+    public decimal Outstanding { get; set; }
+
+    /// <summary>What the goods cost the suppliers, before freight and clearing.</summary>
+    public decimal TotalPurchases { get; set; }
+
+    /// <summary>The shipment's bills - freight, customs, clearing - as they were entered on each container.</summary>
+    public decimal ContainerExpenses { get; set; }
+
+    /// <summary>The till's own bills: rent, salaries, the shop's running costs.</summary>
+    public decimal ShopExpenses { get; set; }
+
+    public decimal TotalExpenses { get; set; }
     public decimal TotalProfit { get; set; }
     public decimal TotalRevenue { get; set; }
-    public decimal TotalExpenses { get; set; }
+
+    /// <summary>What customers owe as their ledgers read, advances and payouts included: a wider question than
+    /// Outstanding, which asks only about bills, so the two are allowed to differ.</summary>
+    public decimal MoneyOwedByCustomers { get; set; }
+
     public int CustomerCount { get; set; }
     public int SalesThisMonth { get; set; }
     public int LowStockCount { get; set; }

@@ -23,6 +23,15 @@ public class ReportService
         var recent = sales.OrderByDescending(s => s.Date).ThenByDescending(s => s.Id).Take(8).ToList();
         var pays = await db.Payments.AsNoTracking().Where(p => p.SaleId != null).ToListAsync();
         var saleReturns = await db.SaleReturns.AsNoTracking().ToListAsync();
+        // What is left on each bill, by the one formula a bill is measured with everywhere else - its own
+        // page, the customer's ledger, the containers' money. The totals below and the list of bills needing
+        // attention are both read off this dictionary, because a page that added the same money a second way
+        // would be a page with two answers to one question.
+        var left = sales.ToDictionary(
+            s => s.Id,
+            s => SalesService.RemainingOf(s,
+                pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount),
+                saleReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount)));
         var unpaid = sales
             .Select(s => new AttentionInvoiceRow
             {
@@ -30,9 +39,7 @@ public class ReportService
                 CustomerId = s.CustomerId,
                 CustomerName = s.Customer.Name,
                 Date = s.Date,
-                Remaining = s.TotalAmount
-                    - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
-                    - saleReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount)
+                Remaining = left[s.Id]
             })
             .Where(u => u.Remaining > 0.009m)
             .OrderByDescending(u => u.Remaining)
@@ -42,15 +49,24 @@ public class ReportService
         var shop = ShopSettings.Load();
         var inv = await GetGrandInventoryAsync(shop.LowStockQty);
 
+        var containers = await db.Containers.AsNoTracking().ToListAsync();
+        var onContainers = Money.Round(profits.Sum(p => p.Expenses));
+        var atTheShop = Money.Round((await db.ShopExpenses.AsNoTracking().ToListAsync()).Sum(e => e.Amount));
+
         return new DashboardVm
         {
-            OpenContainers = profits.Count(p => p.Status == ContainerStatus.Open),
-            TotalContainers = profits.Count,
-            InventoryValue = profits.Sum(p => p.RemainingValue),
-            MoneyInMarket = receivables.Where(r => r.Balance > 0).Sum(r => r.Balance),
-            TotalProfit = profits.Sum(p => p.Profit),
-            TotalRevenue = profits.Sum(p => p.Revenue),
-            TotalExpenses = profits.Sum(p => p.Expenses),
+            OpenContainers = containers.Count(c => c.Status == ContainerStatus.Open),
+            TotalContainers = containers.Count,
+            TotalPurchases = Money.Round(containers.Sum(c => c.SupplierAmount)),
+            InventoryValue = Money.Round(profits.Sum(p => p.RemainingValue)),
+            MoneyInMarket = Money.Round(profits.Sum(p => p.InMarket)),
+            Outstanding = Money.Round(left.Values.Sum()),
+            TotalProfit = Money.Round(profits.Sum(p => p.Profit)),
+            TotalRevenue = Money.Round(profits.Sum(p => p.Revenue)),
+            ContainerExpenses = onContainers,
+            ShopExpenses = atTheShop,
+            TotalExpenses = Money.Round(onContainers + atTheShop),
+            MoneyOwedByCustomers = Money.Round(receivables.Where(r => r.Balance > 0).Sum(r => r.Balance)),
             CustomerCount = await db.Customers.CountAsync(c => !c.IsWalkIn),
             SalesThisMonth = await db.Sales.CountAsync(s => s.Date >= startOfMonth && s.Status == SaleStatus.Active),
             LowStockCount = inv.Count(r => r.IsLow),
@@ -63,7 +79,7 @@ public class ReportService
             LowStockItems = inv.Where(r => r.IsLow).OrderBy(r => r.TotalRemaining).ThenBy(r => r.ProductName).Take(10).ToList(),
             UnpaidInvoices = unpaid.Take(10).ToList(),
             UnpaidCount = unpaid.Count,
-            UnpaidTotal = unpaid.Sum(u => u.Remaining)
+            UnpaidTotal = Money.Round(unpaid.Sum(u => u.Remaining))
         };
     }
 

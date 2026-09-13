@@ -1768,6 +1768,42 @@ public static class Program
         }
         await Throws<InvalidOperationException>("stock above what landed is refused, not stored",
             () => inventory.UpdateGoodsAsync(caps.Id, "Cap", "pcs", "CAP-1", 600m, 650m, 100m, null, null, 1m, null));
+
+        // The home page's eight figures. They are worth checking against the book rather than against each
+        // other for one reason: two of them - what is out there on the containers' goods, and what the bills
+        // say is still owed - are the same money counted along two different paths, and a page that shows one
+        // number for both is the only place that difference would ever be seen.
+        Head("the home page's figures, and the two paths that must land on one number");
+        var home = await reports.GetDashboardAsync();
+        Eq("every container is counted, sold from or not, open or closed", 3m, home.TotalContainers);
+        Eq("and the open ones apart, which is what the containers page leads with", 3m, home.OpenContainers);
+        // Read in memory, as every money figure in this book is: the amounts live in text columns, and SQLite
+        // adding those up is not arithmetic at all.
+        decimal billedAll = 0m;
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            billedAll = (await db.Containers.AsNoTracking().ToListAsync()).Sum(c => c.SupplierAmount);
+        }
+        Eq("purchases are what the containers were billed for, and nothing else",
+            Money.Round(billedAll), home.TotalPurchases);
+        Eq("the expenses figure is the shipments' bills and the till's own, added",
+            home.ContainerExpenses + home.ShopExpenses, home.TotalExpenses);
+        Eq("what is out there on the containers' goods is what the bills still owe",
+            home.Outstanding, home.MoneyInMarket);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var homeBills = await db.Sales.AsNoTracking().Where(x => x.Status == SaleStatus.Active).ToListAsync();
+            var homePays = await db.Payments.AsNoTracking().Where(x => x.SaleId != null).ToListAsync();
+            var homeBacks = await db.SaleReturns.AsNoTracking().ToListAsync();
+            var homeOwed = Money.Round(homeBills.Sum(x => Math.Max(0m, x.TotalAmount
+                - homePays.Where(y => y.SaleId == x.Id).Sum(y => y.Amount)
+                - homeBacks.Where(y => y.SaleId == x.Id).Sum(y => y.Amount))));
+            Eq("and that is the same sum the bills give when they are added by hand", homeOwed, home.Outstanding);
+            Eq("so the list of bills needing attention cannot total something else", homeOwed, home.UnpaidTotal);
+            var homeStock = Money.Round((await db.ContainerItems.AsNoTracking().ToListAsync())
+                .Sum(i => i.QuantityRemaining * i.EffectiveCost));
+            Eq("the stock figure is what is left, at what landing it cost", homeStock, home.InventoryValue);
+        }
     }
 
     private static void Head(string text) => Console.WriteLine(Environment.NewLine + "  " + text);
