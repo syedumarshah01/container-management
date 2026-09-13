@@ -473,7 +473,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         ExpenseIsYen = false;
         ShowExpensePreview = false;
         ExpensePreview = "";
-        ExpenseDate = DateTimeOffset.Today;
+        // The same value the box holds when the page first opens, so "reset" means back to that and not to
+        // some second idea of today the file did not have before.
+        ExpenseDate = DateTimeOffset.Now;
         SelectedExpense = null;
     }
 
