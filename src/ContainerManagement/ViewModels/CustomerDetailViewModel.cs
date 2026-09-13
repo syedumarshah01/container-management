@@ -288,21 +288,40 @@ public partial class CustomerDetailViewModel : ViewModelBase
         _print.OpenHtml(_print.StatementHtml(c, rows, bal, ShopSettings.Load()), $"ledger-{_id}.html");
     }
 
+    /// <summary>
+    /// Sends the ledger, not a note about it: the message is the customer's own lines and their balance, so a
+    /// reply can quote a line from it. The launch happens off the page's thread, because handing a link to
+    /// another program can sit there a moment, and a button that freezes the window reads as a broken button.
+    /// </summary>
     [RelayCommand]
     private async Task WhatsAppAsync()
     {
+        string? text = null;
         try
         {
             var c = await _ledger.GetCustomerAsync(_id)
                 ?? throw new InvalidOperationException("Customer not found.");
+            var rows = await _ledger.GetLedgerAsync(_id);
+            if (rows.Count == 0)
+                throw new InvalidOperationException("This customer's ledger is empty - there is nothing to send.");
             var bal = await _ledger.GetBalanceAsync(_id);
-            var shop = ShopSettings.Load().CompanyName;
-            var text = bal > 0
-                ? $"Assalamualaikum {c.Name}, {shop}: your balance is {Money.Pkr(bal)}. Please send when convenient."
-                : $"Assalamualaikum {c.Name}, {shop}: your ledger is settled. Thank you.";
-            PrintService.WhatsApp(c.Phone, text);
+            var message = PrintService.ShareText(ShopSettings.Load().CompanyName, c.Name, rows, bal);
+            text = message;
+            var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone, message));
+            _shell.Notify($"WhatsApp opened for {dialed} with {rows.Count} line{(rows.Count == 1 ? "" : "s")} of the ledger. Press send there.");
         }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+        catch (Exception ex)
+        {
+            // The message is worth more to the shop than the reason, so it goes to the clipboard: pasting it
+            // into a chat is a send, while retyping a ledger is not.
+            if (text is null)
+                _shell.Notify(ex.Message, true);
+            else
+            {
+                await _shell.CopyTextAsync(text);
+                _shell.Notify(ex.Message + " The message has been copied to the clipboard - paste it into WhatsApp.", true);
+            }
+        }
     }
 
     [RelayCommand]

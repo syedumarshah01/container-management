@@ -117,21 +117,167 @@ public class PrintService
         return path;
     }
 
-    public static void WhatsApp(string? phone, string text)
+    /// <summary>
+    /// How long a message may be once it is dressed for a link. A text travels to WhatsApp inside a URL, and
+    /// a browser stops reading a link that runs on too long - silently, from the end. The number is set well
+    /// under the shortest limit any of them has, because a ledger line that goes missing from a message is a
+    /// line the customer will pay for twice or dispute for a week.
+    /// </summary>
+    public const int ShareUrlBudget = 1600;
+
+    /// <summary>
+    /// The customer's number as it has to be dialled: digits only, and a local 03xx... carried up to 923xx...
+    /// The complaint names what was found instead of saying "invalid", because a shop reads these off a
+    /// notebook and needs to know whether the typing is wrong or the customer simply has no number saved.
+    /// Anything that is not ASCII digits is refused here rather than sent along as a link that opens the wrong
+    /// chat - a number typed in Urdu digits, for instance, looks fine on the page and is garbage to a browser.
+    /// </summary>
+    public static string ShareNumber(string? phone)
     {
-        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
-        if (digits.StartsWith("00"))
+        if (string.IsNullOrWhiteSpace(phone))
+            throw new InvalidOperationException("This customer has no mobile number saved - add one and Save first.");
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("00", StringComparison.Ordinal))
             digits = digits[2..];
-        if (digits.StartsWith("0") && digits.Length == 11)
+        if (digits.Length == 10 && digits.StartsWith("3", StringComparison.Ordinal))
+            digits = "92" + digits;
+        if (digits.Length == 11 && digits.StartsWith("0", StringComparison.Ordinal))
             digits = "92" + digits[1..];
-        if (digits.Length < 10)
-            throw new InvalidOperationException("Add a mobile number on the customer first.");
-        var url = "https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text);
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        if (digits.Length < 10 || digits.Any(c => c < '0' || c > '9'))
+            throw new InvalidOperationException($"\"{phone}\" does not read as a mobile number - a Pakistani one is 03xx and seven more digits.");
+        return digits;
+    }
+
+    /// <summary>The ledger as a chat message, at the length a link can carry.</summary>
+    public static string ShareText(string shop, string customerName, IReadOnlyList<LedgerRow> rows, decimal balance)
+        => ShareText(shop, customerName, rows, balance, ShareUrlBudget);
+
+    /// <summary>
+    /// A customer's ledger written out as a chat message: the same lines, in the same order and the same words
+    /// as the printed statement, oldest first, closing on the balance - because the paper and the message are
+    /// read against each other, and a figure that agrees on both is the entire point of sending it. A book
+    /// too long for a link loses its oldest lines and says how many, since the lines worth keeping are the
+    /// recent ones and the total; what is dropped is pointed at the statement, not quietly removed.
+    /// </summary>
+    public static string ShareText(
+        string shop, string customerName, IReadOnlyList<LedgerRow> rows, decimal balance, int maxUrlChars)
+    {
+        var head = $"Assalamualaikum {customerName},"
+            + "\n\n"
+            + $"{shop} - your ledger as at {DateTime.Today:dd MMM yyyy}:";
+        var tail = ShareBalance(balance);
+        var lines = rows.Select(ShareLine).ToList();
+
+        // Filled from the newest line backwards, so the first thing the cut gives up is the oldest entry.
+        var kept = new List<string>();
+        for (var i = lines.Count - 1; i >= 0; i--)
         {
-            FileName = url,
-            UseShellExecute = true
-        });
+            var trial = new List<string> { lines[i] };
+            trial.AddRange(kept);
+            if (kept.Count > 0
+                && Uri.EscapeDataString(Build(head, trial, lines.Count - trial.Count, tail)).Length > maxUrlChars)
+                break;
+            kept.Insert(0, lines[i]);
+        }
+        return Build(head, kept, lines.Count - kept.Count, tail);
+
+        // The parts are passed in rather than read from the enclosing method, because that is what lets the
+        // same builder be used to try a message on for length before it is kept.
+        static string Build(string greeting, IReadOnlyList<string> body, int skipped, string signOff)
+        {
+            var sb = new StringBuilder(greeting).Append("\n\n");
+            foreach (var line in body)
+                sb.Append(line).Append('\n');
+            if (skipped > 0)
+                sb.Append($"{skipped} earlier line{(skipped == 1 ? "" : "s")} - they are on the printed statement")
+                    .Append('\n');
+            return sb.Append('\n').Append(signOff).ToString();
+        }
+    }
+
+    /// <summary>
+    /// The line the customer answers to: what is owed, in figures and in the words the till uses, on the same
+    /// line, so a 0 typed either side of a lac shows up as a mismatch before it shows up in the cash.
+    /// </summary>
+    public static string ShareBalance(decimal balance)
+    {
+        var owed = Money.Round(balance);
+        if (owed > 0)
+        {
+            var words = Money.Words(owed);
+            return $"Balance due: {Money.Pkr(owed)}"
+                + (words.Length == 0 ? "" : $" ({words})")
+                + "\n\n"
+                + "Please send when convenient. JazakAllah.";
+        }
+        if (owed == 0)
+            return "Nothing is outstanding - the ledger is settled. JazakAllah.";
+        return $"{Money.Pkr(Money.Round(-owed))} has been paid over and above what is owed. Tell us whether to "
+            + "hand it back or keep it against the next bill.";
+    }
+
+    /// <summary>
+    /// One ledger line, in the order the money moved. Each column's figure is taken from the text the page and
+    /// the statement already print - including the dash that means nothing moved in it - because a share that
+    /// re-derives amounts from Debit and Credit is a second chance to get one wrong.
+    /// </summary>
+    private static string ShareLine(LedgerRow r)
+    {
+        var moved = new List<string>();
+        void Add(string label, string text)
+        {
+            if (text != "—")
+                moved.Add(label + " " + text);
+        }
+        Add("sold", r.SoldText);
+        Add("returned", r.ReturnedText);
+        Add("received", r.ReceivedText);
+        Add("paid out", r.PaidOutText);
+
+        var parts = new List<string> { r.DateText };
+        if (!string.IsNullOrWhiteSpace(r.Description))
+            parts.Add(r.Description.Trim());
+        if (moved.Count > 0)
+            parts.Add(string.Join(", ", moved));
+        parts.Add("balance " + r.RunningText);
+        return string.Join(" - ", parts);
+    }
+
+    /// <summary>
+    /// Hands the message to WhatsApp and says which number it was opened for. wa.me goes through whatever
+    /// browser is on the machine, which is the case that works whether or not the desktop app is installed;
+    /// the whatsapp:// link is tried after it, for the reverse. Neither opening at all is worth an error
+    /// message, since nothing was sent, and the shop gets the text on the clipboard in that case rather than
+    /// a status line nobody saw.
+    /// </summary>
+    public static string WhatsApp(string? phone, string text)
+    {
+        var digits = ShareNumber(phone);
+        var query = Uri.EscapeDataString(text);
+        var problem = "nothing on this computer is set to open a web link";
+        foreach (var url in new[]
+        {
+            $"https://wa.me/{digits}?text={query}",
+            $"whatsapp://send?phone={digits}&text={query}",
+        })
+        {
+            try
+            {
+                // A handle that comes back empty is not a refusal: the shell still took the link, and
+                // complaining about that would tell the shop nothing had happened when a chat is opening.
+                using var opened = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true,
+                });
+                return digits;
+            }
+            catch (Exception ex)
+            {
+                problem = ex.Message;
+            }
+        }
+        throw new InvalidOperationException($"WhatsApp could not be opened on this computer ({problem}).");
     }
 
     /// <summary>

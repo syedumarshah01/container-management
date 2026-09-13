@@ -956,6 +956,60 @@ public static class Program
         Check("and every line in between adds up to it, one step at a time",
             customerLedger.Skip(1).Zip(customerLedger, (now, before) =>
                 now.RunningBalance - before.RunningBalance == now.Debit - now.Credit).All(x => x));
+
+        Head("the ledger in a chat message");
+        var chatBalance = await ledger.GetBalanceAsync(customer.Id);
+        var chat = PrintService.ShareText("AUDIT shop", customer.Name, customerLedger, chatBalance);
+        Check("the message carries every line of the ledger it was made from",
+            customerLedger.All(r => chat.Contains(r.DateText) && chat.Contains(r.RunningText)),
+            customerLedger.Count + " lines in " + chat.Length + " characters");
+        Check("and it asks for the balance the page shows, to the paisa",
+            chatBalance > 0
+                ? chat.Contains("Balance due: " + Money.Pkr(Money.Round(chatBalance)))
+                : chat.Contains("settled") || chat.Contains("over and above"),
+            Money.Pkr(chatBalance));
+        Check("and the total is said once, so nothing else in it can be read as the amount to send",
+            chat.Split("Balance due", StringSplitOptions.None).Length - 1 == (chatBalance > 0 ? 1 : 0),
+            Money.Pkr(chatBalance));
+        var typed = new[] { "0333-1234567", "+92 333 1234567", "0092-333-1234567", "3331234567", "0333 123 4567" };
+        Check("a number typed any of those ways is dialled as one number",
+            typed.All(x => PrintService.ShareNumber(x) == "923331234567"),
+            string.Join(" | ", typed));
+        await Throws<InvalidOperationException>(
+            "a book with no number to dial is refused before a link is built",
+            () => { PrintService.ShareNumber(null); return Task.CompletedTask; });
+        await Throws<InvalidOperationException>(
+            "and a number too short to dial is refused, rather than opened as a link to nowhere",
+            () => { PrintService.ShareNumber("091-445-1"); return Task.CompletedTask; });
+        var lacLine = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 425_000.50m);
+        Check("a balance over a lac is written in words beside the figures, so a typed 0 shows up",
+            lacLine.Contains(Money.Pkr(425_000.50m) + " (" + Money.Words(425_000.50m) + ")"),
+            (lacLine.Contains("Balance due") ? lacLine[lacLine.IndexOf("Balance due", StringComparison.Ordinal)..] : lacLine)
+                .Replace("\n", " / "));
+        var settled = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, 0m);
+        Check("a settled ledger is not asked for money",
+            !settled.Contains("Balance due") && settled.Contains("settled"));
+        var owedToThem = PrintService.ShareText("AUDIT shop", "Abdul Rahim", customerLedger, -4_000m);
+        Check("and money lying with the shop is offered back, not shown as a debt",
+            owedToThem.Contains(Money.Pkr(4_000m)) && owedToThem.Contains("over and above")
+                && !owedToThem.Contains("Balance due"));
+        var book = Enumerable.Range(0, 200).Select(i => new LedgerRow
+        {
+            Date = DateTime.Today.AddDays(-i),
+            Description = "Container " + (i + 1) + " sale",
+            Type = LedgerType.Sale,
+            Debit = 1_000m + i,
+            RunningBalance = 1_000m * (i + 1),
+            Step = 200 - i,
+        }).ToList();
+        var cut = PrintService.ShareText("AUDIT shop", "Abdul Rahim", book, 200_000m);
+        Check("a book too long for a link is cut to what a browser reads whole",
+            Uri.EscapeDataString(cut).Length <= PrintService.ShareUrlBudget,
+            Uri.EscapeDataString(cut).Length + " of " + PrintService.ShareUrlBudget);
+        Check("and the cut gives up the oldest lines, never the total or the newest entry",
+            cut.Contains(book[^1].Description) && !cut.Contains(book[0].Description)
+                && cut.Contains("earlier lines") && cut.Contains(Money.Pkr(200_000m)),
+            cut.Split('\n').Length + " lines sent of " + book.Count);
         var tillRows = await cash.ListAsync();
         Check("the till hands its rows over in the order the money moved, so reversing it for the page is safe",
             tillRows.SequenceEqual(tillRows.OrderBy(e => e.Date.Date).ThenBy(e => e.Id)),

@@ -46,6 +46,7 @@ shift a figure on screen.
 | a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
+| the ledger in a chat message | WhatsApp carries the ledger itself - the same lines, the same order and the same words as the printed statement - closing on the balance at the head of the page, in figures and in words together; a book too long for a link loses its oldest lines and says how many, and a number that cannot be dialled is refused with the digits it found |
 | the return outcome | the page states, in rupees and before the button is pressed, what the rule will do - and the figures it names are the posting's own arithmetic, run with writing switched off, so the line can promise nothing the book does not write |
 | the arrival date | asked for, never assumed - a container without one is refused, a date in the past is stored as written, and a form that does not show the date cannot clear it |
 | the paid box on the import form | raising it adds one payment; lowering it takes the newest payments back; the cash book keeps exactly one line per payment, at the same amount |
@@ -417,6 +418,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    dates and Apply again: the page should read "from" or "up to" and run open on the missing side. Press "This
    month" - which appears only once a date is set - and the page should land back exactly where it opened. The "Whole book" card should not stir at any of it, and
    neither should the containers or stock figures in it: those are as at today, whatever the dates say.
+4n. On a customer with bills open, press WhatsApp. A chat should open with their ledger typed out in it - the
+   lines in the order the money moved, each one's balance, and the total owed at the end with its words beside
+   it - and the status line at the bottom should name the number that was dialled and how many lines went in.
+   Nothing is attached and nothing is sent by itself: the last press is yours, in the chat. A customer with no
+   number saved, or one that is not a mobile, should say so in red at the bottom of the window rather than
+   sit there doing nothing.
 4k. On Home, the "Whole book" card holds five figures: containers, sales, what is receivable in the market,
    stock value, profit. The market figure should be the containers list's "In the market" column added up, and
    To collect should show the same total on its container box when that box is on "All containers" - those two

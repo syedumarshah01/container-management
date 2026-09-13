@@ -36,6 +36,13 @@ public interface IAppShell
 {
     bool IsOwner { get; }
     void Notify(string message, bool error = false);
+
+    /// <summary>
+    /// Puts text where the user can paste it. A page that hands something to another program - a WhatsApp
+    /// link, a browser - needs a way to leave the text behind when that program is not there, or the shop
+    /// has to type out a ledger by hand.
+    /// </summary>
+    Task CopyTextAsync(string text);
     void Back();
     void GoDashboard();
     void GoContainers();

@@ -13,7 +13,16 @@
   <Grid>
     <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E6E4DE" BorderThickness="0,1,0,0" Padding="24,10">
-        <TextBlock Text="{Binding Status}" Classes.bad="{Binding IsError}" FontSize="13" Foreground="#6B7280" />
+        <!-- The status line is the only place a page says that something refused to happen, and it used to
+             say it in the same grey it uses for "Saved." - the colour was written on the control, which beats
+             the .bad class, so a failure looked like a notice. An error now gets its own element: two ordinary
+             bindings, no argument with the cascade. -->
+        <Panel>
+          <TextBlock Text="{Binding Status}" Classes="muted" FontSize="13" TextWrapping="Wrap"
+                     IsVisible="{Binding !IsError}" />
+          <TextBlock Text="{Binding Status}" Classes="bad" FontSize="13" FontWeight="SemiBold"
+                     TextWrapping="Wrap" IsVisible="{Binding IsError}" />
+        </Panel>
       </Border>
 
       <Border Width="216" Background="{StaticResource NavyBrush}">

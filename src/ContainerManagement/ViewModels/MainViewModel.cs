@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -232,6 +234,25 @@ public partial class MainViewModel : ObservableObject, IAppShell
     {
         Status = message;
         IsError = error;
+    }
+
+    /// <summary>
+    /// The window's clipboard, best effort: a machine with no clipboard, or one another program is holding
+    /// open, is not worth an error of its own on top of the failure that got us here.
+    /// </summary>
+    public async Task CopyTextAsync(string text)
+    {
+        try
+        {
+            var clipboard = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow?.Clipboard;
+            if (clipboard is not null)
+                await clipboard.SetTextAsync(text);
+        }
+        catch
+        {
+            // The text is already lost to the other program; saying so twice would not help.
+        }
     }
 
     public void Back()
