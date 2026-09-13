@@ -4,13 +4,25 @@
              x:Class="ContainerManagement.Views.ReceivablesView"
              x:DataType="vm:ReceivablesViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="To collect" />
-    <Border Classes="statcard" Margin="0,0,0,16">
-      <StackPanel>
-        <TextBlock Classes="label" Text="Money still in the market" />
-        <TextBlock Classes="stat bad" Text="{Binding Outstanding}" />
-      </StackPanel>
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="To collect" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding Lots}" SelectedItem="{Binding SelectedLot}"
+                MinWidth="260" VerticalAlignment="Center" />
+    </Grid>
+    <Border Classes="statcard" Margin="0,0,0,4">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Classes="label" Text="Customers owe in total" />
+          <TextBlock Classes="stat bad" Text="{Binding Outstanding}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" HorizontalAlignment="Right" IsVisible="{Binding HasLot}">
+          <TextBlock Classes="label" Text="{Binding LotLabel}" />
+          <TextBlock Classes="stat" Text="{Binding LotFigure}" />
+        </StackPanel>
+      </Grid>
     </Border>
+    <TextBlock Classes="muted" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" IsVisible="{Binding HasLot}"
+               Text="That figure is what this container's bills still have owing; a customer's balance also holds advances and payouts, so the two need not match." />
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Customers" />

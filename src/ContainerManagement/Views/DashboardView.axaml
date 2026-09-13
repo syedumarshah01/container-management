@@ -13,13 +13,12 @@
               VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
-    <!-- The book as a whole, so the day can start with what is in and what is out. Each figure is the one the
-         page behind it shows, added up once: nothing here is calculated a second way, and the line at the foot
-         is what makes the two market figures check each other rather than merely agree. -->
+    <!-- The book as a whole, so the day can start with what came in and what is still out. Each figure is the
+         one the page behind it shows, added up once - nothing is worked out a second way to fill this card. -->
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Whole book" />
-        <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,*,*,*,*">
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total containers" />
             <TextBlock Classes="stat" Text="{Binding BookContainers}" />
@@ -29,36 +28,20 @@
             <TextBlock Classes="stat" Text="{Binding BookSales}" />
           </StackPanel>
           <StackPanel Grid.Column="2" Margin="0,0,16,0">
-            <TextBlock Classes="label" Text="Total purchase" />
-            <TextBlock Classes="stat" Text="{Binding BookPurchases}" />
-          </StackPanel>
-          <StackPanel Grid.Column="3">
-            <TextBlock Classes="label" Text="Total expenses" />
-            <TextBlock Classes="stat" Text="{Binding BookExpenses}" />
-            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="{Binding BookExpensesSplit}" />
-          </StackPanel>
-
-          <StackPanel Grid.Row="1" Margin="0,16,16,0">
             <TextBlock Classes="label" Text="Total receivable in the market" />
             <TextBlock Classes="stat" Text="{Binding BookMarket}" />
           </StackPanel>
-          <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,16,16,0">
-            <TextBlock Classes="label" Text="Outstanding" />
-            <TextBlock Classes="stat" Text="{Binding BookOutstanding}" />
-          </StackPanel>
-          <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,16,16,0">
+          <StackPanel Grid.Column="3" Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total stock value" />
             <TextBlock Classes="stat" Text="{Binding BookStock}" />
           </StackPanel>
-          <StackPanel Grid.Row="1" Grid.Column="3">
+          <StackPanel Grid.Column="4">
             <TextBlock Classes="label" Text="Total profit" />
             <TextBlock Classes="stat ok" Text="{Binding BookProfit}" />
             <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="sales, less what the goods cost landed" />
           </StackPanel>
         </Grid>
-        <TextBlock Classes="muted" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap" Text="{Binding BookNote}" />
       </StackPanel>
     </Border>
 

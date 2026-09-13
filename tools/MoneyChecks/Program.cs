@@ -268,6 +268,7 @@ public static class Program
 
         Head("profit follows a corrected cost - the case that stayed wrong for one release");
         Eq("the three sold lines cost 758.57 + 386.19 + 758.57 with the freight in", 1903.33m, beforeReprice.Cogs);
+        var homeBefore = await reports.GetDashboardAsync();
         var repriced = await inventory.UpdateGoodsAsync(bulbs.Id, "LED bulb", "pcs", "LB-1", 1000m, 999.25m, 2000m, null, null, 0.375m, null);
         Check("both sold lines of that lot were re-costed", repriced == 2, repriced + " lines touched");
         var later = await reports.GetContainerProfitAsync(container.Id);
@@ -275,6 +276,19 @@ public static class Program
         Eq("so profit fell by exactly the cost increase of 112.16", beforeReprice.Profit - 112.16m, later.Profit);
         Check("and no stock was invented or lost by the re-costing",
             later.QtyReceived == beforeReprice.QtyReceived && later.QtySold == beforeReprice.QtySold);
+        Eq("the 999.25 pieces still on the shelf are worth Rs 149.55 more each, to the paisa",
+            beforeReprice.RemainingValue + Money.Round(999.25m * 149.55m, 4), later.RemainingValue);
+
+        // Home's card reads the book through the same rows, so a corrected cost has to reach it too - a page
+        // that kept the old profit while the container's page had moved would be the worst kind of wrong.
+        var homeAfter = await reports.GetDashboardAsync();
+        Eq("Home's whole-book profit falls by the same 112.16", homeBefore.TotalProfit - 112.16m, homeAfter.TotalProfit);
+        Check("while its sales figure does not stir, because no price was touched",
+            homeAfter.TotalRevenue == homeBefore.TotalRevenue,
+            $"billed {homeBefore.TotalRevenue} before the cost was corrected, {homeAfter.TotalRevenue} after");
+        Check("and the stock it values is the shelf at its new cost, not the old one",
+            homeAfter.InventoryValue > homeBefore.InventoryValue,
+            $"{homeBefore.InventoryValue} to {homeAfter.InventoryValue}");
 
         Head("returns: credited at the price the customer paid, cost followed back out");
         var bulbLine = bill.Lines.Single(l => l.ProductId == bulbs.ProductId);
