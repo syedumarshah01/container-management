@@ -37,6 +37,7 @@ public static class Program
         try
         {
             await Flows(dir);
+            await Reconciliation(dir);
             await YearStatement(dir);
             await MonthReceipts(dir);
             await InvoiceStanding(dir);
@@ -782,6 +783,431 @@ public static class Program
     }
 
     // ------------------------------------------------------------------ storage
+
+    /// <summary>
+    /// The rest of the shop's money: what happens to a figure after it has been written, and the identities
+    /// that have to survive being changed - a bill edited, a receipt deleted, an expense corrected, a shelf
+    /// re-counted, a container closed, a sale cancelled. Every document here is made through the app's own
+    /// services and read back twice, once out of the tables and once out of the page that shows it, because a
+    /// bug that lives between those two is invisible on the screen and invisible in the row. The figures are
+    /// checked as changes rather than as absolutes, so one shop's paperwork cannot hide another's mistake.
+    /// </summary>
+    private static async Task Reconciliation(string dir)
+    {
+        var file = Path.Combine(dir, "reconcile.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db0 = await f.CreateDbContextAsync())
+        {
+            await db0.Database.EnsureCreatedAsync();
+        }
+
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var ledger = new LedgerService(f);
+        var reports = new ReportService(f);
+        var cash = new CashBookService(f);
+        var shop = new ShopExpenseService(f);
+
+        Head("one lot, the expense written on it, a bill against it");
+        var box = await inventory.CreateContainerAsync(
+            "REC box", "REC-1", "China", DateTime.Today, null, "PKR", 1m, null, null, null, null,
+            "REC supplier", 50_000m, 20_000m, "Cash");
+        var fan = await inventory.AddGoodsAsync(box.Id, "Fan", "pcs", "FAN-1", 100m, 2_000m, null, null, null, 1m, null);
+        await inventory.AddExpenseAsync(box.Id, DateTime.Today, "Clearing", 1_000m, null);
+        var split = await inventory.GetExpenseSplitAsync(box.Id);
+        Eq("a box with one lot in it charges that lot the whole of its expense", 1_000m, split.ExpenseTotal);
+        Check("and the sharing accounts for every rupee, leaving nothing unexplained",
+            split.Absorbed + split.LeftOver == split.ExpenseTotal && split.LeftOver == 0m,
+            $"{split.Absorbed} absorbed, {split.LeftOver} left over");
+        var fanRow = await ReadItemAsync(f, fan.Id);
+        Eq("so a piece costs the goods price plus ten rupees of clearing, to the paisa", 2_010m, fanRow.LandedUnitCost);
+        Eq("and nothing has left the shelf yet", 100m, fanRow.QuantityRemaining);
+        Eq("the money handed over at the box is what was typed as handed over", 20_000m, await inventory.PaidSoFarAsync(box.Id));
+        Eq("and what is owed is the balance typed, not that balance netted down again", 50_000m, await inventory.SupplierBalanceAsync(box.Id));
+
+        var customer = await ledger.CreateCustomerAsync("REC customer", null, null, null);
+        var bill = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 10m, UnitPrice = 2_500m }
+        }, 4_000m, "Cash", null, 0m, DateTime.Today.AddDays(14));
+        Eq("ten pieces at the price typed is the bill the book keeps", 25_000m, bill.TotalAmount);
+        var lot = await reports.GetContainerProfitAsync(box.Id);
+        Eq("the cost of what went out is ten pieces at the landed cost, not at the goods price", 20_100m, lot.Cogs);
+        Eq("so the lot's profit is the bill less that cost", 4_900m, lot.Profit);
+        Eq("and the market still holds the bill less the money that came in", 21_000m, lot.InMarket);
+        Eq("the customer's page says the same thing about what they owe", 21_000m, await ledger.GetBalanceAsync(customer.Id));
+        Eq("with the shelf down by what left it", 90m, (await ReadItemAsync(f, fan.Id)).QuantityRemaining);
+        var book = await reports.GetDashboardAsync();
+        Eq("Home's book card sees these sales", 25_000m, book.TotalRevenue);
+        Eq("this profit", 4_900m, book.TotalProfit);
+        Eq("and this money receivable in the market", 21_000m, book.MoneyInMarket);
+
+        Head("a bill edited: every figure moves, or none of them do");
+        await sales.UpdateSaleAsync(bill.Id, customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 12m, UnitPrice = 2_600m }
+        }, 4_000m, "Cash", "twelve, at the rate settled on the phone", 0m, DateTime.Today.AddDays(14));
+        var edited = await reports.GetContainerProfitAsync(box.Id);
+        Eq("the bill is twelve pieces at the new price", 31_200m, edited.Revenue);
+        Eq("its cost is twelve pieces at the landed cost, not ten at the old one", 24_120m, edited.Cogs);
+        Eq("so the profit that follows is the new bill less the new cost", 7_080m, edited.Profit);
+        Eq("the market carries the new bill less the same money that came in", 27_200m, edited.InMarket);
+        Eq("the customer's balance moved with the bill", 27_200m, await ledger.GetBalanceAsync(customer.Id));
+        Eq("the shelf gave the ten back and took twelve off, so it is down by twelve", 88m, (await ReadItemAsync(f, fan.Id)).QuantityRemaining);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var pays = await db.Payments.AsNoTracking().Where(x => x.SaleId == bill.Id).ToListAsync();
+            Check("the receipt written against the old bill was rewritten, not added to - one payment, its own amount",
+                pays.Count == 1 && pays[0].Amount == 4_000m, pays.Count + " payments totalling " + pays.Sum(x => x.Amount));
+            var lines = await db.SaleLines.AsNoTracking().Where(l => l.SaleId == bill.Id).ToListAsync();
+            Eq("the lines left from the old bill are the new ones and nothing else", 31_200m, lines.Sum(l => l.LineTotal));
+        }
+        var afterEdit = await reports.GetDashboardAsync();
+        Eq("Home sees the bill as it is now, not as it was first typed", 31_200m, afterEdit.TotalRevenue);
+        Eq("and its profit is the edited one", 7_080m, afterEdit.TotalProfit);
+
+        Head("a receipt deleted, and typed back in");
+        int payId;
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            payId = (await db.Payments.AsNoTracking().Where(x => x.SaleId == bill.Id).ToListAsync()).Single().Id;
+        }
+        await ledger.DeletePaymentAsync(payId);
+        Eq("the bill stands whole again on the customer's page", 31_200m, await ledger.GetBalanceAsync(customer.Id));
+        Eq("and on the lot it was billed from", 31_200m, (await reports.GetContainerProfitAsync(box.Id)).InMarket);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var till = await db.CashBook.AsNoTracking().Where(e => e.Kind == CashBookKind.CustomerIn).ToListAsync();
+            Check("the till's line for it went too - a deleted receipt still counting in cash in hand is the worst kind of leftover",
+                till.Count == 0, till.Count + " receipt lines left in the till");
+            var led = await db.LedgerEntries.AsNoTracking()
+                .Where(e => e.CustomerId == customer.Id && e.Type == LedgerType.Payment).ToListAsync();
+            Check("and so did their ledger line, so the ledger and the till agree about what came in",
+                led.Count == 0, led.Count + " payment lines left in the ledger");
+        }
+        var again = await ledger.ReceivePaymentAsync(customer.Id, DateTime.Today, 4_000m, "Cash", "written back in", bill.Id);
+        Eq("typing it again lands the balance where it was", 27_200m, await ledger.GetBalanceAsync(customer.Id));
+        Eq("with one receipt of the amount typed", 4_000m, again.Amount);
+        var offered = await sales.UnpaidInvoicesAsync(customer.Id);
+        Eq("the bill the pay box offers is the outstanding figure the bill's own page holds",
+            await sales.RemainingOnInvoiceAsync(bill.Id), offered.Single(u => u.SaleId == bill.Id).Remaining);
+
+        Head("a bill with history under it cannot be rewritten");
+        var bill2 = await sales.CreateSaleAsync(customer.Id, DateTime.Today.AddDays(-1), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 2m, UnitPrice = 2_600m }
+        }, 0m, "Cash", null, 0m, null);
+        await sales.ReturnItemsAsync(bill2.Id, new List<SaleReturnInput> { new() { SaleLineId = bill2.Lines[0].Id, Quantity = 1m } });
+        await Throws<InvalidOperationException>(
+            "a bill a customer has partly handed back is not editable over the top of that return",
+            () => sales.UpdateSaleAsync(bill2.Id, customer.Id, DateTime.Today, new List<NewSaleLineInput>
+            {
+                new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 2m, UnitPrice = 2_600m }
+            }, 0m, "Cash", null, 0m, null));
+        await Throws<InvalidOperationException>(
+            "nor cancelled, which would take the return with it - what is left over goes back as a return",
+            () => sales.CancelSaleAsync(bill2.Id));
+        await Throws<InvalidOperationException>(
+            "and yesterday's bill is not editable at all: it is cancelled and written again",
+            () => sales.UpdateSaleAsync(bill.Id, customer.Id, DateTime.Today.AddDays(-1), new List<NewSaleLineInput>
+            {
+                new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 12m, UnitPrice = 2_700m }
+            }, 4_000m, "Cash", null, 0m, null));
+
+        Head("a sale cancelled: goods back on the shelf, money out of the till");
+        var bill3 = await sales.CreateSaleAsync(customer.Id, DateTime.Today, new List<NewSaleLineInput>
+        {
+            new() { ContainerId = box.Id, ContainerItemId = fan.Id, ProductId = fan.ProductId, ProductName = "Fan", Unit = "pcs", Quantity = 3m, UnitPrice = 2_600m }
+        }, 1_000m, "Cash", null, 0m, null);
+        var beforeCancel = await reports.GetContainerProfitAsync(box.Id);
+        var shelfBefore = (await ReadItemAsync(f, fan.Id)).QuantityRemaining;
+        var owedBeforeBill3 = await ledger.GetBalanceAsync(customer.Id);
+        await sales.CancelSaleAsync(bill3.Id);
+        Eq("the shelf has the three pieces back", shelfBefore + 3m, (await ReadItemAsync(f, fan.Id)).QuantityRemaining);
+        var afterCancel = await reports.GetContainerProfitAsync(box.Id);
+        Eq("the cancelled bill is off the lot's sales", beforeCancel.Revenue - bill3.TotalAmount, afterCancel.Revenue);
+        Eq("and off its profit, cost of the goods and all",
+            beforeCancel.Profit - (bill3.TotalAmount - Money.Round(3m * 2_010m)), afterCancel.Profit);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var refund = await db.CashBook.AsNoTracking().Where(e => e.Kind == CashBookKind.RefundOut).ToListAsync();
+            Check("the thousand that came in went back out, on a till line of its own",
+                refund.Count == 1 && refund[0].AmountOut == 1_000m, refund.Count + " refund lines");
+            var st = await db.Sales.AsNoTracking().SingleAsync(x => x.Id == bill3.Id);
+            Check("the bill is kept and marked cancelled - a deleted bill is a bill nobody can explain later",
+                st.Status == SaleStatus.Cancelled && st.CancelledAt is not null, st.Status.ToString());
+        }
+        Eq("and the customer is left owing what they owed before the bill existed - bill and receipt both come off",
+            owedBeforeBill3, await ledger.GetBalanceAsync(customer.Id));
+        await Throws<InvalidOperationException>("and cancelling it a second time is refused, not repeated",
+            () => sales.CancelSaleAsync(bill3.Id));
+
+        Head("the sell page's stock, against the shelf under it");
+        var offer = await inventory.GetSellableStockAsync(box.Id);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var rows = await db.ContainerItems.AsNoTracking()
+                .Where(i => i.ContainerId == box.Id && i.QuantityRemaining > 0).ToListAsync();
+            Eq("it offers exactly the pieces the shelf holds, no more and no fewer",
+                rows.Sum(i => i.QuantityRemaining), offer.Sum(o => o.Remaining));
+        }
+
+        Head("the till's opening figure is a replacement, never an addition");
+        await cash.SetOpeningAsync(50_000m);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var e = await db.CashBook.AsNoTracking().ToListAsync();
+            Eq("cash in hand is the opening plus what came in less what went out",
+                50_000m + e.Where(x => x.Kind != CashBookKind.Opening).Sum(x => x.AmountIn - x.AmountOut),
+                await CashInHandAsync(f));
+        }
+        var handBefore = await CashInHandAsync(f);
+        await cash.SetOpeningAsync(60_000m);
+        Eq("saying it again corrects the figure, so cash in hand moves by the ten thousand and not by sixty",
+            10_000m, (await CashInHandAsync(f)) - handBefore);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var open = await db.CashBook.AsNoTracking().Where(x => x.Kind == CashBookKind.Opening).ToListAsync();
+            Check("and there is one opening line, holding the new figure",
+                open.Count == 1 && open[0].AmountIn == 60_000m, open.Count + " opening lines");
+        }
+        var handOpening = await CashInHandAsync(f);
+        await cash.SetOpeningAsync(0m);
+        Eq("taking the opening back off leaves no line of nothing behind, and cash in hand by that figure",
+            -60_000m, (await CashInHandAsync(f)) - handOpening);
+
+        Head("an expense corrected on the page is corrected in the till and in profit");
+        var monthBefore = await reports.GetHomeMonthAsync();
+        var rent = await shop.AddAsync(DateTime.Today, "Shop rent", 500m, "one month");
+        var monthRent = await reports.GetHomeMonthAsync();
+        Eq("the till's own bill comes straight off Home's month profit", monthBefore.Profit - 500m, monthRent.Profit);
+        await shop.UpdateAsync(rent.Id, DateTime.Today, "Shop rent", 700m, "two weeks");
+        var monthEdit = await reports.GetHomeMonthAsync();
+        Eq("correcting it to seven hundred takes another two hundred off, and nothing else moves",
+            monthRent.Profit - 200m, monthEdit.Profit);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var outgoings = await db.CashBook.AsNoTracking().Where(e => e.Kind == CashBookKind.ExpenseOut).ToListAsync();
+            Check("one till line, the new figure - an edit does not leave the old one standing beside it",
+                outgoings.Count == 1 && outgoings[0].AmountOut == 700m,
+                outgoings.Count + " lines, " + outgoings.Sum(e => e.AmountOut) + " out");
+            var kept = await db.ShopExpenses.AsNoTracking().SingleAsync(x => x.Id == rent.Id);
+            Check("the note the shop typed is kept as typed, and so is the free words in the description box",
+                kept.Notes == "two weeks" && kept.Description == "Shop rent", kept.Description + " / " + kept.Notes);
+        }
+        await Throws<InvalidOperationException>(
+            "an expense with nothing said about what it was for is refused, because a till line that explains nothing cannot be audited",
+            () => shop.UpdateAsync(rent.Id, DateTime.Today, "   ", 700m, null));
+        await Throws<InvalidOperationException>(
+            "and one for nothing or less is refused rather than written as money coming in",
+            () => shop.UpdateAsync(rent.Id, DateTime.Today, "Shop rent", 0m, null));
+        await shop.DeleteAsync(rent.Id);
+        var monthAfterDelete = await reports.GetHomeMonthAsync();
+        Eq("deleting it puts the whole of the figure back, once", 700m, monthAfterDelete.Profit - monthEdit.Profit);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            Check("and its till line goes with it",
+                (await db.CashBook.AsNoTracking().Where(e => e.Kind == CashBookKind.ExpenseOut).ToListAsync()).Count == 0);
+        }
+
+        Head("a shelf re-counted moves the stock and nothing else");
+        var beforeAdjust = await reports.GetContainerProfitAsync(box.Id);
+        await inventory.AdjustStockAsync(fan.Id, 85m, "twelve in the store room");
+        var afterAdjust = await reports.GetContainerProfitAsync(box.Id);
+        Eq("the money already earned is untouched", beforeAdjust.Profit, afterAdjust.Profit);
+        Eq("and so is the bill the customer was handed", beforeAdjust.Revenue, afterAdjust.Revenue);
+        Eq("the shelf reads the count, though it is no longer what was bought less what was sold",
+            85m, (await ReadItemAsync(f, fan.Id)).QuantityRemaining);
+        Eq("so what is left on it is worth the count at the landed cost", Money.Round(85m * 2_010m), afterAdjust.RemainingValue);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var adj = (await db.StockAdjustments.AsNoTracking().Where(a => a.ContainerItemId == fan.Id).ToListAsync()).Single();
+            Check("the count is kept as a record of what it moved from and to, so a shelf that disagrees with "
+                  + "the book can be traced to the day somebody walked round it",
+                adj.QuantityBefore == 87m && adj.QuantityAfter == 85m && adj.Reason == "twelve in the store room",
+                $"{adj.QuantityBefore} to {adj.QuantityAfter}: {adj.Reason}");
+        }
+        await Throws<InvalidOperationException>(
+            "a count above what was ever bought is refused, not written as stock appearing",
+            () => inventory.AdjustStockAsync(fan.Id, 150m, null));
+        await Throws<InvalidOperationException>("and a negative count is refused",
+            () => inventory.AdjustStockAsync(fan.Id, -1m, null));
+
+        Head("what may be taken off a container, and what may not");
+        var cord = await inventory.AddGoodsAsync(box.Id, "Extension cord", "pcs", "EC-1", 25m, 400m, null, null, null, 0.2m, null);
+        await inventory.DeleteGoodsAsync(cord.Id);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            Check("a lot nobody has sold from goes, and the shelf is untouched by its going",
+                !await db.ContainerItems.AnyAsync(i => i.Id == cord.Id)
+                    && 85m == (await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == fan.Id)).QuantityRemaining);
+        }
+        await Throws<InvalidOperationException>(
+            "a lot with a bill on it stays - deleting it would leave those bills with nothing to have cost",
+            () => inventory.DeleteGoodsAsync(fan.Id));
+
+        Head("a container closed is not a container deleted");
+        var beforeClose = await reports.GetDashboardAsync();
+        await inventory.SetStatusAsync(box.Id, ContainerStatus.Closed);
+        var afterClose = await reports.GetDashboardAsync();
+        Eq("closing it leaves its sales where they were", beforeClose.TotalRevenue, afterClose.TotalRevenue);
+        Eq("its profit where it was", beforeClose.TotalProfit, afterClose.TotalProfit);
+        Eq("and what is still out there where it was", beforeClose.MoneyInMarket, afterClose.MoneyInMarket);
+        Check("and it stays in the list the pages add up, because a closed box still owes and still gets paid",
+            (await reports.GetContainerProfitsAsync()).Any(p => p.ContainerId == box.Id));
+
+        Head("the money the shop paid its supplier, and what is left");
+        await inventory.PaySupplierAsync(box.Id, DateTime.Today, 10_000m, "Bank Transfer", "second instalment");
+        Eq("comes off what is owed, once", 40_000m, await inventory.SupplierBalanceAsync(box.Id));
+        Eq("and shows as money handed over, exactly", 30_000m, await inventory.PaidSoFarAsync(box.Id));
+
+        Head("the lists the pages are built from, against the rows under them");
+        var owed = await ledger.GetReceivablesAsync();
+        foreach (var r in owed)
+        {
+            var theirPage = await ledger.GetBalanceAsync(r.CustomerId);
+            Check($"{r.Name} appears on To collect with the figure their own page holds",
+                theirPage == r.Balance, $"{r.Balance} against {theirPage}");
+        }
+        Check("and nobody who is even or holding money back is on it, because that list is who to chase",
+            owed.All(r => r.Balance > 0m), owed.Where(r => r.Balance <= 0m).Select(r => r.Name + " " + r.Balance).FirstOrDefault() ?? "empty list");
+        var homeNow = await reports.GetDashboardAsync();
+        Eq("Home's customers-owe figure is that list added up and nothing else",
+            Money.Round(owed.Sum(r => r.Balance)), homeNow.MoneyOwedByCustomers);
+        var shelf = await reports.GetGrandInventoryAsync(null);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var onShelf = (await db.ContainerItems.AsNoTracking().ToListAsync()).Sum(i => i.QuantityRemaining);
+            Eq("the inventory page's pieces are the shelf's own rows added up", onShelf, shelf.Sum(x => x.TotalRemaining));
+        }
+        Eq("and its value is the figure Home's stock line shows",
+            Money.Round(homeNow.InventoryValue), Money.Round(shelf.Sum(x => x.TotalValue)));
+
+        Head("a customer's details corrected, and the lists that name them");
+        var balanceBeforeEdit = await ledger.GetBalanceAsync(customer.Id);
+        var owedBeforeEdit = await reports.GetDashboardAsync();
+        await ledger.UpdateCustomerAsync(customer.Id, "REC customer (shop)", "0333-1234567", "Main Bazaar", "renamed");
+        Eq("correcting a name or a number moves no money whatever - their ledger is their money, not their label",
+            balanceBeforeEdit, await ledger.GetBalanceAsync(customer.Id));
+        var bookAfterEdit = await reports.GetDashboardAsync();
+        Check("and the book's figures are the same ones under the new name",
+            bookAfterEdit.TotalRevenue == owedBeforeEdit.TotalRevenue
+                && bookAfterEdit.MoneyInMarket == owedBeforeEdit.MoneyInMarket
+                && bookAfterEdit.TotalProfit == owedBeforeEdit.TotalProfit);
+        var saved = await ledger.GetCustomerAsync(customer.Id);
+        var dialed = PrintService.ShareNumber(saved.Phone);
+        Check("and the number is kept as it was typed, ready for the send to dial",
+            dialed == "923331234567", saved.Phone + " would dial " + dialed);
+        var soldList = await reports.ListSoldProductsAsync();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var soldActive = (await db.SaleLines.AsNoTracking().Include(l => l.Sale).ToListAsync())
+                .Where(l => l.Sale.Status == SaleStatus.Active).Sum(l => l.Quantity);
+            // A difference here is not necessarily a bug: the sell page counts goods, and a piece a customer
+            // handed back is both sold and back on the shelf. It is noted so the two pages are looked at
+            // together rather than a rule being written backwards to make them agree.
+            Warn("the sell page's sold list and the active bills agree on how many pieces went out",
+                soldActive == soldList.Sum(x => x.QtySold),
+                $"{soldActive} on the bills, {soldList.Sum(x => x.QtySold)} on the list");
+            var listed = await sales.ListSalesAsync(500);
+            var rows = await db.Sales.AsNoTracking().ToListAsync();
+            Check("every bill the bills page lists carries the total the book holds, and none is invented",
+                listed.Count <= rows.Count
+                    && listed.All(x => rows.Any(y => y.Id == x.Id && y.TotalAmount == x.TotalAmount)),
+                listed.Count + " rows against " + rows.Count + " bills");
+        }
+        var withStock = await inventory.ContainersWithStockAsync();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var withRows = (await db.Containers.AsNoTracking().Include(c => c.Items).ToListAsync())
+                .Where(c => c.Items.Any(i => i.QuantityRemaining > 0)).Select(c => c.Id).ToList();
+            Check("the box a bill is drawn from offers exactly the containers the shelf says are not empty",
+                withStock.Select(c => c.Id).OrderBy(x => x).SequenceEqual(withRows.OrderBy(x => x)),
+                withStock.Count + " offered, " + withRows.Count + " with stock");
+        }
+        var allBoxes = await inventory.ListContainersAsync();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            Check("and the containers page sees every box in the book, closed ones too, since a closed box is owed to",
+                allBoxes.Count == await db.Containers.Count(),
+                allBoxes.Count + " rows against " + await db.Containers.Count() + " containers");
+        }
+
+        Head("every row in this shop, reconciled to the figure it belongs to");
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var allSales = await db.Sales.AsNoTracking().Include(s => s.Lines).ToListAsync();
+            var disagree = allSales
+                .Where(x => Money.Round(x.Lines.Sum(l => l.LineTotal) - x.DiscountAmount) != x.TotalAmount)
+                .ToList();
+            Check("every bill's own lines less its discount are its total, so the paper and the book are one figure",
+                disagree.Count == 0,
+                disagree.Count + " disagree: " + string.Join(", ", disagree.Select(x => $"#{x.Id} holds {x.TotalAmount} against {x.Lines.Sum(l => l.LineTotal) - x.DiscountAmount}")));
+
+            var entries = await db.LedgerEntries.AsNoTracking().ToListAsync();
+            var pays = await db.Payments.AsNoTracking().ToListAsync();
+            var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
+            var payouts = await db.CustomerPayouts.AsNoTracking().ToListAsync();
+            var off = new List<string>();
+            foreach (var g in entries.Where(e => e.Type != LedgerType.Opening).GroupBy(e => e.CustomerId))
+            {
+                var booked = allSales.Where(s => s.CustomerId == g.Key && s.Status == SaleStatus.Active).Sum(s => s.TotalAmount);
+                var paid = pays.Where(p => p.CustomerId == g.Key).Sum(p => p.Amount);
+                var back = returns.Where(r => r.CustomerId == g.Key).Sum(r => r.Amount);
+                var handed = payouts.Where(p => p.CustomerId == g.Key).Sum(p => p.Amount);
+                var byLedger = Money.Round(g.Sum(e => e.Debit - e.Credit));
+                if (byLedger != Money.Round(booked - paid - back + handed))
+                    off.Add($"customer {g.Key}: their book says {byLedger}, their documents {Money.Round(booked - paid - back + handed)}");
+            }
+            Check("every customer's ledger adds back to their bills, receipts, returns and money handed over",
+                off.Count == 0, string.Join(" | ", off));
+
+            var boxes = await db.Containers.AsNoTracking().Include(c => c.Items).ToListAsync();
+            var saleLines = await db.SaleLines.AsNoTracking().Include(l => l.Sale).ToListAsync();
+            var returnLines = await db.SaleReturnLines.AsNoTracking().ToListAsync();
+            var adjusts = await db.StockAdjustments.AsNoTracking().ToListAsync();
+            var badStock = new List<string>();
+            foreach (var i in boxes.SelectMany(c => c.Items))
+            {
+                var sold = saleLines.Where(l => l.ContainerItemId == i.Id && l.Sale.Status == SaleStatus.Active).Sum(l => l.Quantity);
+                var given = returnLines.Where(l => l.ContainerItemId == i.Id).Sum(l => l.Quantity);
+                var moved = adjusts.Where(a => a.ContainerItemId == i.Id).Sum(a => a.QuantityAfter - a.QuantityBefore);
+                if (Money.Round(i.QuantityReceived - sold + given + moved, 3) != Money.Round(i.QuantityRemaining, 3))
+                    badStock.Add($"item {i.Id}: {i.QuantityReceived} in, {sold} out, {given} back, {moved} counted, {i.QuantityRemaining} left");
+            }
+            Check("every lot's shelf is what came in, less what went out, plus what was handed back and any count made since",
+                badStock.Count == 0, string.Join(" | ", badStock));
+
+            var suppays = await db.SupplierPayments.AsNoTracking().ToListAsync();
+            var wrong = new List<string>();
+            foreach (var c in boxes)
+            {
+                var paid = suppays.Where(p => p.ContainerId == c.Id).Sum(p => p.Amount);
+                var owedNow = Money.Round(c.SupplierAmount - paid);
+                if (owedNow != Money.Round(await inventory.SupplierBalanceAsync(c.Id)))
+                    wrong.Add($"{c.Title}: the page says {await inventory.SupplierBalanceAsync(c.Id)}, the rows {owedNow}");
+                if (paid > c.SupplierAmount + 0.009m)
+                    wrong.Add($"{c.Title}: {paid} paid against a bill of {c.SupplierAmount}");
+            }
+            Check("what We Owe shows per container is that container's bill less the payments made on it, and never less than nothing",
+                wrong.Count == 0, string.Join(" | ", wrong));
+
+            var till = await db.CashBook.AsNoTracking().ToListAsync();
+            Eq("and the till's own pages add up to the cash in hand the shop is shown",
+                till.Sum(e => e.AmountIn - e.AmountOut), await CashInHandAsync(f));
+        }
+    }
+
+    /// <summary>The item as the tables hold it, read fresh: a service's return value is the object it was
+    /// working with and can carry a figure another save has since moved.</summary>
+    private static async Task<ContainerItem> ReadItemAsync(IDbContextFactory<AppDbContext> factory, int itemId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        return await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == itemId);
+    }
 
     private static void Storage(string dir)
     {

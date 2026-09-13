@@ -12,6 +12,10 @@ The numbers it expects are worked out by hand, in rupees and paisa, and written 
 is the point: a change in what the app rounds, stores or reports has to fail a check, not quietly
 shift a figure on screen.
 
+`CHECKS.md` is the map of that run - which of the app's methods it drives, what is deliberately *not*
+proven by it (a screen's layout, a backup's files, the browser a print opens), and the rules a new check
+has to follow to be worth adding.
+
 ## What it proves
 
 | Area | The identity being held to |
@@ -44,6 +48,15 @@ shift a figure on screen.
 | a sheet's expenses | each bill is a row - what it was for, how much, in yen or rupees - and the sheet's expense figure is those rows added up, never a number typed beside them; a yen bill keeps its own rate so re-saving the sheet cannot re-value it, and a bill typed after the rate moved is taken at the new one |
 | the home page's figures | the five are read off the book instead of worked out again beside it: stock is what is left at landed cost, and what is out there on the containers' goods is the same sum as what the bills still owe - one counted by container, one by bill, which is the pair that would first show a rupee going missing. A corrected item cost moves the card's profit and stock figures with the container's page, while its sales figure does not stir, because a cost is not a price |
 | money received is against a named bill | the bill offered to be settled is stated with its number, its date, what is left on it and which container the goods came out of; the amount it names is the same subtraction the bill's own page runs, a settled or cancelled bill drops out of the list so it cannot be picked again, and money past what is left on the chosen bill is refused rather than split |
+| a bill edited, a receipt deleted | the bill, the customer's ledger, the shelf, that lot's cost and profit, and Home all move together or none of them do; an edit **rewrites** the receipt written against the old bill instead of adding a second one; and a deleted receipt takes its till line and its ledger line with it, so cash in hand cannot keep counting money that is gone |
+| a bill with history under it | a bill with a return on it is neither editable nor cancellable, and a bill from yesterday is not editable at all - it is cancelled and written again - so nothing is ever rewritten under a figure a customer has already been told |
+| a sale cancelled | the pieces go back on the shelf, the money handed over goes back out of the till on a line of its own, the bill is kept and marked cancelled instead of deleted, and cancelling it a second time is refused |
+| the till's opening figure | saying it again corrects it - cash in hand moves by the difference and not by the whole new figure - one opening line is kept, and taking it back to nothing leaves no empty line behind |
+| an expense corrected | Home's month profit moves by exactly the change, the till keeps one line at the new figure with the shop's own words for the description, a blank description or a zero amount is refused, and deleting it puts the whole figure back once |
+| a shelf re-counted | the count moves the stock and what it is worth, and no money already earned; the record keeps what it moved from, to, and why; a count above what was ever bought, or below zero, is refused |
+| a container closed | nothing moves: its sales, its profit and what is still out there stay where they were, and the box stays in the lists the pages are added up from, because a closed box is still owed to and still pays |
+| the lists, against the rows under them | To collect shows each customer the figure their own page holds and leaves out anyone even or holding money back; the inventory page is the shelf added up and worth what Home's stock line says; the sell page offers exactly what the shelf holds; correcting a customer's name or number moves no money at all |
+| every row, swept | over the whole fixture shop: each bill's lines less its discount are its total, each customer's ledger adds back to their bills, receipts, returns and money handed over, each lot's shelf is what came in less what went out plus what was handed back and any count made since, what We Owe per container is that container's bill less the payments on it, and the till's own lines add to the cash in hand shown |
 | a container's money | sold = collected + in the market, on every lot; a bill drawn from one container gives that container the whole of its outstanding with nothing shared, a bill across two lots is shared by what each was billed for with the odd paisa on the bigger share - so the lots add back to the bills exactly; and a return moves the sold and market figures without touching the money that came in |
 | guards | negative costs, zero payments, empty titles, missing suppliers, overselling, discounts larger than a bill, no arrival date, paying past what a container says is owed |
 | the order of the book | the ledger hands its lines over in the order they were made - by day, and within a day in writing order - numbered step by step, each running figure the balance the book had reached; the page shows the newest on top while the printed statement keeps the time order |
