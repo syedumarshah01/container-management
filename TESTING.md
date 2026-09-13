@@ -427,7 +427,8 @@ rather than assuming it. Say the word and I will move those columns to text for 
    Nothing is attached and nothing is sent by itself: the last press is yours, in the chat. A customer with no
    number saved, or one that is not a mobile, should say so in red at the bottom of the window rather than
    sit there doing nothing - their page's "Details" card is where the number is put in or corrected, and Save
-   there is enough; the page does not have to be left.
+   there is enough; the page does not have to be left. That card is shut by default, and it should open itself
+   when a send fails because there is no number saved at all.
 4o. In Settings, type a WhatsApp message using the words it lists - "{name}, you owe {balance} ({words})" -
    and Save. A token spelled wrong should be refused on the spot, with the list of what the book can fill. Save
    a good one, then open a customer and press WhatsApp: the chat should carry exactly what was typed, with

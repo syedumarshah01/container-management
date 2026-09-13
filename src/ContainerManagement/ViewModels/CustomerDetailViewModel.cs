@@ -38,6 +38,13 @@ public partial class CustomerDetailViewModel : ViewModelBase
     [ObservableProperty] private string editAddress = "";
     [ObservableProperty] private string editNotes = "";
 
+    /// <summary>
+    /// The details box is shut by default - it is a form for once a year, not part of reading a customer - and
+    /// it opens itself when a send fails for want of a number, because a complaint pointing at a closed panel
+    /// is a dead end. It is never closed by the book: once it is open the shop is in it.
+    /// </summary>
+    [ObservableProperty] private bool showDetails;
+
     [ObservableProperty] private decimal? payAmount;
     [ObservableProperty] private DateTimeOffset? payDate = DateTimeOffset.Now;
     [ObservableProperty] private string payMethod = "Cash";
@@ -301,6 +308,8 @@ public partial class CustomerDetailViewModel : ViewModelBase
         {
             var c = await _ledger.GetCustomerAsync(_id)
                 ?? throw new InvalidOperationException("Customer not found.");
+            if (string.IsNullOrWhiteSpace(c.Phone))
+                ShowDetails = true;
             var rows = await _ledger.GetLedgerAsync(_id);
             if (rows.Count == 0)
                 throw new InvalidOperationException("This customer's ledger is empty - there is nothing to send.");

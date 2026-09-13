@@ -4,6 +4,17 @@
              xmlns:m="using:ContainerManagement.Models"
              x:Class="ContainerManagement.Views.CustomerDetailView"
              x:DataType="vm:CustomerDetailViewModel">
+  <UserControl.Styles>
+    <!-- An Expander left to itself shrinks to its own width and lines its heading up with nothing on the
+         card. Stretching it and its toggle is what makes it read as a part of the card, as elsewhere. -->
+    <Style Selector="Expander">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+  </UserControl.Styles>
   <StackPanel>
     <DockPanel LastChildFill="True" Margin="0,0,0,16">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
@@ -39,25 +50,26 @@
          corrected all the time: an old SIM, a name misspelt, a shop that moved. The page could already save
          these - only the boxes were never put on it. -->
     <Border Classes="card">
-      <StackPanel>
-        <TextBlock Classes="h2" Text="Details" />
-        <Grid ColumnDefinitions="*,*">
-          <StackPanel Margin="0,0,8,0">
-            <TextBlock Classes="label" Text="Name" />
-            <TextBox Text="{Binding EditName}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1">
-            <TextBlock Classes="label" Text="Mobile (for WhatsApp)" />
-            <TextBox Text="{Binding EditPhone}" Watermark="03xx xxxxxxx" />
-          </StackPanel>
-        </Grid>
-        <TextBlock Classes="label" Text="Address" Margin="0,10,0,0" />
-        <TextBox Text="{Binding EditAddress}" />
-        <TextBlock Classes="label" Text="Note" Margin="0,10,0,0" />
-        <TextBox Text="{Binding EditNotes}" />
-        <Button Classes="primary" Content="Save details" Command="{Binding SaveMetaCommand}"
-                HorizontalAlignment="Left" Margin="0,12,0,0" />
-      </StackPanel>
+      <Expander Header="Details" HorizontalAlignment="Stretch" IsExpanded="{Binding ShowDetails}">
+        <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
+          <Grid ColumnDefinitions="*,*">
+            <StackPanel Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Name" />
+              <TextBox Text="{Binding EditName}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <TextBlock Classes="label" Text="Mobile (for WhatsApp)" />
+              <TextBox Text="{Binding EditPhone}" Watermark="03xx xxxxxxx" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Classes="label" Text="Address" Margin="0,10,0,0" />
+          <TextBox Text="{Binding EditAddress}" />
+          <TextBlock Classes="label" Text="Note" Margin="0,10,0,0" />
+          <TextBox Text="{Binding EditNotes}" />
+          <Button Classes="primary" Content="Save details" Command="{Binding SaveMetaCommand}"
+                  HorizontalAlignment="Left" Margin="0,12,0,0" />
+        </StackPanel>
+      </Expander>
     </Border>
 
     <Border Classes="card">
