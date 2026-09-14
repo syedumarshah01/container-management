@@ -13,6 +13,7 @@
               VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>
 
+    <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />
     <!-- The dates are the page's, not a card's: they belong to the book figures below and to nothing else,
          and putting them at the head of one card would suggest the other cards quietly moved with them. -->
     <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">

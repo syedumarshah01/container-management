@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ContainersViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly InventoryService _inventory;
     private readonly IAppShell _shell;
 
-    public ContainersViewModel(ReportService reports, InventoryService inventory, IAppShell shell)
+    public ContainersViewModel(ReportService reports, InventoryService inventory, IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _inventory = inventory;
         _shell = shell;
@@ -47,6 +50,25 @@ public partial class ContainersViewModel : ViewModelBase
         Rows.Clear();
         foreach (var r in list)
             Rows.Add(r);
+    }
+
+    /// <summary>
+    /// The list as the page shows it, on paper. Every cell is the text the row already carries, and there is
+    /// no total line here because the page has none: a figure the screen never showed must not appear on the
+    /// sheet, however obvious it looks.
+    /// </summary>
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[]
+        {
+            r.Title, r.Origin, r.ArrivalText, r.StatusText, r.QtySoldText,
+            r.RevenueText, r.CollectedText, r.InMarketText, r.RemainingValueText, r.ProfitText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("containers.html", "Containers", null,
+            new[] { "Container", "From", "Landed", "State", "Sold", "Sold for", "Collected", "In the market", "Stock value", "Profit" },
+            rows, null, 4);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

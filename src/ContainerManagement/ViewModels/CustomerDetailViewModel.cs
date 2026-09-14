@@ -319,15 +319,24 @@ public partial class CustomerDetailViewModel : ViewModelBase
             var message = PrintService.ShareText(shop.CompanyName, c.Name, rows, bal,
                 PrintService.ShareUrlBudget, shop.WhatsAppMessage);
             text = message;
-            var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone, message));
-            // A message longer than a link usually carries is not cut up - it is the shop's own text, and
-            // taking the ending out of it unasked would be worse than the risk - but a browser that runs out of
-            // room stops reading it silently, so the page tells them to look at what arrived.
-            var tooLong = Uri.EscapeDataString(message).Length > PrintService.ShareUrlBudget;
-            _shell.Notify($"WhatsApp opened for {dialed} with "
-                + (typed ? "your message" : $"{rows.Count} line{(rows.Count == 1 ? "" : "s")} of the ledger")
-                + ". Press send there."
-                + (tooLong ? " This one is long - check the whole of it arrived." : ""));
+            // The ledger itself is what goes to the customer, as a file - a page of figures in a chat can be
+            // read, kept and printed; a sentence about a balance cannot be audited. The PDF is the very same
+            // document the Print button puts on paper, so there is one ledger and not two versions of it.
+            var html = _print.WriteHtml(_print.StatementHtml(c, rows, bal, shop), $"ledger-{_id}.html");
+            var pdf = await Task.Run(() => _print.TryPdf(html, $"ledger-{_id}.pdf"));
+            var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone,
+                pdf is null ? message : (typed ? message : "")));
+            if (pdf is null)
+            {
+                _shell.Notify("The ledger could not be made into a PDF on this PC, so the message went as text instead. "
+                    + "Print ledger gives you the same page to print or save.");
+                return;
+            }
+            // The chat opens with the number dialled and the file next to it on screen: WhatsApp cannot be sent
+            // a file by a link, and a shop should not have to find the folder to hand one over.
+            PrintService.Reveal(pdf);
+            _shell.Notify($"Chat opened with {dialed}. Your ledger PDF is ready: drop it into the chat, or "
+                + "paste it, then press send.");
         }
         catch (Exception ex)
         {

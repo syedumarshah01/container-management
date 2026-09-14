@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,6 +9,7 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ContainerDetailViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly InventoryService _inventory;
     private readonly ReportService _reports;
     private readonly AccessService _access;
@@ -15,8 +17,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
     private readonly int _id;
     private bool _loadingSelection;
 
-    public ContainerDetailViewModel(int id, InventoryService inventory, ReportService reports, AccessService access, IAppShell shell)
+    public ContainerDetailViewModel(int id, InventoryService inventory, ReportService reports, AccessService access, IAppShell shell, PrintService print)
     {
+        _print = print;
         _id = id;
         _inventory = inventory;
         _reports = reports;
@@ -293,6 +296,26 @@ public partial class ContainerDetailViewModel : ViewModelBase
         ExpenseAmount = value.Amount;
         ExpenseDate = new DateTimeOffset(value.Date);
         ExpenseNotes = value.Notes ?? "";
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var goods = Items.Select(i => new[]
+        {
+            i.Name, i.Sku ?? "", i.Unit, i.UnitCostText, i.FreightText, i.TotalWeightText, i.CostNoteText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var bills = Expenses.Select(e => new[]
+        {
+            e.Date.ToString("dd MMM yyyy"), e.Category, e.SourceText, e.Currency,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, new[]
+        {
+            new PrintTable("Goods",
+                new[] { "Item", "Code", "Unit", "Cost each", "Freight each", "Weight", "Cost as written" }, goods, null, 3),
+            new PrintTable("Bills", new[] { "Date", "What it was for", "As it was written", "Money" }, bills, null, 2),
+        });
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

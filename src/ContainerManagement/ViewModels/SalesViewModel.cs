@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,13 +9,15 @@ namespace ContainerManagement.ViewModels;
 
 public partial class SalesViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly SalesService _sales;
     private readonly LedgerService _ledger;
     private readonly IAppShell _shell;
     private List<SaleListRow> _all = new();
 
-    public SalesViewModel(SalesService sales, LedgerService ledger, IAppShell shell)
+    public SalesViewModel(SalesService sales, LedgerService ledger, IAppShell shell, PrintService print)
     {
+        _print = print;
         _sales = sales;
         _ledger = ledger;
         _shell = shell;
@@ -69,6 +72,19 @@ public partial class SalesViewModel : ViewModelBase
         Rows.Clear();
         foreach (var r in src)
             Rows.Add(r);
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[]
+        {
+            r.DateText, r.CustomerName, r.Containers, r.TotalText, r.PaidText, r.CreditText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("sales.html", "Bills", null,
+            new[] { "Date", "Customer", "Containers", "Bill", "Paid", "On credit" },
+            rows, null, 3);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

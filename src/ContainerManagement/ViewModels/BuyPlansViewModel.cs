@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -12,12 +13,14 @@ namespace ContainerManagement.ViewModels;
 /// </summary>
 public partial class BuyPlansViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly BuyPlanService _plans;
     private readonly AccessService _access;
     private readonly IAppShell _shell;
 
-    public BuyPlansViewModel(BuyPlanService plans, AccessService access, IAppShell shell)
+    public BuyPlansViewModel(BuyPlanService plans, AccessService access, IAppShell shell, PrintService print)
     {
+        _print = print;
         _plans = plans;
         _access = access;
         _shell = shell;
@@ -58,6 +61,20 @@ public partial class BuyPlansViewModel : ViewModelBase
     /// removed by one stray click, and the row stays free of extra widgets.
     /// </summary>
     partial void OnConfirmDeleteChanged(bool value) => DeleteLabel = value ? "Tap again to delete" : "Delete";
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[]
+        {
+            r.TitleText, r.CreatedText, r.ItemCountText, r.CostYenText, r.CostPkrText,
+            r.ExpenseText, r.SpendText, r.SaleText, r.ProfitText, r.MarginText, r.WeightText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("order-sheets.html", "Order sheets", null,
+            new[] { "Sheet", "Made", "Rows", "Yen cost", "Cost", "Bills", "All in", "All sold for", "Profit", "Margin", "Weight" },
+            rows, null, 2);
+        _shell.Notify("Printed from the page you were on.");
+    }
 
     [RelayCommand]
     private void BeginAdd()

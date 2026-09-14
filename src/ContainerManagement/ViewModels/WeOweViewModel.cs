@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -15,6 +16,7 @@ namespace ContainerManagement.ViewModels;
 /// </summary>
 public partial class WeOweViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly CashBookService _cash;
     private readonly InventoryService _inventory;
     private readonly LedgerService _ledger;
@@ -22,8 +24,9 @@ public partial class WeOweViewModel : ViewModelBase
     private bool _ready;
 
     public WeOweViewModel(
-        CashBookService cash, InventoryService inventory, LedgerService ledger, IAppShell shell)
+        CashBookService cash, InventoryService inventory, LedgerService ledger, IAppShell shell, PrintService print)
     {
+        _print = print;
         _cash = cash;
         _inventory = inventory;
         _ledger = ledger;
@@ -181,6 +184,28 @@ public partial class WeOweViewModel : ViewModelBase
         foreach (var p in await _ledger.ListPayoutsAsync(PayCustomer.CustomerId))
             Payouts.Add(p);
         ShowPayouts = Payouts.Count > 0;
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var owed = Rows.Select(r => new[] { r.ContainerTitle, r.SupplierName, r.OwedText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        var paid = Payments.Select(p => new[] { p.DateText, p.Method, p.AmountText, p.NoteText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        var back = Customers.Select(c => new[] { c.Name, c.OwedText, c.PaidOutText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        var given = Payouts.Select(x => new[] { x.DateText, x.Method, x.AmountText, x.NoteText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTables("we-owe.html", "We owe", null, new[]
+        {
+            new PrintTable("Suppliers", new[] { "Container", "Supplier", "Owed" }, owed,
+                new[] { "Total", "", TotalOwed }, 2),
+            new PrintTable("Paid to suppliers", new[] { "Date", "How", "Amount", "Note" }, paid, null, 2),
+            new PrintTable("Owed to customers", new[] { "Customer", "We owe them", "Paid out so far" }, back, null),
+            new PrintTable("Handed to customers", new[] { "Date", "How", "Amount", "Note" }, given, null, 2),
+        });
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

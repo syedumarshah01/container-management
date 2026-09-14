@@ -106,6 +106,50 @@ public class PrintService
         return sb.ToString();
     }
 
+    /// <summary>The page on disk, without opening it - for when the shop wants the file, not a window.</summary>
+    public string WriteHtml(string html, string fileName)
+    {
+        var path = Path.Combine(DbPaths.PrintDirectory, fileName);
+        File.WriteAllText(path, html, Encoding.UTF8);
+        return path;
+    }
+
+    /// <summary>
+    /// Shows the file where it lies, selected, so a shop can drag it into a chat or print it from there
+    /// without hunting through folders. A no-op where the desktop has no such idea: nothing is worse than a
+    /// button that opens an error about the filing cabinet.
+    /// </summary>
+    public static void Reveal(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                return;
+            if (OperatingSystem.IsWindows())
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{path}\"",
+                    UseShellExecute = true,
+                });
+            }
+            else
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "xdg-open",
+                    Arguments = $""{Path.GetDirectoryName(path)}"",
+                    UseShellExecute = false,
+                });
+            }
+        }
+        catch
+        {
+            // The path is on the page already. A desktop that will not show it is not worth an error line.
+        }
+    }
+
     public string OpenHtml(string html, string fileName)
     {
         var path = Path.Combine(DbPaths.PrintDirectory, fileName);
@@ -133,6 +177,180 @@ public class PrintService
     /// Anything that is not ASCII digits is refused here rather than sent along as a link that opens the wrong
     /// chat - a number typed in Urdu digits, for instance, looks fine on the page and is garbage to a browser.
     /// </summary>
+    /// <summary>
+    /// A page put on paper: its headings, its rows and its total line, made out of the words the page already
+    /// shows. Figures are handed in as text and never recomputed here, because a print that works out its own
+    /// arithmetic is a print that can disagree with the screen it was called from - and the shop is left to
+    /// say which of the two is the book.
+    /// </summary>
+    public static string TableHtml(
+        string title, string? subtitle, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<string>> rows,
+        IReadOnlyList<string>? total, int textColumns = 1, ShopSettings? shop = null)
+    {
+        var settings = shop ?? ShopSettings.Load();
+        var sb = new StringBuilder();
+        Start(sb, settings, title);
+        if (!string.IsNullOrWhiteSpace(subtitle))
+            sb.Append($"<p class='muted'>{H(subtitle)}</p>");
+        sb.Append("<table><tr>");
+        for (var i = 0; i < headers.Count; i++)
+            sb.Append(i < textColumns ? $"<th>{H(headers[i])}</th>" : $"<th class='num'>{H(headers[i])}</th>");
+        sb.Append("</tr>");
+        if (rows.Count == 0)
+        {
+            sb.Append($"<tr><td colspan='{Math.Max(1, headers.Count)}' class='muted'>Nothing here.</td></tr>");
+        }
+        foreach (var row in rows)
+        {
+            sb.Append("<tr>");
+            for (var i = 0; i < headers.Count; i++)
+            {
+                var cell = i < row.Count ? row[i] : "";
+                sb.Append(i < textColumns ? $"<td>{H(cell)}</td>" : $"<td class='num'>{H(cell)}</td>");
+            }
+            sb.Append("</tr>");
+        }
+        // The total is the last row and it is drawn as a total, in the same words every table on this paper
+        // uses, because a figure under a column that looks like one more row is a figure nobody checks.
+        if (total is { Count: > 0 })
+        {
+            sb.Append("<tr class='total'>");
+            for (var i = 0; i < headers.Count; i++)
+            {
+                var cell = i < total.Count ? total[i] : "";
+                sb.Append(i < textColumns ? $"<th>{H(cell)}</th>" : $"<th class='num'>{H(cell)}</th>");
+            }
+            sb.Append("</tr>");
+        }
+        sb.Append("</table>");
+        End(sb);
+        return sb.ToString();
+    }
+
+    /// <summary>One page, several tables: a container's goods and its bills belong on one sheet of paper.</summary>
+    public static string TablesHtml(string title, string? subtitle, IReadOnlyList<PrintTable> tables, ShopSettings? shop = null)
+    {
+        var settings = shop ?? ShopSettings.Load();
+        var sb = new StringBuilder();
+        Start(sb, settings, title);
+        if (!string.IsNullOrWhiteSpace(subtitle))
+            sb.Append($"<p class='muted'>{H(subtitle)}</p>");
+        foreach (var t in tables)
+        {
+            if (!string.IsNullOrWhiteSpace(t.Heading))
+                sb.Append($"<h2>{H(t.Heading)}</h2>");
+            sb.Append("<table><tr>");
+            for (var i = 0; i < t.Headers.Count; i++)
+                sb.Append(i < t.TextColumns ? $"<th>{H(t.Headers[i])}</th>" : $"<th class='num'>{H(t.Headers[i])}</th>");
+            sb.Append("</tr>");
+            if (t.Rows.Count == 0)
+                sb.Append($"<tr><td colspan='{Math.Max(1, t.Headers.Count)}' class='muted'>Nothing here.</td></tr>");
+            foreach (var row in t.Rows)
+            {
+                sb.Append("<tr>");
+                for (var i = 0; i < t.Headers.Count; i++)
+                {
+                    var cell = i < row.Count ? row[i] : "";
+                    sb.Append(i < t.TextColumns ? $"<td>{H(cell)}</td>" : $"<td class='num'>{H(cell)}</td>");
+                }
+                sb.Append("</tr>");
+            }
+            if (t.Total is { Count: > 0 })
+            {
+                sb.Append("<tr class='total'>");
+                for (var i = 0; i < t.Headers.Count; i++)
+                {
+                    var cell = i < t.Total.Count ? t.Total[i] : "";
+                    sb.Append(i < t.TextColumns ? $"<th>{H(cell)}</th>" : $"<th class='num'>{H(cell)}</th>");
+                }
+                sb.Append("</tr>");
+            }
+            sb.Append("</table>");
+        }
+        End(sb);
+        return sb.ToString();
+    }
+
+    /// <summary>Writes a page of tables and opens it, as every other print in this book does.</summary>
+    public string PrintTables(string fileName, string title, string? subtitle, IReadOnlyList<PrintTable> tables) =>
+        OpenHtml(TablesHtml(title, subtitle, tables), fileName);
+
+    /// <summary>Writes one table and opens it.</summary>
+    public string PrintTable(string fileName, string title, string? subtitle, IReadOnlyList<string> headers,
+        IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<string>? total, int textColumns = 1) =>
+        PrintTables(fileName, title, subtitle, new[] { new PrintTable("", headers, rows, total, textColumns) });
+
+    /// <summary>The PDF that stands beside an HTML page: same folder, same name, .pdf.</summary>
+    public static string PdfPathFor(string htmlPath) =>
+        Path.ChangeExtension(htmlPath, ".pdf");
+
+    /// <summary>
+    /// The PDF, made by the browser that is already on the PC - Edge on every Windows 10 and 11, Chrome where
+    /// somebody has put it. A headless print of the same page the shop can print by hand, so there is one
+    /// document and one layout and not a second renderer that can put a figure somewhere else. Returns the file
+    /// when it exists, and nothing when no browser answered: a missing browser is a message, never a half file.
+    /// </summary>
+    public string? TryPdf(string htmlPath, string pdfFileName, int seconds = 40)
+    {
+        var outPath = Path.Combine(DbPaths.PrintDirectory, pdfFileName);
+        foreach (var browser in BrowserPaths())
+        {
+            try
+            {
+                var args = $"--headless --disable-gpu --no-sandbox --no-pdf-header-footer "
+                    + $"--print-to-pdf="{outPath}" "file:///{htmlPath.Replace('\\', '/')}"";
+                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = browser,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardError = true,
+                });
+                if (p is null)
+                    continue;
+                if (!p.WaitForExit(seconds * 1000))
+                {
+                    try { p.Kill(entireProcessTree: true); } catch { /* gone */ }
+                    continue;
+                }
+                if (p.ExitCode == 0 && File.Exists(outPath) && new FileInfo(outPath).Length > 1024)
+                    return outPath;
+            }
+            catch
+            {
+                // This browser is not the answer; the next one may be, and if none is the page says so.
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Where a browser is put, without asking the registry or the network about it.</summary>
+    public static IReadOnlyList<string> BrowserPaths()
+    {
+        var roots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        };
+        var found = new List<string>();
+        foreach (var root in roots.Where(r => !string.IsNullOrWhiteSpace(r)))
+        {
+            foreach (var rel in new[]
+            {
+                @"Microsoft\Edge\Application\msedge.exe",
+                @"Google\Chrome\Application\chrome.exe",
+            })
+            {
+                var full = Path.Combine(root, rel);
+                if (File.Exists(full))
+                    found.Add(full);
+            }
+        }
+        return found;
+    }
+
     public static string ShareNumber(string? phone)
     {
         if (string.IsNullOrWhiteSpace(phone))
@@ -310,6 +528,15 @@ public class PrintService
     }
 
     /// <summary>
+    /// The link a share opens. No words, no text on the link at all: an empty "?text=" is a blinking cursor in
+    /// a chat box, and a shop sending a PDF has nothing to type. Kept apart from the sending so the shape of the
+    /// link can be read and checked without a browser being launched, which a check must never do.
+    /// </summary>
+    public static string ShareUrl(string digits, string? text) => string.IsNullOrEmpty(text)
+        ? $"https://wa.me/{digits}"
+        : $"https://wa.me/{digits}?text={Uri.EscapeDataString(text)}";
+
+    /// <summary>
     /// Hands the message to WhatsApp and says which number it was opened for. wa.me goes through whatever
     /// browser is on the machine, which is the case that works whether or not the desktop app is installed;
     /// the whatsapp:// link is tried after it, for the reverse. Neither opening at all is worth an error
@@ -319,12 +546,15 @@ public class PrintService
     public static string WhatsApp(string? phone, string text)
     {
         var digits = ShareNumber(phone);
-        var query = Uri.EscapeDataString(text);
+        // No words to say, no text in the link: the chat opens empty, which is what a share that carries a
+        // file wants - a shop with a PDF in one hand does not need a sentence typed into the other.
+        var url = ShareUrl(digits, text);
+        var query = string.IsNullOrEmpty(text) ? "" : "&text=" + Uri.EscapeDataString(text);
         var problem = "nothing on this computer is set to open a web link";
         foreach (var url in new[]
         {
-            $"https://wa.me/{digits}?text={query}",
-            $"whatsapp://send?phone={digits}&text={query}",
+            url,
+            $"whatsapp://send?phone={digits}{query}",
         })
         {
             try

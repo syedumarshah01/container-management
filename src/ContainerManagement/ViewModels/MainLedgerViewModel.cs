@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,14 +9,16 @@ namespace ContainerManagement.ViewModels;
 
 public partial class MainLedgerViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly CashBookService _cash;
     private readonly IAppShell _shell;
     private List<CashBookRowVm> _all = new();
     private List<(DateTime Date, decimal Amount)> _returns = new();
     private bool _ready;
 
-    public MainLedgerViewModel(CashBookService cash, IAppShell shell)
+    public MainLedgerViewModel(CashBookService cash, IAppShell shell, PrintService print)
     {
+        _print = print;
         _cash = cash;
         _shell = shell;
         SelectedMonth = MonthChoices.First(m => m.Number == DateTime.Today.Month);
@@ -128,6 +131,17 @@ public partial class MainLedgerViewModel : ViewModelBase
 
         MonthIn = Money.Pkr(monthRows.Sum(r => r.AmountIn));
         MonthOut = Money.Pkr(monthRows.Sum(r => r.AmountOut));
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[] { r.DateText, r.Description, r.InText, r.OutText, r.RunningText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("main-ledger.html", "Main ledger", MonthLabel,
+            new[] { "Date", "What it was", "In", "Out", "Cash in hand" },
+            rows, new[] { "The month", "", MonthIn, MonthOut, CashInHand }, 2);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

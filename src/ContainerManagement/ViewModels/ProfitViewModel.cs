@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ProfitViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly ExportService _export;
     private readonly IAppShell _shell;
 
-    public ProfitViewModel(ReportService reports, ExportService export, IAppShell shell)
+    public ProfitViewModel(ReportService reports, ExportService export, IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _export = export;
         _shell = shell;
@@ -42,6 +45,25 @@ public partial class ProfitViewModel : ViewModelBase
             ContainerFilter.Add(c);
         FilterContainer ??= ContainerFilter[0];
         await ApplyAsync();
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var lots = Rows.Select(r => new[]
+        {
+            r.Title, r.ArrivalText, r.RevenueText, r.CogsText, r.ExpensesText, r.ProfitText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var items = Items.Select(r => new[] { r.ProductName, r.QtyText, r.RevenueText, r.ProfitText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTables("profit.html", "Profit", null, new[]
+        {
+            new PrintTable("By container",
+                new[] { "Container", "Landed", "Sold for", "Cost of goods", "Bills", "Profit" },
+                lots, new[] { "Total", "", Revenue, Cogs, Expenses, Profit }, 2),
+            new PrintTable("By item", new[] { "Item", "Sold", "Sold for", "Profit" }, items, null),
+        });
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class DashboardViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly BackupService _backups;
     private readonly IAppShell _shell;
 
-    public DashboardViewModel(ReportService reports, BackupService backups, IAppShell shell)
+    public DashboardViewModel(ReportService reports, BackupService backups, IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _backups = backups;
         _shell = shell;
@@ -92,6 +95,24 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     /// <summary>Re-reads the page with the dates as they stand, so the figures change when the shop says so.</summary>
+    [RelayCommand]
+    private void Print()
+    {
+        var days = Days.Select(d => new[] { d.DateText, d.SalesText, d.ProfitText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTables("home.html", "Home", Hint, new[]
+        {
+            new PrintTable(BookLabel,
+                new[] { "Containers", "Sold for", "In the market", "Stock value", "Profit" },
+                new[] { (IReadOnlyList<string>)new[] { BookContainers, BookSales, BookMarket, BookStock, BookProfit } },
+                null, 0),
+            new PrintTable("This month", new[] { "Sales", "Profit" },
+                new[] { (IReadOnlyList<string>)new[] { MonthSales, MonthProfit } }, null, 0),
+            new PrintTable("Day by day", new[] { "Date", "Sales", "Profit" }, days, null),
+        });
+        _shell.Notify("Printed from the page you were on.");
+    }
+
     [RelayCommand]
     private async Task ApplyAsync() => await LoadAsync();
 

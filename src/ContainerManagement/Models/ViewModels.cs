@@ -423,6 +423,18 @@ public class CustomerPayoutRow
     public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
 }
 
+/// <summary>
+/// One table on a printed page: its heading, its headings across the top, its rows as the screen words them,
+/// and its total line. Text, not figures - a print that receives text cannot invent a number that the page
+/// never showed, and it cannot round a second time.
+/// </summary>
+public sealed record PrintTable(
+    string Heading,
+    IReadOnlyList<string> Headers,
+    IReadOnlyList<IReadOnlyList<string>> Rows,
+    IReadOnlyList<string>? Total = null,
+    int TextColumns = 1);
+
 public class LedgerRow
 {
     public int Id { get; set; }

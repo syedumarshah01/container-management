@@ -24,6 +24,7 @@
         <DockPanel LastChildFill="True" Margin="0,0,0,16">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
                       VerticalAlignment="Top">
+  <Button Content="Print" Command="{Binding PrintCommand}" />
             <Button Content="Back" Command="{Binding BackCommand}" />
             <Button Content="Close / re-open" Command="{Binding ToggleCloseCommand}" />
             <Button Classes="gold" Content="Sell" Command="{Binding SellFromHereCommand}" />

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ItemSalesViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly IAppShell _shell;
     private List<SoldProductOption> _products = new();
 
-    public ItemSalesViewModel(ReportService reports, IAppShell shell)
+    public ItemSalesViewModel(ReportService reports, IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _shell = shell;
         SearchItems = PopulateSearchAsync;
@@ -47,6 +50,17 @@ public partial class ItemSalesViewModel : ViewModelBase
             return;
         }
         _ = ShowProductAsync(value);
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Customers.Select(r => new[] { r.CustomerName, r.QtyText, r.CostText, r.PriceText, r.AmountText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("item-sales.html", Heading, null,
+            new[] { "Customer", "Qty", "Cost", "Price", "Amount" },
+            rows, new[] { "Total", TotalQty, "", "", TotalAmount });
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

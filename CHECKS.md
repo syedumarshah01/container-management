@@ -19,6 +19,7 @@ has to follow to be worth adding.
 | `MonthReceipts` | a month's receipts on the customer's page, the till and the year statement, all the same money |
 | `InvoiceStanding` | a printed bill's "previous balance" read from the ledger at that bill's own line, so reprinting cannot rewrite history |
 | `FreightSplit` | the expenses shared by weight into a piece's cost: shares equal the bills to the paisa, the odd paisa on the biggest lot, and an unweighed item stops the sharing for the box |
+| `PrintPaper` | the paper is the screen, said again: cells copied and never recomputed, names escaped so a table cannot be broken by an ampersand, totals last and marked, and every Print button matched to a print command and back - across the whole source folder, not one page at a time |
 | `Updates` | the decision an update makes, with no network in it: versions compared by numbers, the folder's own state deciding what the button may do, and the script that does the work held to a list of what it must say and what it must never say |
 | `Storage`, and the exactness sweep | no money column anywhere holds a third decimal, and no figure is stored differently from how it is printed |
 
@@ -38,6 +39,7 @@ the payments made on it; and the till's own lines add to the cash in hand the sh
 | `LicenseService` | Activation, the key and the remote call. No shop figure is worked out there. |
 | `ExportService` | `WriteCsv` and `ProfitWorkbook` join rows the *pages* hand them; the figures are asserted where they are computed. Compare one exported total against the page it came from. |
 | `UpdateService` - the fetch, the build, the relaunch | The rules it decides by are checked by name in `Updates`, and they are the whole of the judgement. Running git, building the app and starting a new one cannot be done from a check: it would take the machine it is verifying. Step 8 of `TESTING.md` is the one that closes that gap, and the two things it insists on - the books backed up first, and the data folder never named by the update script - are asserted in the checks themselves. |
+| `PrintService.TryPdf` (the PDF a share carries) | It is the browser doing the printing, on the shop's PC: the harness checks the paths, the file naming and that no browser is promised that is not there, and never launches one. Step `4n` is where the PDF is watched into existence. |
 | `PrintService.OpenHtml`, `WhatsApp` | They hand a file or a link to Windows. A check that opens a browser hangs on a machine with no browser, so the message and the number are checked *before* the launch, and the launch itself is step `4n`. |
 | `PrintService.ShareBalance`, `CashBookService.PostExpense` / `SyncExpense` / `Remove*` / `PostRefunds` | Called inside the paths above, and asserted through them - the till line after an expense edit, the receipt line after a deleted payment - rather than twice. |
 | `InventoryService.GetContainerAsync`, `LedgerService.ListCustomersAsync` | Read-only fetches. The figures they carry are checked at the pages built from them. |

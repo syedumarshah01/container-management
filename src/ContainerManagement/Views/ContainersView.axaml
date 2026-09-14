@@ -6,6 +6,7 @@
   <StackPanel>
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="h1" Text="Containers" />
+<Button Content="Print" Command="{Binding PrintCommand}" />
       <Button Grid.Column="1" Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
               IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
     </Grid>

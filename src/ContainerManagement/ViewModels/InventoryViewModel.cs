@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class InventoryViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly IAppShell _shell;
     private List<InventoryRow> _all = new();
 
-    public InventoryViewModel(ReportService reports, IAppShell shell)
+    public InventoryViewModel(ReportService reports, IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _shell = shell;
     }
@@ -61,6 +64,17 @@ public partial class InventoryViewModel : ViewModelBase
         LotsHeading = SelectedLots.Count == 1
             ? value.ProductName + " is in 1 container."
             : value.ProductName + " is in " + SelectedLots.Count + " containers.";
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[] { r.ProductName, r.SkuText, r.Unit, r.InStockText, r.ValueText, r.LotsText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("stock.html", "Stock on the shelf", null,
+            new[] { "Item", "Code", "Unit", "In stock", "Worth", "Lots" },
+            rows, new[] { "Total", "", "", UnitsRemaining, TotalValue, "" }, 3);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

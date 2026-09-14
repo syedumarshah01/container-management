@@ -32,6 +32,7 @@ public static class Program
 
         FormatRules();
         Updates();
+        PrintPaper();
 
         var dir = Path.Combine(Path.GetTempPath(), "probooks-moneychecks-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
@@ -274,6 +275,103 @@ public static class Program
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CHANGELOG.md")))
             dir = dir.Parent;
         return dir?.FullName;
+    }
+
+    // ------------------------------------------------------------------ the paper
+    // A print is a second voice saying the same figures, so it is checked as one: the words handed to it must
+    // come out unchanged, the total must be last and marked, and a page must not have a print button that goes
+    // nowhere - or a command nobody can press.
+    private static void PrintPaper()
+    {
+        Head("a printed page says the words the page showed, and nothing else");
+        var headers = new[] { "Customer", "Owes", "Oldest due" };
+        var rows = new List<IReadOnlyList<string>>
+        {
+            new[] { "Abdul & Sons", "Rs 1,000.004", "3 Mar 2026" },
+            new[] { "<b>Karim</b>", "Rs 40,000", "" },
+        };
+        var html = PrintService.TableHtml("To collect", "for the 13th", headers, rows,
+            new[] { "Total", "Rs 41,000.00", "" }, 1, new ShopSettings { CompanyName = "Check shop" });
+        Check("every cell arrives on the paper exactly as the page worded it - a print that re-rounds is a second book",
+            html.Contains("Rs 1,000.004") && html.Contains("Rs 40,000") && html.Contains("Rs 41,000.00"),
+            "a figure was changed on the way to the paper");
+        Check("and the row's own words are there too, including an odd one like a shop name with an ampersand",
+            html.Contains("Abdul &amp; Sons") && html.Contains("&lt;b&gt;Karim&lt;/b&gt;"),
+            "a name was not escaped, so it could have eaten the table");
+        Check("an empty cell prints as nothing rather than a dash nobody typed",
+            html.Contains("<td class='num'></td>") || html.Contains("<td></td>"), "a dash came in from nowhere");
+        var totalAt = html.IndexOf("class='total'", StringComparison.Ordinal);
+        var lastRow = html.LastIndexOf("Abdul", StringComparison.Ordinal);
+        Check("the total is on the paper, after the last row, and drawn as a total",
+            totalAt > 0 && totalAt > lastRow, "the total line is missing or in the wrong place");
+        Check("the money columns are the right-aligned ones, so a sheet can be added up by its last digit",
+            html.Contains("<th class='num'>Owes</th>") && html.Contains("<th>Customer</th>"), "column alignment");
+        var empty = PrintService.TableHtml("To collect", null, headers, Array.Empty<IReadOnlyList<string>>(),
+            new[] { "Total", "Rs 0", "" }, 1, new ShopSettings());
+        Check("a page with nothing on it prints that, and still prints its total line",
+            empty.Contains("Nothing here.") && empty.Contains("class='total'") && empty.Contains("Rs 0"),
+            "an empty page was skipped or fudged");
+        var short_ = PrintService.TableHtml("Stock", null, headers,
+            new List<IReadOnlyList<string>> { new[] { "Only one cell" } }, null, 1, new ShopSettings());
+        Check("a row shorter than its headings still prints, with the rest left blank",
+            short_.Contains("Only one cell") && short_.Contains("class='total'") == false,
+            "the table builder could not cope with a short row");
+        var two = PrintService.TablesHtml("We owe", null, new[]
+        {
+            new PrintTable("Suppliers", new[] { "Container", "Owed" },
+                new List<IReadOnlyList<string>> { new[] { "Box one", "Rs 10" } }, new[] { "Total", "Rs 10" }),
+            new PrintTable("Paid", new[] { "Date", "Amount" },
+                new List<IReadOnlyList<string>> { new[] { "3 Mar", "Rs 4" } }, null),
+        }, new ShopSettings());
+        Check("several tables on one sheet keep their own headings and only their own totals",
+            two.Contains("<h2>Suppliers</h2>") && two.Contains("<h2>Paid</h2>")
+                && System.Text.RegularExpressions.Regex.Matches(two, "class='total'").Count == 1,
+            "a total was shared between two tables, or one went missing");
+
+        Head("a PDF is the same page, asked of the browser that is already there");
+        Check("the PDF sits beside the HTML it was made from, with the same name",
+            Path.GetFileName(PrintService.PdfPathFor(@"C:\shop\Print\ledger-7.html")) == "ledger-7.pdf",
+            PrintService.PdfPathFor(@"C:\shop\Print\ledger-7.html"));
+        Check("and no path is promised: the browser list is only what exists on this PC",
+            PrintService.BrowserPaths().All(x => x.EndsWith("msedge.exe") || x.EndsWith("chrome.exe")),
+            string.Join(" | ", PrintService.BrowserPaths()));
+
+        Head("a share with no words opens the chat empty, and one with words says them safely");
+        Eq("no message means no query on the link, which is a share carrying a file",
+            "https://wa.me/923331234567", PrintService.ShareUrl("923331234567", ""));
+        Eq("and null reads the same way",
+            "https://wa.me/923331234567", PrintService.ShareUrl("923331234567", null));
+        Check("a message is escaped, so an ampersand or a rupee sign in it cannot end the link early",
+            PrintService.ShareUrl("923331234567", "you owe Rs 1 & 2")
+                .StartsWith("https://wa.me/923331234567?text=you%20owe", StringComparison.Ordinal),
+            PrintService.ShareUrl("923331234567", "you owe Rs 1 & 2"));
+
+        Head("every page that can print has a button, and every button has a page");
+        var root = FindRepoRootForChecks();
+        if (root is null)
+        {
+            Warn("the print buttons and the print commands were paired up", true, "not a source folder");
+            return;
+        }
+        var views = Directory.GetFiles(Path.Combine(root, "src", "ContainerManagement", "Views"), "*.axaml");
+        var unbound = new List<string>();
+        var silent = new List<string>();
+        foreach (var f in views)
+        {
+            var axaml = File.ReadAllText(f);
+            var name = Path.GetFileNameWithoutExtension(f);
+            var vm = Path.Combine(root, "src", "ContainerManagement", "ViewModels",
+                name.EndsWith("View") ? name[..^4] + "ViewModel.cs" : "");
+            var hasCommand = File.Exists(vm)
+                && System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(vm), @"private (?:async )?(?:Task|void) Print");
+            var hasButton = axaml.Contains("Content=\"Print\"");
+            if (hasButton && !hasCommand) unbound.Add(name);
+            if (hasCommand && !hasButton && name != "CustomerDetailView") silent.Add(Path.GetFileName(vm));
+        }
+        Check("no page carries a Print button whose command does not exist - a dead button is what started this",
+            unbound.Count == 0, string.Join(", ", unbound));
+        Check("and no page builds a print nobody can reach",
+            silent.Count == 0, string.Join(", ", silent));
     }
 
     // ------------------------------------------------------------------ the flows

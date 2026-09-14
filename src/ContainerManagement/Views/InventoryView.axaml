@@ -13,7 +13,8 @@
                 VerticalScrollBarVisibility="Visible"
                 HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
-      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
+
+      <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
         <Grid ColumnDefinitions="*,280">
           <TextBlock Classes="h1" Text="Stock" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"

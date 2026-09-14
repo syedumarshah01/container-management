@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,12 +9,14 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ReceivablesViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly LedgerService _ledger;
     private readonly ReportService _reports;
     private readonly IAppShell _shell;
 
-    public ReceivablesViewModel(LedgerService ledger, ReportService reports, IAppShell shell)
+    public ReceivablesViewModel(LedgerService ledger, ReportService reports, IAppShell shell, PrintService print)
     {
+        _print = print;
         _ledger = ledger;
         _reports = reports;
         _shell = shell;
@@ -71,6 +74,19 @@ public partial class ReceivablesViewModel : ViewModelBase
             LotFigure = value.InMarketText;
         }
         OnPropertyChanged(nameof(HasLot));
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Due.Select(r => new[]
+        {
+            r.Name, r.Phone ?? "", r.BalanceText, r.OldestDueText, r.Aging, r.LastPaymentText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("to-collect.html", "To collect", null,
+            new[] { "Customer", "Phone", "Owes", "Oldest due", "Age", "Last money in" },
+            rows, new[] { "Total to chase", "", Outstanding, "", "", "" }, 2);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]

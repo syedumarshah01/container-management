@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,13 +9,15 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ExpensesViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ShopExpenseService _expenses;
     private readonly IAppShell _shell;
     private List<ShopExpenseRow> _all = new();
     private bool _ready;
 
-    public ExpensesViewModel(ShopExpenseService expenses, IAppShell shell)
+    public ExpensesViewModel(ShopExpenseService expenses, IAppShell shell, PrintService print)
     {
+        _print = print;
         _expenses = expenses;
         _shell = shell;
         SelectedMonth = MonthChoices.First(m => m.Number == DateTime.Today.Month);
@@ -125,6 +128,17 @@ public partial class ExpensesViewModel : ViewModelBase
         What = value.Description;
         Amount = value.Amount;
         Notes = value.Notes;
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[] { r.DateText, r.Description, r.Notes ?? "", r.AmountText, r.RunningText })
+            .Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("expenses.html", "The till's own bills", MonthLabel,
+            new[] { "Date", "What it was for", "Note", "Amount", "Running" },
+            rows, new[] { "Total for the month", "", "", MonthTotal, "" }, 3);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]
