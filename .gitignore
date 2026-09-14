@@ -41,3 +41,7 @@ Thumbs.db
 ## Publish output
 publish/
 out/
+
+# python tooling (tools/check_quotes.py)
+__pycache__/
+*.pyc
