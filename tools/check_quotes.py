@@ -102,6 +102,13 @@ def scan(text):
                 i += 2
                 continue
             if c == '"':
+                # A string that closes and is immediately followed by { is the shape a swallowed backslash
+                # leaves behind: `= $""{path}""` reads as an empty string, then a block, then another empty
+                # string, so no state is left open and only this rule can see it.
+                if text.startswith('{', i + 1):
+                    problems.append((line, 'a string closes and a brace opens right after it - an interpolated '
+                                           'hole has fallen outside its quotes, usually because a \\" reached '
+                                           'the file as "'))
                 state = 'code'
                 i += 1
                 continue
@@ -138,8 +145,29 @@ def scan(text):
     return problems, depth
 
 
+SELF_TEST = [
+    # the three shapes this file exists for, each with the error a compiler would raise on it
+    ('            Arguments = $""{Path.GetDirectoryName(path)}"",', 'swallowed backslash'),
+    ('                + $"--print-to-pdf="{outPath}" "file";', 'a browser argument whose quotes went missing'),
+    ('            Eq("a", "b"\n                "c");\n    }\n}\n', 'adjacent literals without a +'),
+]
+
+
+def self_test():
+    """Say so out loud if the gate stops seeing the damage it was written for."""
+    bad = 0
+    for text, why in SELF_TEST:
+        problems, _ = scan(text)
+        print(f'    {"caught" if problems else "MISSED"}: {why}')
+        bad += 0 if problems else 1
+    print(); print("self-test: %d/%d shapes caught" % (len(SELF_TEST) - bad, len(SELF_TEST)))
+    return 1 if bad else 0
+
+
 def main():
-    args = sys.argv[1:]
+    if '--self-test' in sys.argv:
+        sys.exit(self_test())
+    args = [a for a in sys.argv[1:] if not a.startswith('-')]
     if args:
         files = args
     else:
