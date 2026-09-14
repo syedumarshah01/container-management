@@ -70,6 +70,19 @@ the payments made on it; and the till's own lines add to the cash in hand the sh
     books a throwaway container and takes it away again so the sections after it read the fixture they expect.
 13. **Run it.** A check nobody has run is a rumour about a check.
 
+## Before a build, a thirty-second gate
+
+    python3 tools/check_quotes.py
+
+`tools/check_quotes.py` walks every `.cs` file the way the compiler does - raw strings, verbatim strings,
+interpolated text, char literals, comments - and reports a string that never closes, a char that swallows the
+end of its line, an adjacent pair of string literals with no `+` between them, and any drift in braces or
+parentheses. It exists because two separate builds were lost to exactly those: a `\"` that a patch script ate
+into a plain `\"`, and a wrapped message written the way C writes it. It is not a compiler and does not
+pretend to be - it will not know that a figure is wrong - but it costs nothing, and it catches the faults that
+hide every other fault in the file, because a file with a syntax error gets no report on anything the compiler
+could not bind.
+
 ## Reading a failure
 
 `FAIL  <name>   ->   expected 4900, got 4900.0049999` is a real finding: something started rounding twice,
