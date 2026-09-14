@@ -139,7 +139,8 @@ public class PrintService
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "xdg-open",
-                    Arguments = $""{Path.GetDirectoryName(path)}"",
+                    // Quoted as a shell wants, with doubled quotes in a verbatim string rather than backslashes.
+                    Arguments = $@"""{Path.GetDirectoryName(path)}""",
                     UseShellExecute = false,
                 });
             }
@@ -297,8 +298,13 @@ public class PrintService
         {
             try
             {
-                var args = $"--headless --disable-gpu --no-sandbox --no-pdf-header-footer "
-                    + $"--print-to-pdf="{outPath}" "file:///{htmlPath.Replace('\\', '/')}"";
+                // The file, the folder and the URL may each hold a space, so each is quoted: an argument the
+                // shell cannot finish is a browser that appears not to work, and that is a diagnosis nobody
+                // needs. A verbatim quote variable, not a backslash - this file has been broken by one.
+                var quote = "\"";
+                var args = "--headless --disable-gpu --no-sandbox --no-pdf-header-footer "
+                    + "--print-to-pdf=" + quote + outPath + quote
+                    + " file:///" + quote + htmlPath.Replace('\\', '/').Trim() + quote;
                 using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = browser,
@@ -551,7 +557,7 @@ public class PrintService
         var url = ShareUrl(digits, text);
         var query = string.IsNullOrEmpty(text) ? "" : "&text=" + Uri.EscapeDataString(text);
         var problem = "nothing on this computer is set to open a web link";
-        foreach (var url in new[]
+        foreach (var target in new[]
         {
             url,
             $"whatsapp://send?phone={digits}{query}",
@@ -563,7 +569,7 @@ public class PrintService
                 // complaining about that would tell the shop nothing had happened when a chat is opening.
                 using var opened = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = url,
+                    FileName = target,
                     UseShellExecute = true,
                 });
                 return digits;
