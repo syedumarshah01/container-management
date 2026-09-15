@@ -11,39 +11,30 @@ using ContainerManagement.Services;
 namespace ContainerManagement.ViewModels;
 
 /// <summary>
-/// Every report the book can make, on one page, so a figure can be found without walking the sidebar for it.
+/// One report at a time, chosen from a list, so the shop asks for a figure instead of hunting for it.
 ///
-/// Nothing on this page adds anything up. Each figure is handed over by the service the report's own page calls,
-/// and each line of a list carries the words that page would show, so the hub cannot become a second answer to
-/// a question the book has already answered - which is the only way a page like this is safe to trust. The one
-/// decision made here is presentation: a list is cut to its biggest <see cref="Shown" /> lines so the page can
-/// be read, and says how many there were. The printed sheet carries every line, so nothing is lost by the cut.
+/// Nothing on this page adds anything up. Every figure is handed over by the service the report's own page
+/// calls, in the words that page would show, so this cannot become a second answer to a question the book has
+/// already answered - which is the only way a page like this is safe to trust.
 ///
-/// The dates in the header pick one month and the year it falls in. Only the figures a service is willing to
-/// move on those dates are shown as the month's; a figure the service computes over the whole book is labelled
-/// as the book's and left alone, because a number inside a month's heading that was not filtered by the month
-/// is the quietest way to tell a shop something that is not true.
+/// Choosing a report also decides what the page reads from the database: a page that fetched all nine to show
+/// one would be a page that took nine times as long to say what it had to say. And the sheet carries the
+/// report on the screen, no more, because "printed from the page you were on" means the same thing here as it
+/// does everywhere else in this book.
+///
+/// The dates are offered only to the reports that can be read over them. A control that cannot change what is
+/// under it is a control that teaches the shop to ignore it, so "from 3 Mar" appears beside the figures a range
+/// moves and not beside the shelf as it stands today.
 /// </summary>
 public partial class ReportsViewModel : ViewModelBase
 {
-    /// <summary>How many lines of a list the screen keeps. The paper keeps them all.</summary>
-    private const int Shown = 8;
-
     private readonly ReportService _reports;
     private readonly LedgerService _ledger;
     private readonly CashBookService _cash;
     private readonly ShopExpenseService _shopExpenses;
     private readonly PrintService _print;
     private readonly IAppShell _shell;
-
-    // The whole lists, kept for the sheet. The collections the grids bind to are the cut-down copies.
-    private List<ContainerProfitRow> _containers = new();
-    private List<ReceivableRow> _receivables = new();
-    private List<InventoryRow> _stock = new();
-    private List<ItemProfitRow> _items = new();
-    private List<TillYearRow> _till = new();
-    private List<SalesYearRow> _salesYear = new();
-    private List<ExpenseYearRow> _bills = new();
+    private bool _ready;
 
     public ReportsViewModel(ReportService reports, LedgerService ledger, CashBookService cash,
         ShopExpenseService shopExpenses, PrintService print, IAppShell shell)
@@ -54,14 +45,38 @@ public partial class ReportsViewModel : ViewModelBase
         _shopExpenses = shopExpenses;
         _print = print;
         _shell = shell;
+        SelectedReport = ReportChoices.First();
+        // Last, because the line above moves the picker and the picker asks the page to load: a page that read
+        // its figures before it was built would be reading them with half an object.
+        _ready = true;
     }
 
-    // The dates, read the way every other page on this book reads them: either end may be left out, and
-    // nothing moves until Apply is pressed.
+    /// <summary>The reports this book can make, in the order a shop tends to want them: how it stands, what
+    /// happened over a stretch of days, then the month-by-month papers, then the lists.</summary>
+    public IReadOnlyList<ReportChoice> ReportChoices { get; } = new List<ReportChoice>
+    {
+        new("Whole book", "book"),
+        new("Period figures", "period"),
+        new("Till, month by month", "till"),
+        new("Sales, month by month", "sales"),
+        new("Shop bills, month by month", "bills"),
+        new("Containers", "containers"),
+        new("Who owes", "owes"),
+        new("Stock", "stock"),
+        new("Profit by item", "items"),
+    };
+
+    [ObservableProperty] private ReportChoice? selectedReport;
+
+    // The dates, read the way every other page on this book reads them: either end may be left out, and the
+    // figures move when Apply is pressed.
     [ObservableProperty] private DateTimeOffset? fromDate;
     [ObservableProperty] private DateTimeOffset? toDate;
 
-    // The book, as it stands today.
+    [ObservableProperty] private string reportTitle = "The book, as it stands today";
+    [ObservableProperty] private string periodLabel = "This month";
+    [ObservableProperty] private string yearLabel = "";
+
     [ObservableProperty] private string bookContainers = "0";
     [ObservableProperty] private string bookRevenue = Money.Pkr(0);
     [ObservableProperty] private string bookProfit = Money.Pkr(0);
@@ -71,36 +86,27 @@ public partial class ReportsViewModel : ViewModelBase
     [ObservableProperty] private string bookOutstanding = Money.Pkr(0);
     [ObservableProperty] private string bookLowStock = "";
 
-    // The period in the header. Only the figures the service filters by dates appear under this heading.
-    [ObservableProperty] private string periodLabel = "This month";
-    [ObservableProperty] private string yearLabel = "";
+    [ObservableProperty] private string periodContainers = "0";
+    [ObservableProperty] private string periodRevenue = Money.Pkr(0);
+    [ObservableProperty] private string periodProfit = Money.Pkr(0);
+    [ObservableProperty] private string periodInMarket = Money.Pkr(0);
 
-    // Each table's title, once, so the card and the printed sheet never carry two spellings of one date.
-    [ObservableProperty] private string tillHeading = "Till";
-    [ObservableProperty] private string salesHeading = "Sales";
-    [ObservableProperty] private string billsHeading = "Shop bills";
-    [ObservableProperty] private string itemsHeading = "Profit by item";
-    [ObservableProperty] private string monthContainers = "0";
-    [ObservableProperty] private string monthRevenue = Money.Pkr(0);
-    [ObservableProperty] private string monthProfit = Money.Pkr(0);
-    [ObservableProperty] private string monthInMarket = Money.Pkr(0);
-
-    // The till, for the year of the month picked.
     [ObservableProperty] private string tillIn = Money.Pkr(0);
     [ObservableProperty] private string tillOut = Money.Pkr(0);
     [ObservableProperty] private string tillReturns = Money.Pkr(0);
     [ObservableProperty] private string tillClosing = Money.Pkr(0);
 
-    // Sales for the year, and the shop's own bills for it.
     [ObservableProperty] private string yearBills = "0";
     [ObservableProperty] private string yearSold = Money.Pkr(0);
     [ObservableProperty] private string yearReceived = Money.Pkr(0);
     [ObservableProperty] private string yearStillOwed = Money.Pkr(0);
     [ObservableProperty] private string yearProfit = Money.Pkr(0);
+
     [ObservableProperty] private string billCount = "0";
     [ObservableProperty] private string billAmount = Money.Pkr(0);
 
-    // The lists. Each is the report's own rows, cut to the biggest few for reading.
+    [ObservableProperty] private string listNote = "";
+
     public ObservableCollection<ContainerProfitRow> Containers { get; } = new();
     public ObservableCollection<ReceivableRow> WhoOwes { get; } = new();
     public ObservableCollection<InventoryRow> Stock { get; } = new();
@@ -109,126 +115,67 @@ public partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<SalesYearRow> SalesRows { get; } = new();
     public ObservableCollection<ExpenseYearRow> BillRows { get; } = new();
 
-    [ObservableProperty] private string containersNote = "";
-    [ObservableProperty] private string whoOwesNote = "";
-    [ObservableProperty] private string stockNote = "";
-    [ObservableProperty] private string itemsNote = "";
+    // What the page shows. Each report is one card, so the figures under the dropdown are the report named in
+    // it, and nothing else on the page can be mistaken for them.
+    public bool ShowBook => Is("book");
+    public bool ShowPeriod => Is("period");
+    public bool ShowTill => Is("till");
+    public bool ShowSales => Is("sales");
+    public bool ShowBills => Is("bills");
+    public bool ShowContainers => Is("containers");
+    public bool ShowWhoOwes => Is("owes");
+    public bool ShowStock => Is("stock");
+    public bool ShowItems => Is("items");
 
-    public override async Task LoadAsync()
-    {
-        var from = FromDate?.DateTime.Date;
-        var to = ToDate?.DateTime.Date;
-        var ranged = Period.HasRange(from, to);
-        // With no dates the page reads the month it is standing in, which is what a shop wants from a report
-        // page on a Tuesday morning; with dates it reads exactly those dates, one-ended ones included.
-        var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        var start = from ?? monthStart;
-        var last = to ?? monthStart.AddMonths(1).AddDays(-1);
-        var (cardStart, cardEnd) = ranged ? (from, to) : (start, last);
-        var year2 = (from ?? to ?? DateTime.Today).Year;
-        PeriodLabel = ranged ? Period.Words(from, to) : start.ToString("MMMM yyyy");
-        YearLabel = year2.ToString(CultureInfo.InvariantCulture);
-        TillHeading = $"Till in {YearLabel}";
-        SalesHeading = $"Sales in {YearLabel}";
-        BillsHeading = $"Shop bills in {YearLabel}";
-        ItemsHeading = $"Profit by item, {PeriodLabel}";
+    /// <summary>Whether the dates in the header can change what is below them at all.</summary>
+    public bool ShowRange => Is("period") || Is("till") || Is("sales") || Is("bills") || Is("items");
 
-        var book = await _reports.GetDashboardAsync();
-        var period = await _reports.GetDashboardAsync(cardStart, cardEnd);
+    /// <summary>What the reset button is worth here: a month's card goes back to this month, a year's table
+    /// goes back to this year, and a button that promises the wrong one is a trap.</summary>
+    public string ResetLabel => Is("till") || Is("sales") || Is("bills") ? "This year" : "This month";
 
-        BookContainers = book.TotalContainers.ToString(CultureInfo.InvariantCulture);
-        BookRevenue = Money.Pkr(book.TotalRevenue);
-        BookProfit = Money.Pkr(book.TotalProfit);
-        BookInMarket = Money.Pkr(book.MoneyInMarket);
-        BookStock = Money.Pkr(book.InventoryValue);
-        BookOwed = Money.Pkr(book.MoneyOwedByCustomers);
-        BookOutstanding = Money.Pkr(book.Outstanding);
-        BookLowStock = book.LowStockCount == 0
-            ? "Nothing low"
-            : book.LowStockCount + " items low";
-
-        MonthContainers = period.TotalContainers.ToString(CultureInfo.InvariantCulture);
-        MonthRevenue = Money.Pkr(period.TotalRevenue);
-        MonthProfit = Money.Pkr(period.TotalProfit);
-        MonthInMarket = Money.Pkr(period.MoneyInMarket);
-
-        _containers = await _reports.GetContainerProfitsAsync();
-        _receivables = await _ledger.GetReceivablesAsync();
-        _stock = await _reports.GetGrandInventoryAsync();
-        _items = await _reports.GetItemProfitsAsync(from, to, null);
-        _till = await _cash.GetYearCashAsync(year2);
-        _salesYear = await _reports.GetYearSalesAsync(year2);
-        _bills = await _shopExpenses.GetYearAsync(year2);
-
-        ContainersNote = Fill(Containers,
-            _containers.OrderByDescending(r => r.InMarket).ThenBy(r => r.Title), "biggest still out first");
-        WhoOwesNote = Fill(WhoOwes,
-            _receivables.Where(r => r.Balance > 0.009m).OrderByDescending(r => r.Balance), "biggest first");
-        StockNote = Fill(Stock,
-            _stock.OrderByDescending(r => r.TotalValue).ThenBy(r => r.ProductName), "worth most first");
-        ItemsNote = Fill(Items,
-            _items.OrderByDescending(r => r.Revenue).ThenBy(r => r.ProductName), "sold most first");
-
-        TillRows.Clear();
-        foreach (var r in _till)
-            TillRows.Add(r);
-        SalesRows.Clear();
-        foreach (var r in _salesYear)
-            SalesRows.Add(r);
-        BillRows.Clear();
-        foreach (var r in _bills)
-            BillRows.Add(r);
-
-        // The year's own line, by the label the service gave it. A page that added its twelve months would be
-        // a page that could come to a different total than the year report it is standing on.
-        var till = _till.FirstOrDefault(r => r.IsTotal);
-        TillIn = till?.InText ?? Money.Pkr(0);
-        TillOut = till?.OutText ?? Money.Pkr(0);
-        TillReturns = till?.ReturnsText ?? Money.Pkr(0);
-        TillClosing = till?.ClosingText ?? Money.Pkr(0);
-
-        var sales = _salesYear.FirstOrDefault(r => r.IsTotal);
-        YearBills = sales?.BillsText ?? "0";
-        YearSold = sales?.SoldText ?? Money.Pkr(0);
-        YearReceived = sales?.ReceivedText ?? Money.Pkr(0);
-        YearStillOwed = sales?.StillOwedText ?? Money.Pkr(0);
-        YearProfit = sales?.ProfitText ?? Money.Pkr(0);
-
-        var bills = _bills.FirstOrDefault(r => r.IsTotal);
-        BillCount = bills?.CountText ?? "0";
-        BillAmount = bills?.AmountText ?? Money.Pkr(0);
-    }
-
-    /// <summary>
-    /// Puts the cut-down list in front of the shop and returns the words saying what was cut, in the same shape
-    /// every list on this
-    /// page uses: how many lines there are, and what they are ordered by. An empty report says it is empty
-    /// rather than showing a blank table, which reads the same as one that failed to load.
-    /// </summary>
-    private static string Fill<T>(ObservableCollection<T> target, IEnumerable<T> rows, string order)
-    {
-        var list = rows.ToList();
-        target.Clear();
-        foreach (var r in list.Take(Shown))
-            target.Add(r);
-        return list.Count switch
-        {
-            0 => "Nothing here.",
-            var n when n <= Shown => $"{n} {(n == 1 ? "line" : "lines")}, {order}",
-            var n => $"{Shown} of {n} lines, {order}"
-        };
-    }
-
-    /// <summary>Whether the page is being read over dates at all. The reset is offered only while it is,
-    /// because a page already on this month does not need a button telling you to go back to it.</summary>
     public bool HasRange => Period.HasRange(FromDate?.DateTime.Date, ToDate?.DateTime.Date);
 
     partial void OnFromDateChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(HasRange));
 
     partial void OnToDateChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(HasRange));
 
-    /// <summary>Re-reads the page with the dates as they stand, so the figures change when the shop says - and
-    /// only then, because a page that moved on every turn of a date picker cannot be read while it moves.</summary>
+    private bool Is(string key) => SelectedReport?.Key == key;
+
+    private void RaiseReportViews()
+    {
+        foreach (var name in new[]
+                 {
+                     nameof(ShowBook), nameof(ShowPeriod), nameof(ShowTill), nameof(ShowSales),
+                     nameof(ShowBills), nameof(ShowContainers), nameof(ShowWhoOwes), nameof(ShowStock),
+                     nameof(ShowItems), nameof(ShowRange), nameof(ResetLabel)
+                 })
+            OnPropertyChanged(name);
+    }
+
+    partial void OnSelectedReportChanged(ReportChoice? value)
+    {
+        if (_ready) _ = ReloadAsync();
+    }
+
+    /// <summary>The card changes only once its own figures have arrived, so a report never appears on the
+    /// screen holding the numbers of the one just left. On a page of money that is the difference between a
+    /// refresh and a wrong figure that is on screen for a moment.</summary>
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            await LoadAsync();
+        }
+        finally
+        {
+            RaiseReportViews();
+        }
+    }
+
+    /// <summary>Re-reads the report on the screen with the dates as they stand, so the figures change when the
+    /// shop says - and only then, because a page that moved on every turn of a date picker cannot be read
+    /// while it moves.</summary>
     [RelayCommand]
     private async Task ApplyAsync() => await LoadAsync();
 
@@ -240,72 +187,248 @@ public partial class ReportsViewModel : ViewModelBase
         await LoadAsync();
     }
 
+    public override async Task LoadAsync()
+    {
+        var key = SelectedReport?.Key ?? "book";
+        var choice = SelectedReport ?? ReportChoices.First();
+        ReportTitle = choice.Name;
+
+        var from = FromDate?.DateTime.Date;
+        var to = ToDate?.DateTime.Date;
+        var ranged = Period.HasRange(from, to);
+        // With no dates the page reads the month it is standing in, which is what a shop wants from a report
+        // page on a Tuesday morning; with dates it reads exactly those dates, one-ended ones included.
+        var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var start = from ?? monthStart;
+        var last = to ?? monthStart.AddMonths(1).AddDays(-1);
+        var (cardStart, cardEnd) = ranged ? (from, to) : (start, last);
+        var year = (from ?? to ?? DateTime.Today).Year;
+        PeriodLabel = ranged ? Period.Words(from, to) : start.ToString("MMMM yyyy");
+        YearLabel = year.ToString(CultureInfo.InvariantCulture);
+
+        switch (key)
+        {
+            case "book":
+            {
+                var book = await _reports.GetDashboardAsync();
+                BookContainers = book.TotalContainers.ToString(CultureInfo.InvariantCulture);
+                BookRevenue = Money.Pkr(book.TotalRevenue);
+                BookProfit = Money.Pkr(book.TotalProfit);
+                BookInMarket = Money.Pkr(book.MoneyInMarket);
+                BookStock = Money.Pkr(book.InventoryValue);
+                BookOwed = Money.Pkr(book.MoneyOwedByCustomers);
+                BookOutstanding = Money.Pkr(book.Outstanding);
+                BookLowStock = book.LowStockCount == 0
+                    ? "Nothing low"
+                    : book.LowStockCount + " items low";
+                break;
+            }
+            case "period":
+            {
+                // Only the figures GetDashboardAsync filters by the dates. Stock and the shop's own bills are
+                // not among them, so they are not offered here under a period's heading.
+                var period = await _reports.GetDashboardAsync(cardStart, cardEnd);
+                PeriodContainers = period.TotalContainers.ToString(CultureInfo.InvariantCulture);
+                PeriodRevenue = Money.Pkr(period.TotalRevenue);
+                PeriodProfit = Money.Pkr(period.TotalProfit);
+                PeriodInMarket = Money.Pkr(period.MoneyInMarket);
+                break;
+            }
+            case "till":
+            {
+                var rows = await _cash.GetYearCashAsync(year);
+                Fill(TillRows, rows);
+                var total = rows.FirstOrDefault(r => r.IsTotal);
+                TillIn = total?.InText ?? Money.Pkr(0);
+                TillOut = total?.OutText ?? Money.Pkr(0);
+                TillReturns = total?.ReturnsText ?? Money.Pkr(0);
+                TillClosing = total?.ClosingText ?? Money.Pkr(0);
+                break;
+            }
+            case "sales":
+            {
+                var rows = await _reports.GetYearSalesAsync(year);
+                Fill(SalesRows, rows);
+                var total = rows.FirstOrDefault(r => r.IsTotal);
+                YearBills = total?.BillsText ?? "0";
+                YearSold = total?.SoldText ?? Money.Pkr(0);
+                YearReceived = total?.ReceivedText ?? Money.Pkr(0);
+                YearStillOwed = total?.StillOwedText ?? Money.Pkr(0);
+                YearProfit = total?.ProfitText ?? Money.Pkr(0);
+                break;
+            }
+            case "bills":
+            {
+                var rows = await _shopExpenses.GetYearAsync(year);
+                Fill(BillRows, rows);
+                var total = rows.FirstOrDefault(r => r.IsTotal);
+                BillCount = total?.CountText ?? "0";
+                BillAmount = total?.AmountText ?? Money.Pkr(0);
+                break;
+            }
+            case "containers":
+            {
+                var rows = await _reports.GetContainerProfitsAsync();
+                ListNote = Fill(Containers, rows.OrderByDescending(r => r.InMarket).ThenBy(r => r.Title),
+                    "biggest still out first");
+                break;
+            }
+            case "owes":
+            {
+                var rows = await _ledger.GetReceivablesAsync();
+                ListNote = Fill(WhoOwes,
+                    rows.Where(r => r.Balance > 0.009m).OrderByDescending(r => r.Balance), "biggest first");
+                break;
+            }
+            case "stock":
+            {
+                var rows = await _reports.GetGrandInventoryAsync();
+                ListNote = Fill(Stock,
+                    rows.OrderByDescending(r => r.TotalValue).ThenBy(r => r.ProductName), "worth most first");
+                break;
+            }
+            case "items":
+            {
+                var rows = await _reports.GetItemProfitsAsync(from, to, null);
+                ListNote = Fill(Items,
+                    rows.OrderByDescending(r => r.Revenue).ThenBy(r => r.ProductName), "sold most first");
+                break;
+            }
+        }
+    }
+
+    /// <summary>Puts a list in front of the shop and returns the words saying what it is holding: a report
+    /// shown whole, so the screen and the sheet never differ, and an empty one says so rather than showing a
+    /// blank table, which reads the same as one that failed to load.</summary>
+    private static string Fill<T>(ObservableCollection<T> target, IEnumerable<T> rows, string order)
+    {
+        var list = rows.ToList();
+        target.Clear();
+        foreach (var r in list)
+            target.Add(r);
+        return list.Count switch
+        {
+            0 => "Nothing here.",
+            1 => "1 line",
+            var n => $"{n} lines, {order}"
+        };
+    }
+
+    private void Fill<T>(ObservableCollection<T> target, IEnumerable<T> rows) => Fill(target, rows, "");
+
+    /// <summary>The report on the screen, on paper, in the words on the screen - so the sheet can be handed
+    /// over or filed without anyone having to remember which boxes the page was showing.</summary>
     [RelayCommand]
     private void Print()
     {
-        var containers = _containers
-            .Select(r => new[] { r.Title, r.RevenueText, r.ProfitText, r.InMarketText })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var owes = _receivables.Where(r => r.Balance > 0.009m)
-            .Select(r => new[] { r.Name, r.BalanceText, r.OldestDueText, r.Aging })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var stock = _stock
-            .Select(r => new[] { r.ProductName, r.InStockText, r.ValueText, r.LotsText })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var items = _items
-            .Select(r => new[] { r.ProductName, r.QtyText, r.RevenueText, r.ProfitText })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var till = _till
-            .Select(r => new[] { r.MonthText, r.InText, r.OutText, r.ReturnsText, r.ClosingText })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var sales = _salesYear
-            .Select(r => new[] { r.MonthText, r.BillsText, r.SoldText, r.ReceivedText, r.StillOwedText, r.ProfitText })
-            .Cast<IReadOnlyList<string>>().ToList();
-        var bills = _bills
-            .Select(r => new[] { r.MonthText, r.CountText, r.AmountText })
+        var key = SelectedReport?.Key ?? "book";
+        var tables = new List<PrintTable>();
+        var subtitle = key is "book" or "containers" or "owes" or "stock"
+            ? "As it stands today"
+            : key is "period" or "items" ? PeriodLabel : $"{YearLabel}";
+
+        if (ShowBook)
+        {
+            tables.Add(new PrintTable("The book", new[] { "What", "Money" }, new List<IReadOnlyList<string>>
+            {
+                new[] { "Sold", BookRevenue },
+                new[] { "Profit", BookProfit },
+                new[] { "Still in the market", BookInMarket },
+                new[] { "Stock on the shelf", BookStock },
+                new[] { "Customers owe", BookOwed },
+                new[] { "Left unpaid on bills", BookOutstanding },
+                new[] { "Containers", BookContainers },
+                new[] { "Low stock", BookLowStock },
+            }, null, 1));
+        }
+        if (ShowPeriod)
+        {
+            tables.Add(new PrintTable(PeriodLabel, new[] { "What", "Money" }, new List<IReadOnlyList<string>>
+            {
+                new[] { "Sold", PeriodRevenue },
+                new[] { "Profit", PeriodProfit },
+                new[] { "Still in the market", PeriodInMarket },
+                new[] { "Containers that landed", PeriodContainers },
+            }, null, 1));
+        }
+        if (ShowTill)
+        {
+            tables.Add(new PrintTable($"Till in {YearLabel}",
+                new[] { "Month", "In", "Out", "Returns", "Cash at the month's end" },
+                TillPaper(), null, 1));
+        }
+        if (ShowSales)
+        {
+            tables.Add(new PrintTable($"Sales in {YearLabel}",
+                new[] { "Month", "Bills", "Sold", "Received", "Still owed", "Profit" },
+                SalesPaper(), null, 1));
+        }
+        if (ShowBills)
+        {
+            tables.Add(new PrintTable($"Shop bills in {YearLabel}",
+                new[] { "Month", "Lines", "Money" }, BillsPaper(), null, 1));
+        }
+        if (ShowContainers)
+        {
+            tables.Add(new PrintTable("Containers",
+                new[] { "Container", "Status", "Sold", "Profit", "Still in the market" },
+                Containers.Select(r => new[] { r.Title, r.StatusText, r.RevenueText, r.ProfitText, r.InMarketText })
+                    .Cast<IReadOnlyList<string>>().ToList(), null, 1));
+        }
+        if (ShowWhoOwes)
+        {
+            tables.Add(new PrintTable("Who owes",
+                new[] { "Customer", "Owes", "Oldest bill", "How long" },
+                WhoOwes.Select(r => new[] { r.Name, r.BalanceText, r.OldestDueText, r.Aging })
+                    .Cast<IReadOnlyList<string>>().ToList(), null, 1));
+        }
+        if (ShowStock)
+        {
+            tables.Add(new PrintTable("Stock",
+                new[] { "Item", "In stock", "Value", "From" },
+                Stock.Select(r => new[] { r.ProductName, r.InStockText, r.ValueText, r.LotsText })
+                    .Cast<IReadOnlyList<string>>().ToList(), null, 1));
+        }
+        if (ShowItems)
+        {
+            tables.Add(new PrintTable($"Profit by item, {PeriodLabel}",
+                new[] { "Item", "Sold", "Amount", "Profit" },
+                Items.Select(r => new[] { r.ProductName, r.QtyText, r.RevenueText, r.ProfitText })
+                    .Cast<IReadOnlyList<string>>().ToList(), null, 1));
+        }
+
+        _print.PrintTables("reports.html", ReportTitle, subtitle, tables);
+        _shell.Notify($"Printed {ReportTitle.ToLowerInvariant()}.");
+    }
+
+    // The year tables print straight from what the grid is holding, so the sheet cannot carry a month the
+    // screen never listed.
+    private List<IReadOnlyList<string>> TillPaper() =>
+        TillRows.Select(r => new[] { r.MonthText, r.InText, r.OutText, r.ReturnsText, r.ClosingText })
             .Cast<IReadOnlyList<string>>().ToList();
 
-        // The figures are the strings the page is already holding, so a sheet printed from here is the page.
-        _print.PrintTables("reports.html", "Reports",
-            $"The book as it stands today, and {PeriodLabel}", new[]
-            {
-                new PrintTable("The book",
-                    new[] { "What", "Money" },
-                    new List<IReadOnlyList<string>>
-                    {
-                        new[] { "Sold", BookRevenue },
-                        new[] { "Profit", BookProfit },
-                        new[] { "Still in the market", BookInMarket },
-                        new[] { "Stock on the shelf", BookStock },
-                        new[] { "Customers owe", BookOwed },
-                        new[] { "Left unpaid on bills", BookOutstanding },
-                        new[] { "Containers", BookContainers },
-                        new[] { "Low stock", BookLowStock },
-                    }, null, 1),
-                new PrintTable(PeriodLabel,
-                    new[] { "What", "Money" },
-                    new List<IReadOnlyList<string>>
-                    {
-                        new[] { "Sold", MonthRevenue },
-                        new[] { "Profit", MonthProfit },
-                        new[] { "Still in the market", MonthInMarket },
-                        new[] { "Containers that landed", MonthContainers },
-                    }, null, 1),
-                new PrintTable(TillHeading,
-                    new[] { "Month", "In", "Out", "Returns", "Cash at the month's end" }, till, null, 1),
-                new PrintTable(SalesHeading,
-                    new[] { "Month", "Bills", "Sold", "Received", "Still owed", "Profit" }, sales, null, 1),
-                new PrintTable(BillsHeading,
-                    new[] { "Month", "Lines", "Money" }, bills, null, 1),
-                new PrintTable("Containers",
-                    new[] { "Container", "Sold", "Profit", "Still in the market" }, containers, null, 1),
-                new PrintTable("Who owes",
-                    new[] { "Customer", "Owes", "Oldest bill", "How long" }, owes, null, 1),
-                new PrintTable("Stock",
-                    new[] { "Item", "In stock", "Value", "From" }, stock, null, 1),
-                new PrintTable(ItemsHeading,
-                    new[] { "Item", "Sold", "Amount", "Profit" }, items, null, 1),
-            });
-        _shell.Notify($"Printed every report on one sheet: the book, {PeriodLabel}, {YearLabel}.");
+    private List<IReadOnlyList<string>> SalesPaper() =>
+        SalesRows
+            .Select(r => new[]
+                { r.MonthText, r.BillsText, r.SoldText, r.ReceivedText, r.StillOwedText, r.ProfitText })
+            .Cast<IReadOnlyList<string>>().ToList();
+
+    private List<IReadOnlyList<string>> BillsPaper() =>
+        BillRows.Select(r => new[] { r.MonthText, r.CountText, r.AmountText })
+            .Cast<IReadOnlyList<string>>().ToList();
+}
+
+/// <summary>One entry in the list of reports. A name to read and a key to switch on, so the words in the
+/// dropdown can be changed without touching what a change of selection means.</summary>
+public sealed class ReportChoice
+{
+    public ReportChoice(string name, string key)
+    {
+        Name = name;
+        Key = key;
     }
+
+    public string Name { get; }
+    public string Key { get; }
+    public override string ToString() => Name;
 }

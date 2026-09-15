@@ -10,24 +10,35 @@
       <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
     </Grid>
 
-    <!-- The dates belong to the page and to the tables that can be read over them, not to one card: putting a
-         picker at the head of a card would suggest the other cards moved with it. Same boxes, same Apply, as
-         Home, so one gesture reads every page that covers a stretch of days. -->
-    <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">
-      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+    <!-- The list of reports is the page: what you are not looking at is not shown, and the dates only appear
+         beside the reports that can be read over them. A control that cannot change what is under it is a
+         control that teaches the shop to ignore it. -->
+    <Grid ColumnDefinitions="260,Auto,Auto,Auto,*" Margin="0,0,0,16">
+      <StackPanel Margin="0,0,12,0">
+        <TextBlock Classes="label" Text="Report" />
+        <ComboBox ItemsSource="{Binding ReportChoices}" SelectedItem="{Binding SelectedReport}" MinWidth="240" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
+                  IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
         <DatePicker SelectedDate="{Binding FromDate}" />
       </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
+                  IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
         <DatePicker SelectedDate="{Binding ToDate}" />
       </StackPanel>
-      <Button Grid.Column="2" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" Margin="0,0,8,0" />
-      <Button Grid.Column="3" Content="This month" Command="{Binding ThisMonthCommand}"
-              IsVisible="{Binding HasRange}" HorizontalAlignment="Left" />
+      <Button Grid.Column="3" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}"
+              IsVisible="{Binding ShowRange}" Margin="0,0,8,0" VerticalAlignment="Bottom" />
+      <!-- The reset belongs with the dates and only while there are some: a page already on this month does
+           not need a button telling you to go back to it. -->
+      <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left"
+                  VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
+        <Button Content="{Binding ResetLabel}" Command="{Binding ThisMonthCommand}" IsVisible="{Binding HasRange}" />
+      </StackPanel>
     </Grid>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowBook}">
       <StackPanel>
         <TextBlock Classes="h2" Text="The book, as it stands today" />
         <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
@@ -69,34 +80,35 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowPeriod}">
       <StackPanel>
         <TextBlock Classes="h2" Text="{Binding PeriodLabel}" />
         <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
           <StackPanel>
             <TextBlock Classes="label" Text="Sold" />
-            <TextBlock Classes="stat" Text="{Binding MonthRevenue}" />
+            <TextBlock Classes="stat" Text="{Binding PeriodRevenue}" />
           </StackPanel>
           <StackPanel Grid.Column="1">
             <TextBlock Classes="label" Text="Profit" />
-            <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
+            <TextBlock Classes="stat ok" Text="{Binding PeriodProfit}" />
           </StackPanel>
           <StackPanel Grid.Column="2">
             <TextBlock Classes="label" Text="Still in the market" />
-            <TextBlock Classes="stat" Text="{Binding MonthInMarket}" />
+            <TextBlock Classes="stat" Text="{Binding PeriodInMarket}" />
           </StackPanel>
           <StackPanel Grid.Column="3">
             <TextBlock Classes="label" Text="Containers that landed" />
-            <TextBlock Classes="stat" Text="{Binding MonthContainers}" />
+            <TextBlock Classes="stat" Text="{Binding PeriodContainers}" />
           </StackPanel>
         </Grid>
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowTill}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="{Binding TillHeading}" />
-        <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,14">
+        <TextBlock Classes="h2" Text="Till, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Classes="label" Text="In" />
             <TextBlock Classes="stat ok" Text="{Binding TillIn}" />
@@ -126,10 +138,11 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowSales}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="{Binding SalesHeading}" />
-        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,10,0,14">
+        <TextBlock Classes="h2" Text="Sales, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Classes="label" Text="Bills" />
             <TextBlock Classes="stat" Text="{Binding YearBills}" />
@@ -164,10 +177,11 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowBills}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="{Binding BillsHeading}" />
-        <Grid ColumnDefinitions="*,*" Margin="0,10,0,14">
+        <TextBlock Classes="h2" Text="Shop bills, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,*" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Classes="label" Text="Lines" />
             <TextBlock Classes="stat" Text="{Binding BillCount}" />
@@ -187,7 +201,7 @@
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowContainers}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Containers" />
         <DataGrid ItemsSource="{Binding Containers}" x:CompileBindings="False" Margin="0,10,0,0">
@@ -199,11 +213,11 @@
             <DataGridTextColumn Header="Still in the market" Binding="{Binding InMarketText}" Width="170" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Classes="muted" FontSize="12" Text="{Binding ContainersNote}" Margin="0,8,0,0" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ListNote}" Margin="0,8,0,0" />
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowWhoOwes}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Who owes" />
         <DataGrid ItemsSource="{Binding WhoOwes}" x:CompileBindings="False" Margin="0,10,0,0">
@@ -214,11 +228,11 @@
             <DataGridTextColumn Header="How long" Binding="{Binding Aging}" Width="130" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Classes="muted" FontSize="12" Text="{Binding WhoOwesNote}" Margin="0,8,0,0" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ListNote}" Margin="0,8,0,0" />
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowStock}">
       <StackPanel>
         <TextBlock Classes="h2" Text="Stock" />
         <DataGrid ItemsSource="{Binding Stock}" x:CompileBindings="False" Margin="0,10,0,0">
@@ -229,14 +243,15 @@
             <DataGridTextColumn Header="From" Binding="{Binding LotsText}" Width="200" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Classes="muted" FontSize="12" Text="{Binding StockNote}" Margin="0,8,0,0" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ListNote}" Margin="0,8,0,0" />
       </StackPanel>
     </Border>
 
-    <Border Classes="card">
+    <Border Classes="card" IsVisible="{Binding ShowItems}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="{Binding ItemsHeading}" />
-        <DataGrid ItemsSource="{Binding Items}" x:CompileBindings="False" Margin="0,10,0,0">
+        <TextBlock Classes="h2" Text="Profit by item" Margin="0,0,0,2" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding PeriodLabel}" Margin="0,0,0,12" />
+        <DataGrid ItemsSource="{Binding Items}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
             <DataGridTextColumn Header="Sold" Binding="{Binding QtyText}" Width="110" />
@@ -244,7 +259,7 @@
             <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="160" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Classes="muted" FontSize="12" Text="{Binding ItemsNote}" Margin="0,8,0,0" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ListNote}" Margin="0,8,0,0" />
       </StackPanel>
     </Border>
 
