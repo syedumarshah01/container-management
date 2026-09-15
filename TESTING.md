@@ -464,6 +464,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    the page that asks who to chase. "Customers owe in total" beside it is a different question: their ledgers
    also hold advances and payouts, so the two figures need not agree and neither is wrong. Put the box on "All
    containers" and only that total is shown.
+4n. **The cash figure on Main ledger is a month, not the book**. Read the words under the card - it names
+    the month it closes and what was carried from the month before. Now pick the month before in the Month/Year
+    boxes and check the figure it closed on is the one being carried in. Pick a month you know was empty: the
+    card must stand at exactly what it was handed rather than at zero. If the carried figure never matches the
+    previous month's close, the month is not the month you think it is.
+
 5. Sign in as staff: every write button should be dead, and the PIN prompt should appear for the
    writes that are allowed.
 6. Print a bill, then restore yesterday's backup in a *copy* of the folder and confirm the figures

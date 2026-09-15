@@ -2168,6 +2168,45 @@ public static class Program
         Check("and the goods that came back stand in their own column on paper, with nothing beside them - "
             + "they were never sold and never paid",
             stmt.Contains(backRow), backRow);
+
+        Head("cash as a month ends it, which is what the ledger card shows");
+        var till = new (DateTime Date, decimal In, decimal Out)[]
+        {
+            (new DateTime(2025, 12, 20), 1_000m, 0m),
+            (new DateTime(2026, 1, 10), 500m, 0m),
+            (new DateTime(2026, 1, 20), 0m, 200m),
+            (new DateTime(2026, 2, 1), 50m, 0m),
+        };
+        var jan = CashBookService.MonthCash(till, new DateTime(2026, 1, 1));
+        Eq("December's thousand is carried into January, not counted as January's own money", 1_000m, jan.Carried);
+        Eq("and January closes on the carried thousand, plus its own five hundred, less two hundred out",
+            1_300m, jan.Closing);
+        var feb = CashBookService.MonthCash(till, new DateTime(2026, 2, 1));
+        Eq("February carries January's closing in - one month's end is the next month's beginning",
+            1_300m, feb.Carried);
+        Eq("and only its own fifty moves it", 1_350m, feb.Closing);
+        var mar = CashBookService.MonthCash(till, new DateTime(2026, 3, 1));
+        Check("a month with nothing in it closes on what it was handed, rather than showing zero as if the "
+              + "till were empty", mar.Carried == 1_350m && mar.Closing == 1_350m,
+            $"{mar.Carried} in, {mar.Closing} out");
+        var dec = CashBookService.MonthCash(till, new DateTime(2025, 12, 1));
+        Eq("a month before any money at all carries nothing in", 0m, dec.Carried);
+        Eq("and still closes on what fell inside it", 1_000m, dec.Closing);
+        Eq("every month walked in order ends where the whole book stands",
+            till.Sum(r => r.In - r.Out), mar.Closing);
+        // The edges, spelled out: a line dated at midnight on the first is inside the month, and one dated
+        // at midnight on the first of the next is not. This is where a <= against a < quietly moves Rs 50
+        // from February into January, and nothing on the page would look wrong.
+        var edges = new (DateTime Date, decimal In, decimal Out)[]
+        {
+            (new DateTime(2026, 1, 1), 7m, 0m),
+            (new DateTime(2026, 2, 1), 11m, 0m),
+        };
+        var edgeJan = CashBookService.MonthCash(edges, new DateTime(2026, 1, 1));
+        Eq("the first of the month belongs to the month", 7m, edgeJan.Closing);
+        Eq("and the first of the next month is already next month's, carried in but not counted as this month's",
+            7m, CashBookService.MonthCash(edges, new DateTime(2026, 2, 1)).Carried);
+        Eq("February closes on both", 18m, CashBookService.MonthCash(edges, new DateTime(2026, 2, 1)).Closing);
     }
 
     private static async Task InvoiceStanding(string dir)

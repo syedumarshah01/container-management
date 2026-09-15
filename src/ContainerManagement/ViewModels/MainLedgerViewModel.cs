@@ -40,6 +40,9 @@ public partial class MainLedgerViewModel : ViewModelBase
     [ObservableProperty] private string monthOut = Money.Pkr(0);
     [ObservableProperty] private string monthReturns = Money.Pkr(0);
     [ObservableProperty] private string monthLabel = "This month";
+
+    /// <summary>Under the cash figure: which month it closes, and what came in from the month before it.</summary>
+    [ObservableProperty] private string cashHint = "";
     [ObservableProperty] private decimal? openingAmount;
     [ObservableProperty] private MonthChoice? selectedMonth;
     [ObservableProperty] private YearChoice? selectedYear;
@@ -66,7 +69,6 @@ public partial class MainLedgerViewModel : ViewModelBase
                 Years.Insert(0, new YearChoice(year));
         }
 
-        CashInHand = Money.Pkr(_all.Sum(r => r.AmountIn - r.AmountOut));
         OpeningAmount = list.Where(e => e.Kind == CashBookKind.Opening).Sum(e => e.AmountIn - e.AmountOut);
         ShowMonth();
     }
@@ -93,7 +95,14 @@ public partial class MainLedgerViewModel : ViewModelBase
 
         var prior = _all.Where(r => r.Date < start).ToList();
         var monthRows = _all.Where(r => r.Date >= start && r.Date < end).ToList();
-        decimal running = prior.Sum(r => r.AmountIn - r.AmountOut);
+        // One rule for the card, the row underneath it and the running column in the table, so none of the
+        // three can disagree with the others about where the month closed.
+        var (carried, closing) = CashBookService.MonthCash(
+            _all.Select(r => (r.Date, r.AmountIn, r.AmountOut)).ToList(), start);
+        CashInHand = Money.Pkr(closing);
+        CashHint = $"at the end of {MonthLabel}"
+            + (carried == 0m ? "" : $" \u00b7 {Money.Pkr(carried)} carried from {start.AddMonths(-1):MMMM}");
+        decimal running = carried;
 
         // The rows are put together oldest first, because that is the only order in which a running
         // balance means anything: each figure has to be the book as it stood once that entry was made.
@@ -138,10 +147,13 @@ public partial class MainLedgerViewModel : ViewModelBase
     {
         var rows = Rows.Select(r => new[] { r.DateText, r.Description, r.InText, r.OutText, r.RunningText })
             .Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTable("main-ledger.html", "Main ledger", MonthLabel,
+        _print.PrintTable("main-ledger.html", "Main ledger", $"Cash in hand at the end of {MonthLabel}",
             new[] { "Date", "What it was", "In", "Out", "Cash in hand" },
             rows, new[] { "The month", "", MonthIn, MonthOut, CashInHand }, 2);
-        _shell.Notify("Printed from the page you were on.");
+        // The sheet names the month it closes on, and the carried figure is already the table's first row, so
+        // the paper can be checked against last month's paper without knowing what the page was showing. The
+        // number read out is the one the card is holding, so the two cannot be quietly different sheets.
+        _shell.Notify($"Printed {MonthLabel}. Cash at the month's end: {CashInHand}.");
     }
 
     [RelayCommand]

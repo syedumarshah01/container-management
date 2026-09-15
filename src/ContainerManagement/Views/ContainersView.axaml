@@ -6,9 +6,13 @@
   <StackPanel>
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="h1" Text="Containers" />
-<Button Content="Print" Command="{Binding PrintCommand}" />
-      <Button Grid.Column="1" Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
-              IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
+      <!-- The paper belongs with the button that opens the day, not off on its own: print is what you do with
+           the list you are already looking at. -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+        <Button Content="Print" Command="{Binding PrintCommand}" />
+        <Button Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
+                IsVisible="{Binding !ShowAddForm}" />
+      </StackPanel>
     </Grid>
 
     <Border Classes="card">

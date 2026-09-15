@@ -5,8 +5,11 @@
              x:DataType="vm:MainLedgerViewModel">
   <StackPanel>
 
-    <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />    <TextBlock Classes="h1" Text="Main ledger" />
-    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Main ledger" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Top" />
+    </Grid>
+    <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,16"
                Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again. Pay a supplier on the We owe page." />
 
     <Grid ColumnDefinitions="*,*,*,*">
@@ -14,6 +17,7 @@
         <StackPanel>
           <TextBlock Classes="label" Text="Cash in hand" />
           <TextBlock Classes="stat" Text="{Binding CashInHand}" />
+          <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding CashHint}" />
         </StackPanel>
       </Border>
       <Border Classes="statcard" Grid.Column="1" Margin="8,0,8,16">

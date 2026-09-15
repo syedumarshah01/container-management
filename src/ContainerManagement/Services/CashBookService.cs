@@ -151,6 +151,28 @@ public class CashBookService
     /// figure is stated plainly instead of dressed up as an arrangement with the supplier. One method,
     /// three places: the list, the dropdown and the pay panel must not drift into three stories.
     /// </summary>
+    /// <summary>
+    /// Cash as a month ends it: everything before the month carried in, then the month's own money in and out.
+    /// Both figures come back, because the card has to say what it is - a month, not the whole book - and a
+    /// carried figure is only worth having if the shop can see it and check it against last month's end.
+    /// Money dated after the month does not reach back into it, and money on the first belongs to the month.
+    /// </summary>
+    public static (decimal Carried, decimal Closing) MonthCash(
+        IEnumerable<(DateTime Date, decimal In, decimal Out)> rows, DateTime start)
+    {
+        var end = start.AddMonths(1);
+        decimal carried = 0m;
+        decimal net = 0m;
+        foreach (var r in rows)
+        {
+            if (r.Date < start)
+                carried += r.In - r.Out;
+            else if (r.Date < end)
+                net += r.In - r.Out;
+        }
+        return (Money.Round(carried), Money.Round(carried + net));
+    }
+
     public static string PaidExtraText(decimal extra, bool terse = false)
         => (terse ? "paid extra " : "Paid extra ") + Money.Pkr(Money.Round(extra));
 
