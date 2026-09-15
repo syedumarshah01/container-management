@@ -17,9 +17,11 @@
   </UserControl.Styles>
   <StackPanel>
 
-    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
       <TextBlock Classes="h1" Text="Reports" Margin="0" VerticalAlignment="Center" />
       <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
+      <Button Grid.Column="2" Content="Excel / CSV" Command="{Binding ExportCommand}" Margin="12,0,0,0"
+              VerticalAlignment="Center" IsVisible="{Binding ShowExport}" />
     </Grid>
 
     <!-- The list of reports is the page: what you are not looking at is not shown, and the dates only appear

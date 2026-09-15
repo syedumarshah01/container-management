@@ -90,7 +90,7 @@ Then run `publish/mac/ProBooks`.
 | Customer ledger | **Customers** → double-click a name |
 | Collect money | Customer screen → **Record payment** |
 | Uncollected credit | **Money in Market** |
-| Profit per container + total | **Profit** |
+| Profit per container + total | **Reports** → Containers · the two CSV sheets are **Excel / CSV** there |
 | Local + Google Drive copies | **Backup** |
 | Invoice / ledger print, PIN, wipe demo | **Settings** + sale / customer screens |
 

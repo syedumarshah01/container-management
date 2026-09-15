@@ -28,7 +28,7 @@ has to follow to be worth adding.
 | stock | received − sold + returned is the number left, to the third decimal |
 | a corrected cost | the sold lines are re-costed and profit moves by exactly the cost difference |
 | the rate a yen figure is taken at | the rupees on a yen line are exactly its yen figure times the rate kept on it, to the paisa, for an expense *and* for an item's cost price; the rate on the row overrides the container's and then becomes it; a rate of 1 - nothing written at all - is refused; and a rate changed tomorrow re-values nothing that was paid yesterday |
-| a corrected cost | an item's cost price corrected after it was sold re-costs the sold lines *and* the return lines of that lot, so the container's profit, Home's month, Home's whole-book card and the Profit page all move by what the sold pieces carry - the stock on the shelf is valued at the new cost too - while the price the customer was billed and what they owe stay exactly where they were, because a cost is not a price |
+| a corrected cost | an item's cost price corrected after it was sold re-costs the sold lines *and* the return lines of that lot, so the container's profit, Home's month, Home's whole-book card and the Reports page's profit reports all move by what the sold pieces carry - the stock on the shelf is valued at the new cost too - while the price the customer was billed and what they owe stay exactly where they were, because a cost is not a price |
 | the freight in the cost | an item's weight in the sum is what a piece weighs times how many were landed; the shipment's expenses - rupees as written, yen converted once at the container's rate, with that rate kept on the line - are added up, divided by that weight and shared back onto the items, so the **shares equal the expenses to the paisa** and the paisa that will not divide goes on the heaviest lot; the per-piece cost then carries what a piece can carry in paisa and the few rupees left over are named on the page, not folded into a price; **an item with no weight stops the sharing for the whole box** rather than leaving its freight on someone else's cost; and deleting every expense brings every cost back to the goods price, the sold lines with it |
 | returns | a full return credits the bill paisa for paisa, and over-returning is refused. What they still owe absorbs the return first; only what is left over leaves the cashbook, once per return, with the till line and their ledger line agreeing to the paisa |
 | the Main ledger's returns figure | the month's red "goods back" number equals every return credit in the book, and never touches cash in hand |
@@ -188,8 +188,9 @@ corrected count *should* re-share them, and a re-count of the stack should not.
 
 - the containers list and Home: `sold − cost of those goods`. A container's own sea freight, customs
   and clearing are recorded and shown next to it, but **not** taken off that figure;
-- the Profit page's daily rows: `sold − cost − shop expenses` (rent, salaries), which does not include
-  container expenses either;
+- the Reports page keeps the shop's own bills in a table of their own, so the profit at the head of any
+  report is never a figure after rent and salaries: take the Expenses report's total off it yourself, and
+  know that you did;
 - a sale **discount** reduces what the customer pays and what the ledger carries, but not profit on
   any page - it is never allocated to lines.
 
@@ -227,7 +228,7 @@ The decision after the audit was that profit meant sold less the goods price, wi
 expenses shown beside it. That is no longer how it works, and this paragraph is here so the change is
 visible rather than remembered: each item carries a weight, the expenses on the container are added up
 and divided by the weight of everything in the box, and each item's share - by its own weight - is added
-to its cost price. Profit on Home, on the containers list and on the Profit page is sold less *that*
+to its cost price. Profit on Home, on the containers list and on the Reports page is sold less *that*
 cost, so a container that was landed at a loss no longer reports a profit. What follows from it:
 
 - A yen figure is converted once, at the moment it is saved, and the rupee total, the yen figure and the
@@ -452,7 +453,7 @@ rather than assuming it. Say the word and I will move those columns to text for 
    To collect should show the same total on its container box when that box is on "All containers" - those two
    pages read one sum, so if they ever differ, money has stopped reaching a container and it is worth chasing
    the same day. Then tweak the cost price of an item that has been sold: the container's page, this card and
-   the Profit page should all move by the same amount, the stock figure should rise or fall by what is left on
+   the Reports page's Containers report should all move by the same amount, the stock figure should rise or fall by what is left on
    the shelf times the change, and the bill the customer was given should not change at all.
 4l. On To collect, the box at the head of the page picks a container and shows what is still in the market on
    it. The figure should be word for word what that container's own page says under "In the market" - open both

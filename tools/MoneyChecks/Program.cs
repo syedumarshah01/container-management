@@ -488,14 +488,14 @@ public static class Program
             Eq("1000 pieces less 0.375 twice leaves 999.25", 999.25m, b.QuantityRemaining);
         }
 
-        Head("every page reads the same billed money - Home, the container row, the Profit page");
+        Head("every page reads the same billed money - Home, the container row, the Reports profit reports");
         var beforeReprice = await reports.GetContainerProfitAsync(container.Id);
         var home = await reports.GetHomeMonthAsync();
         Eq("the container now holds both bills: 135,543.86 + 543.94", 136_087.80m, beforeReprice.Revenue);
         Eq("Home's month says the same figure, not a second version of it", beforeReprice.Revenue, home.Sales);
         Eq("and Home's profit agrees with the container row, no shop expenses yet", beforeReprice.Profit, home.Profit);
         var items = await reports.GetItemProfitsAsync(null, null, null);
-        Eq("the Profit page item by item adds back to the same money", beforeReprice.Revenue, items.Sum(i => i.Revenue));
+        Eq("the item-by-item profit report adds back to the same money", beforeReprice.Revenue, items.Sum(i => i.Revenue));
         Check("and the second bill, which had no discount, was not touched by the sharing",
             beforeReprice.Revenue - first.Revenue == payBill.Lines[0].LineTotal,
             $"{beforeReprice.Revenue - first.Revenue} added for an undiscounted line of {payBill.Lines[0].LineTotal}");

@@ -33,17 +33,19 @@ public partial class ReportsViewModel : ViewModelBase
     private readonly CashBookService _cash;
     private readonly ShopExpenseService _shopExpenses;
     private readonly PrintService _print;
+    private readonly ExportService _export;
     private readonly IAppShell _shell;
     private bool _ready;
 
     public ReportsViewModel(ReportService reports, LedgerService ledger, CashBookService cash,
-        ShopExpenseService shopExpenses, PrintService print, IAppShell shell)
+        ShopExpenseService shopExpenses, PrintService print, ExportService export, IAppShell shell)
     {
         _reports = reports;
         _ledger = ledger;
         _cash = cash;
         _shopExpenses = shopExpenses;
         _print = print;
+        _export = export;
         _shell = shell;
         SelectedReport = ReportChoices.First();
         // Last, because the line above moves the picker and the picker asks the page to load: a page that read
@@ -127,6 +129,11 @@ public partial class ReportsViewModel : ViewModelBase
     /// <summary>Whether the dates in the header can change what is below them at all.</summary>
     public bool ShowRange => Is("period") || Is("till") || Is("sales") || Is("bills") || Is("items");
 
+    /// <summary>The profit reports, and only they, get the CSV button: a sheet is written from the two lists
+    /// this page can show, and offering it beside a till or a stock table would be a button that writes
+    /// something other than what is in front of the person pressing it.</summary>
+    public bool ShowExport => ShowContainers || ShowItems;
+
     /// <summary>What the reset button is worth here: a month's card goes back to this month, a year's table
     /// goes back to this year, and a button that promises the wrong one is a trap.</summary>
     public string ResetLabel => Is("till") || Is("sales") || Is("bills") ? "This year" : "This month";
@@ -145,7 +152,7 @@ public partial class ReportsViewModel : ViewModelBase
                  {
                      nameof(ShowBook), nameof(ShowPeriod), nameof(ShowTill), nameof(ShowSales),
                      nameof(ShowBills), nameof(ShowContainers), nameof(ShowWhoOwes), nameof(ShowStock),
-                     nameof(ShowItems), nameof(ShowRange), nameof(ResetLabel)
+                     nameof(ShowItems), nameof(ShowRange), nameof(ShowExport), nameof(ResetLabel)
                  })
             OnPropertyChanged(name);
     }
@@ -310,6 +317,28 @@ public partial class ReportsViewModel : ViewModelBase
 
     /// <summary>The report on the screen, on paper, in the words on the screen - so the sheet can be handed
     /// over or filed without anyone having to remember which boxes the page was showing.</summary>
+    /// <summary>
+    /// The two profit sheets, each one the report of the same name on this page and read exactly the way that
+    /// report reads it: the containers sheet is the book as it stands, the items sheet takes the dates the page
+    /// is holding. A file that quietly covered a different stretch from the card above it is the quickest way
+    /// for a CSV and a screen to start telling two stories, and on a page like this one of them ends up in
+    /// somebody's accounts.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportAsync()
+    {
+        var from = FromDate?.DateTime.Date;
+        var to = ToDate?.DateTime.Date;
+        try
+        {
+            var rows = await _reports.GetContainerProfitsAsync();
+            var items = await _reports.GetItemProfitsAsync(from, to, null);
+            _export.ProfitWorkbook(rows.ToList(), items.ToList());
+            _shell.Notify("CSV files opened. Excel can open them.");
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
     [RelayCommand]
     private void Print()
     {

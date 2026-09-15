@@ -29,7 +29,7 @@ public partial class DashboardViewModel : ViewModelBase
     /// left empty leaves that side open, because "everything since the 1st" is asked for far more often than
     /// the 1st-to-the-1st. They move the card of book figures and not the month under it - the month is the
     /// month, so there is always one figure on the page that needs no reading of the dates first. Apply is a
-    /// button rather than a reload on every click, as on the Profit page: a number that moves while the dates
+    /// button rather than a reload on every click, as on the Reports page: a number that moves while the dates
     /// are still being set is a number nobody reads.</summary>
     [ObservableProperty] private DateTimeOffset? fromDate;
     [ObservableProperty] private DateTimeOffset? toDate;
