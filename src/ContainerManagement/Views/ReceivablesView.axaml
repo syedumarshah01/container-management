@@ -27,7 +27,11 @@
                Text="That figure is what this container's bills still have owing; a customer's balance also holds advances and payouts, so the two need not match." />
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Customers" />
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+          <TextBlock Classes="h2" Text="Customers" Margin="0" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name or phone" Width="260"
+                   VerticalAlignment="Center" />
+        </Grid>
         <DataGrid ItemsSource="{Binding Due}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>

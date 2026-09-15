@@ -23,6 +23,26 @@ public partial class ReceivablesViewModel : ViewModelBase
     }
 
     public ObservableCollection<ReceivableRow> Due { get; } = new();
+    private List<ReceivableRow> _due = new();
+
+    [ObservableProperty] private string query = "";
+
+    partial void OnQueryChanged(string value) => ApplyFilter();
+
+    /// <summary>What the list holds, narrowed by what was typed. The money in the cards above is the market's
+    /// own and is read before this runs, so a search box can never move a total.</summary>
+    private void ApplyFilter()
+    {
+        IEnumerable<ReceivableRow> src = _due;
+        var q = Query?.Trim();
+        if (!string.IsNullOrEmpty(q))
+            src = _due.Where(r => r.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || (r.Phone ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || r.Aging.Contains(q, StringComparison.OrdinalIgnoreCase));
+        Due.Clear();
+        foreach (var r in src)
+            Due.Add(r);
+    }
     [ObservableProperty] private ReceivableRow? selected;
     [ObservableProperty] private string outstanding = "—";
 
@@ -45,9 +65,8 @@ public partial class ReceivablesViewModel : ViewModelBase
         Outstanding = Money.Pkr(due.Sum(r => r.Balance));
         Advances = Money.Pkr(Math.Abs(adv.Sum(r => r.Balance)));
         Net = Money.Pkr(rows.Sum(r => r.Balance));
-        Due.Clear();
-        foreach (var r in due)
-            Due.Add(r);
+        _due = due;
+        ApplyFilter();
 
         var lots = (await _reports.GetContainerProfitsAsync()).ToList();
         var keep = SelectedLot?.ContainerId ?? 0;

@@ -44,11 +44,35 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private decimal? newWeight;
     [ObservableProperty] private bool showAddForm;
 
+    private List<ContainerProfitRow> _all = new();
+
+    [ObservableProperty] private string query = "";
+
+    partial void OnQueryChanged(string value) => ApplyFilter();
+
     public override async Task LoadAsync()
     {
-        var list = await _reports.GetContainerProfitsAsync();
+        _all = await _reports.GetContainerProfitsAsync();
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// The list as the shop asked to see it. A search narrows rows and touches no figure: what is left on each
+    /// container is what the row carries, so the page cannot come to a different total than the container's own
+    /// page does because somebody typed a letter and deleted another.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        IEnumerable<ContainerProfitRow> src = _all;
+        var q = Query?.Trim();
+        if (!string.IsNullOrEmpty(q))
+            src = _all.Where(r => r.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || r.ContainerNumber.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || (r.Origin ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || r.StatusText.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || r.ArrivalText.Contains(q, StringComparison.OrdinalIgnoreCase));
         Rows.Clear();
-        foreach (var r in list)
+        foreach (var r in src)
             Rows.Add(r);
     }
 

@@ -38,6 +38,7 @@
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="Record money you actually sent. The amount we owe is not cash until you pay it." />
         <TextBlock Classes="label" Text="Supplier" />
+        <TextBox Text="{Binding SupplierQuery}" Watermark="Search supplier or container" Margin="0,0,0,6" />
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
         <TextBlock Classes="label" Text="We owe them" />
         <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
@@ -96,6 +97,7 @@
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="Their ledger is in their favour, so this is their money in our till. Paying it takes the figure off cash and off what we owe them - it is not an expense." />
         <TextBlock Classes="label" Text="Customer" />
+        <TextBox Text="{Binding CustomerQuery}" Watermark="Search name or phone" Margin="0,0,0,6" />
         <ComboBox ItemsSource="{Binding PayOptions}" SelectedItem="{Binding PayCustomer}" />
         <TextBlock Classes="label" Text="We owe them" />
         <TextBlock Classes="stat" Text="{Binding CustomerOwedText}" Margin="0,0,0,12" />

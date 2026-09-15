@@ -73,7 +73,7 @@ public partial class WeOweViewModel : ViewModelBase
         var owed = await _ledger.GetCustomerOwedAsync();
 
         Rows.Clear();
-        Containers.Clear();
+        _targets = new List<PayContainerOption>();
         foreach (var t in targets.OrderByDescending(x => x.Owed).ThenBy(x => x.SupplierName))
         {
             Rows.Add(new WeOweRow
@@ -83,7 +83,7 @@ public partial class WeOweViewModel : ViewModelBase
                 ContainerTitle = t.ContainerTitle,
                 Owed = t.Owed
             });
-            Containers.Add(new PayContainerOption
+            _targets.Add(new PayContainerOption
             {
                 Id = t.Id,
                 Label = t.Label,
@@ -94,27 +94,83 @@ public partial class WeOweViewModel : ViewModelBase
 
         // The grid shows the ones money is due to; the dropdown also holds the ones already paid back, so
         // the payout that cleared them is still readable where it was made.
+        _owed = owed;
         Customers.Clear();
-        PayOptions.Clear();
         foreach (var r in owed)
         {
-            PayOptions.Add(r);
             if (r.Owed > 0.009m)
                 Customers.Add(r);
         }
+        ApplySupplierFilter();
+        ApplyCustomerFilter();
 
         _paid = await _cash.SupplierPaymentsAsync();
         var supplierOwed = targets.Where(t => t.Owed > 0).Sum(t => t.Owed);
         var customerOwed = owed.Sum(r => r.Owed);
         TotalOwed = Money.Pkr(supplierOwed + customerOwed);
         OwedSplit = "Suppliers " + Money.Pkr(supplierOwed) + " · Customers " + Money.Pkr(customerOwed);
-        PayContainer = Containers.FirstOrDefault(c => c.Id == keepPay) ?? Containers.FirstOrDefault();
+        PayContainer = _targets.FirstOrDefault(c => c.Id == keepPay) ?? _targets.FirstOrDefault();
         Selected = Rows.FirstOrDefault(r => r.ContainerId == PayContainer?.Id);
-        PayCustomer = PayOptions.FirstOrDefault(c => c.CustomerId == keepCustomer)
-                      ?? PayOptions.FirstOrDefault();
+        PayCustomer = _owed.FirstOrDefault(c => c.CustomerId == keepCustomer) ?? _owed.FirstOrDefault();
         SelectedCustomer = Customers.FirstOrDefault(r => r.CustomerId == PayCustomer?.CustomerId);
+        // The pickers are rebuilt once from what the forms ended up pointing at, so a search that was already
+        // typed keeps holding the choice it was made over.
+        ApplySupplierFilter();
+        ApplyCustomerFilter();
         ShowOwed();
         await ShowOwedCustomerAsync();
+    }
+
+    // The two payment pickers, and what narrows them. The full lists stay behind so a reload can rebuild a
+    // picker without losing the person or the container it was pointing at.
+    [ObservableProperty] private string supplierQuery = "";
+    [ObservableProperty] private string customerQuery = "";
+    private List<PayContainerOption> _targets = new();
+    private List<CustomerOwedRow> _owed = new();
+
+    partial void OnSupplierQueryChanged(string value) => ApplySupplierFilter();
+
+    partial void OnCustomerQueryChanged(string value) => ApplyCustomerFilter();
+
+    /// <summary>
+    /// The picker in a payment form, narrowed by what was typed. Whatever the form is already pointing at stays
+    /// in the list, and stays selected, even when it stops matching the words: a picker that drops your choice
+    /// mid-typing has changed the payment rather than the view of it, and a payment form whose target went blank
+    /// while somebody was looking for a name is a form nobody should be sending money from.
+    /// </summary>
+    private void ApplySupplierFilter()
+    {
+        // A combo box lets go of a selection it can no longer see, and these two pickers are the form: if the
+        // target went null while somebody typed a letter, the payment would be aimed at nobody. The choice is
+        // put back after the list is rebuilt, whatever the box did in between.
+        var keep = PayContainer;
+        Containers.Clear();
+        foreach (var o in Match(_targets, o => o.Label + " " + o.SupplierName, SupplierQuery))
+            Containers.Add(o);
+        if (keep is not null && Containers.All(o => o.Id != keep.Id))
+            Containers.Insert(0, keep);
+        if (keep is not null && PayContainer is null)
+            PayContainer = keep;
+    }
+
+    private void ApplyCustomerFilter()
+    {
+        var keep = PayCustomer;
+        PayOptions.Clear();
+        foreach (var r in Match(_owed, r => r.Name + " " + (r.Phone ?? ""), CustomerQuery))
+            PayOptions.Add(r);
+        if (keep is not null && PayOptions.All(r => r.CustomerId != keep.CustomerId))
+            PayOptions.Insert(0, keep);
+        if (keep is not null && PayCustomer is null)
+            PayCustomer = keep;
+    }
+
+    private static IEnumerable<T> Match<T>(List<T> rows, Func<T, string> asSaid, string query)
+    {
+        var q = query?.Trim();
+        return string.IsNullOrEmpty(q)
+            ? rows
+            : rows.Where(r => asSaid(r).Contains(q, StringComparison.OrdinalIgnoreCase));
     }
 
     partial void OnSelectedChanged(WeOweRow? value)

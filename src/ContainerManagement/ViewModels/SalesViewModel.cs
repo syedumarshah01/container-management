@@ -62,13 +62,24 @@ public partial class SalesViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    [ObservableProperty] private string query = "";
+
     partial void OnSelectedCustomerChanged(CustomerFilter? value) => ApplyFilter();
+
+    partial void OnQueryChanged(string value) => ApplyFilter();
 
     private void ApplyFilter()
     {
         IEnumerable<SaleListRow> src = _all;
         if (SelectedCustomer is { Id: > 0 })
             src = _all.Where(r => r.CustomerId == SelectedCustomer.Id);
+        // A search narrows the list, it does not change what is on it: every line that comes back is the bill
+        // the page would have shown anyway, and no figure is added up over the words typed in a box.
+        var q = Query?.Trim();
+        if (!string.IsNullOrEmpty(q))
+            src = src.Where(r => r.CustomerName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                 || r.Containers.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                 || r.Id.ToString().Contains(q));
         Rows.Clear();
         foreach (var r in src)
             Rows.Add(r);
