@@ -20,7 +20,7 @@
         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
           <TextBlock Classes="h2" Text="All containers" Margin="0" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, number, origin, date"
-                   Width="300" VerticalAlignment="Center" />
+                   Width="300" VerticalAlignment="Center" Margin="0" />
         </Grid>
         <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">

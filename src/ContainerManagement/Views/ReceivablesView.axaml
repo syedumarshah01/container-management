@@ -41,7 +41,7 @@
         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
           <TextBlock Classes="h2" Text="Customers" Margin="0" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name or phone" Width="260"
-                   VerticalAlignment="Center" />
+                   VerticalAlignment="Center" Margin="0" />
         </Grid>
         <DataGrid ItemsSource="{Binding Due}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">

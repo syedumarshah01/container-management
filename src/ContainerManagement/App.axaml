@@ -186,6 +186,12 @@
 
     <Style Selector="TextBox, ComboBox, NumericUpDown, DatePicker, AutoCompleteBox">
       <Setter Property="MinHeight" Value="38" />
+      <!--  The 12 is the gap between one field and the next in a stack, which is how most of this app's forms
+            are built. It is only a gap while the field is the last thing in its cell: put a field on a LINE,
+            beside a button or a caption, and that 12 lifts the box off the shared bottom edge and the row is
+            never level however the cells are aligned. So a field in a row of controls says Margin="0" and lets
+            the row's own margin space it - the date boxes at the head of Home and of Reports do, and anything
+            new that joins them should too. -->
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
     <Style Selector="NumericUpDown">

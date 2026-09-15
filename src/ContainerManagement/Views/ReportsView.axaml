@@ -30,17 +30,18 @@
     <Grid ColumnDefinitions="260,Auto,Auto,Auto,*" Margin="0,0,0,16">
       <StackPanel Margin="0,0,12,0">
         <TextBlock Classes="label" Text="Report" />
-        <ComboBox ItemsSource="{Binding ReportChoices}" SelectedItem="{Binding SelectedReport}" MinWidth="240" />
+        <ComboBox ItemsSource="{Binding ReportChoices}" SelectedItem="{Binding SelectedReport}" MinWidth="240"
+                  Margin="0" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
                   VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
-        <DatePicker SelectedDate="{Binding FromDate}" VerticalAlignment="Center" />
+        <DatePicker SelectedDate="{Binding FromDate}" VerticalAlignment="Center" Margin="0" />
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
                   VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
-        <DatePicker SelectedDate="{Binding ToDate}" VerticalAlignment="Center" />
+        <DatePicker SelectedDate="{Binding ToDate}" VerticalAlignment="Center" Margin="0" />
       </StackPanel>
       <Button Grid.Column="3" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}"
               IsVisible="{Binding ShowRange}" Margin="0,0,8,0" VerticalAlignment="Bottom" />
