@@ -533,6 +533,28 @@ public static class Program
             month.Days.Count == 0 || month.Days.All(d => d.Date >= monthStart && d.Date < monthStart.AddMonths(1)),
             month.Days.Count + " day rows");
 
+        Head("the reports page reads a year's totals from the year report's own total line");
+        // The hub does not add a year's twelve months up itself: it takes the line the year report already
+        // prints. That is only safe while the report does hand one over, and while it says which line it is -
+        // otherwise the hub shows nothing and looks like a shop that traded nothing.
+        var tillYear = await cash.GetYearCashAsync(DateTime.Today.Year);
+        Check("the till's year hands back one total line, last, and labelled as a total",
+            tillYear.Count(r => r.IsTotal) == 1 && tillYear[^1].IsTotal
+                && (tillYear[^1].Label ?? "").StartsWith("Total"),
+            tillYear.Count + " rows, last is \"" + (tillYear[^1].Label ?? "no label") + "\"");
+        var salesYear = await reports.GetYearSalesAsync(DateTime.Today.Year);
+        Check("the sales year does the same, with its twelve months before it",
+            salesYear.Count(r => r.IsTotal) == 1 && salesYear[^1].IsTotal
+                && salesYear.Count == 13,
+            salesYear.Count + " rows");
+        var billsYear = await shop.GetYearAsync(DateTime.Today.Year);
+        Check("and so do the shop's own bills",
+            billsYear.Count(r => r.IsTotal) == 1 && billsYear[^1].IsTotal,
+            billsYear.Count + " rows");
+        Check("so a figure read off that line is the year's, not one month's dressed up as it",
+            salesYear[^1].SoldText == Money.Pkr(salesYear.Where(r => !r.IsTotal).Sum(r => r.Sold)),
+            salesYear[^1].SoldText);
+
         Head("a container that has only landed is still a container");
         // A lot booked on a date and not yet sold off is the case the count got wrong: it had no bill and no
         // expense, so counting the containers that did business in a period showed a shop zero containers in the

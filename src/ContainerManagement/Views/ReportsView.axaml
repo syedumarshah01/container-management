@@ -1,0 +1,243 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.ReportsView"
+             x:DataType="vm:ReportsViewModel">
+  <StackPanel>
+
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Reports" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Margin="0,0,12,0">
+        <TextBlock Classes="label" Text="Month" />
+        <ComboBox ItemsSource="{Binding MonthChoices}" SelectedItem="{Binding SelectedMonth}" MinWidth="130" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Margin="0,0,12,0">
+        <TextBlock Classes="label" Text="Year" />
+        <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" MinWidth="100" />
+      </StackPanel>
+      <Button Grid.Column="3" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Bottom" />
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="The book, as it stands today" />
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Sold" />
+            <TextBlock Classes="stat" Text="{Binding BookRevenue}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Profit" />
+            <TextBlock Classes="stat ok" Text="{Binding BookProfit}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Still in the market" />
+            <TextBlock Classes="stat" Text="{Binding BookInMarket}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Stock on the shelf" />
+            <TextBlock Classes="stat" Text="{Binding BookStock}" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,14,0,0">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Customers owe" />
+            <TextBlock Classes="stat" Text="{Binding BookOwed}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Left unpaid on bills" />
+            <TextBlock Classes="stat" Text="{Binding BookOutstanding}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Containers" />
+            <TextBlock Classes="stat" Text="{Binding BookContainers}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Low stock" />
+            <TextBlock Classes="stat" Text="{Binding BookLowStock}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding MonthLabel}" />
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Sold" />
+            <TextBlock Classes="stat" Text="{Binding MonthRevenue}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Profit" />
+            <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Still in the market" />
+            <TextBlock Classes="stat" Text="{Binding MonthInMarket}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Containers that landed" />
+            <TextBlock Classes="stat" Text="{Binding MonthContainers}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding TillHeading}" />
+        <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,14">
+          <StackPanel>
+            <TextBlock Classes="label" Text="In" />
+            <TextBlock Classes="stat ok" Text="{Binding TillIn}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Out" />
+            <TextBlock Classes="stat" Text="{Binding TillOut}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Returns" />
+            <TextBlock Classes="stat" Text="{Binding TillReturns}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Cash at the year's end" />
+            <TextBlock Classes="stat" Text="{Binding TillClosing}" />
+          </StackPanel>
+        </Grid>
+        <DataGrid ItemsSource="{Binding TillRows}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="*" />
+            <DataGridTextColumn Header="In" Binding="{Binding InText}" Width="150" />
+            <DataGridTextColumn Header="Out" Binding="{Binding OutText}" Width="150" />
+            <DataGridTextColumn Header="Returns" Binding="{Binding ReturnsText}" Width="130" />
+            <DataGridTextColumn Header="Cash at the month's end" Binding="{Binding ClosingText}" Width="170" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding SalesHeading}" />
+        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,10,0,14">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Bills" />
+            <TextBlock Classes="stat" Text="{Binding YearBills}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Sold" />
+            <TextBlock Classes="stat" Text="{Binding YearSold}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Received" />
+            <TextBlock Classes="stat" Text="{Binding YearReceived}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Still owed" />
+            <TextBlock Classes="stat" Text="{Binding YearStillOwed}" />
+          </StackPanel>
+          <StackPanel Grid.Column="4">
+            <TextBlock Classes="label" Text="Profit" />
+            <TextBlock Classes="stat ok" Text="{Binding YearProfit}" />
+          </StackPanel>
+        </Grid>
+        <DataGrid ItemsSource="{Binding SalesRows}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="*" />
+            <DataGridTextColumn Header="Bills" Binding="{Binding BillsText}" Width="90" />
+            <DataGridTextColumn Header="Sold" Binding="{Binding SoldText}" Width="150" />
+            <DataGridTextColumn Header="Received" Binding="{Binding ReceivedText}" Width="150" />
+            <DataGridTextColumn Header="Still owed" Binding="{Binding StillOwedText}" Width="150" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="150" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding BillsHeading}" />
+        <Grid ColumnDefinitions="*,*" Margin="0,10,0,14">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Lines" />
+            <TextBlock Classes="stat" Text="{Binding BillCount}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Classes="label" Text="Money" />
+            <TextBlock Classes="stat" Text="{Binding BillAmount}" />
+          </StackPanel>
+        </Grid>
+        <DataGrid ItemsSource="{Binding BillRows}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Month" Binding="{Binding MonthText}" Width="*" />
+            <DataGridTextColumn Header="Lines" Binding="{Binding CountText}" Width="90" />
+            <DataGridTextColumn Header="Money" Binding="{Binding AmountText}" Width="170" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Containers" />
+        <DataGrid ItemsSource="{Binding Containers}" x:CompileBindings="False" Margin="0,10,0,0">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Container" Binding="{Binding Title}" Width="*" />
+            <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="110" />
+            <DataGridTextColumn Header="Sold" Binding="{Binding RevenueText}" Width="160" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="160" />
+            <DataGridTextColumn Header="Still in the market" Binding="{Binding InMarketText}" Width="170" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ContainersNote}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Who owes" />
+        <DataGrid ItemsSource="{Binding WhoOwes}" x:CompileBindings="False" Margin="0,10,0,0">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Customer" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Owes" Binding="{Binding BalanceText}" Width="160" />
+            <DataGridTextColumn Header="Oldest bill" Binding="{Binding OldestDueText}" Width="130" />
+            <DataGridTextColumn Header="How long" Binding="{Binding Aging}" Width="130" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding WhoOwesNote}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Stock" />
+        <DataGrid ItemsSource="{Binding Stock}" x:CompileBindings="False" Margin="0,10,0,0">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="In stock" Binding="{Binding InStockText}" Width="130" />
+            <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="160" />
+            <DataGridTextColumn Header="From" Binding="{Binding LotsText}" Width="200" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding StockNote}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding ItemsHeading}" />
+        <DataGrid ItemsSource="{Binding Items}" x:CompileBindings="False" Margin="0,10,0,0">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+            <DataGridTextColumn Header="Sold" Binding="{Binding QtyText}" Width="110" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding RevenueText}" Width="160" />
+            <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="160" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding ItemsNote}" Margin="0,8,0,0" />
+      </StackPanel>
+    </Border>
+
+  </StackPanel>
+</UserControl>
