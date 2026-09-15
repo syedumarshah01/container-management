@@ -83,6 +83,11 @@ pretend to be - it will not know that a figure is wrong - but it costs nothing, 
 hide every other fault in the file, because a file with a syntax error gets no report on anything the compiler
 could not bind.
 
+It reads the pages as well, for the one thing the compiler is slow to explain: a `Margin`, `Padding` or
+`BorderThickness` that is not one, two or four numbers. `Margin="0,0,16"` - three, after a retyped `0,0,0,16`
+lost a zero - stops a build with AVLN2005 on a line that says nothing about the cause. `check.bat` runs this
+gate before it builds, so the answer arrives in a second instead of after a restore.
+
 ## Reading a failure
 
 `FAIL  <name>   ->   expected 4900, got 4900.0049999` is a real finding: something started rounding twice,

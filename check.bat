@@ -16,6 +16,25 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem One character in a page - a margin that lost a zero, a quote that was never escaped - stops this build the
+rem same way a bad figure would, and the gate reads the whole repo in a second. Skipping it only costs eight
+rem seconds of compiler to find the same thing.
+set PYEXE=
+where python >nul 2>&1 && set PYEXE=python
+if not defined PYEXE where py >nul 2>&1 && set PYEXE=py
+if defined PYEXE (
+  %PYEXE% tools\check_quotes.py
+  if errorlevel 1 (
+    echo.
+    echo The markup gate stopped this run before building. It names the file and the line; fix that, then run
+    echo this again.
+    pause
+    exit /b 3
+  )
+) else (
+  echo No python in PATH, so the markup gate was skipped. The build below still reads the same files.
+)
+
 rem The checks build the app project too, and a running copy locks its output files.
 tasklist /FI "IMAGENAME eq ProBooks.exe" 2>nul | find /I "ProBooks.exe" >nul
 if not errorlevel 1 (

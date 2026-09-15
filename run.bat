@@ -27,6 +27,24 @@ if not errorlevel 1 (
   taskkill /IM ProBooks.exe /F >nul 2>&1
 )
 
+rem One character in a page - a margin that lost a zero, a quote that was never escaped - stops the build below
+rem for the same reason a bad figure stops the money checks, and the gate reads the whole repo in a second. It
+rem is pre-flight, not a step, so the numbering stays as it is.
+set PYEXE=
+where python >nul 2>&1 && set PYEXE=python
+if not defined PYEXE where py >nul 2>&1 && set PYEXE=py
+if defined PYEXE (
+  %PYEXE% tools\check_quotes.py
+  if errorlevel 1 (
+    echo.
+    echo The markup gate stopped this before building. It names the file and the line; fix that and run again.
+    pause
+    exit /b 1
+  )
+) else (
+  echo No python in PATH, so the markup gate was skipped. The build below still reads the same files.
+)
+
 echo.
 echo [1/3] Restoring packages...
 dotnet restore src\ContainerManagement

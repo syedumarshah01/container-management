@@ -145,8 +145,39 @@ def scan(text):
     return problems, depth
 
 
+THICK = ('Margin', 'Padding', 'BorderThickness')
+
+
+def thickness_problems(text):
+    """Shapes a Thickness cannot read, for the markup the compiler only checks later.
+
+    An Avalonia margin takes one, two or four numbers. `Margin="0,0,16"` - three - is what a retyped
+    `0,0,0,16` looks like when it loses a zero, and the build stops with AVLN2005 naming the line but not the
+    cause. Numbers only: a binding is somebody else's business.
+    """
+    out = []
+    for m in re.finditer(r'\b(%s)="([^"]*)"' % '|'.join(THICK), text):
+        value = m.group(2)
+        if '{' in value:
+            continue
+        parts = [p.strip() for p in value.split(',')]
+        shape = re.compile(r'-?\d*\.?\d+(px)?')
+        if len(parts) not in (1, 2, 4) or not all(shape.fullmatch(p) and p for p in parts):
+            out.append((text[:m.start()].count('\n') + 1,
+                        f'{m.group(1)}="{value}" is not a thickness - one, two or four numbers, never '
+                        f'{len(parts)}'))
+    return out
+
+
+THICK_SELF_TEST = [
+    ('    <TextBlock Margin="0,0,16" Text="x" />', 'a margin that lost a zero'),
+    ('    <TextBlock Padding="4,4,4,4,4" Text="x" />', 'a padding with five numbers'),
+    ('    <Border BorderThickness="" />', 'an empty thickness'),
+]
+
+
 SELF_TEST = [
-    # the three shapes this file exists for, each with the error a compiler would raise on it
+    # the shapes this file exists for, each with the error a compiler would raise on it
     ('            Arguments = $""{Path.GetDirectoryName(path)}"",', 'swallowed backslash'),
     ('                + $"--print-to-pdf="{outPath}" "file";', 'a browser argument whose quotes went missing'),
     ('            Eq("a", "b"\n                "c");\n    }\n}\n', 'adjacent literals without a +'),
@@ -160,7 +191,12 @@ def self_test():
         problems, _ = scan(text)
         print(f'    {"caught" if problems else "MISSED"}: {why}')
         bad += 0 if problems else 1
-    print(); print("self-test: %d/%d shapes caught" % (len(SELF_TEST) - bad, len(SELF_TEST)))
+    for text, why in THICK_SELF_TEST:
+        problems = thickness_problems(text)
+        print(f'    {"caught" if problems else "MISSED"}: {why}')
+        bad += 0 if problems else 1
+    total = len(SELF_TEST) + len(THICK_SELF_TEST)
+    print(); print("self-test: %d/%d shapes caught" % (total - bad, total))
     return 1 if bad else 0
 
 
@@ -171,7 +207,11 @@ def main():
     if args:
         files = args
     else:
-        files = subprocess.run(['git', 'ls-files', '*.cs'], capture_output=True, text=True).stdout.split()
+        def listing(pattern):
+            return subprocess.run(['git', 'ls-files', pattern], capture_output=True, text=True).stdout.split()
+        # Pages are markup, not C#, and the compiler only reads them later: a thickness it cannot parse stops a
+        # build the same as a bad quote does, so both are walked here.
+        files = listing('*.cs') + listing('*.axaml')
     bad = 0
     for f in files:
         try:
@@ -179,6 +219,11 @@ def main():
         except OSError as ex:
             print(f'{f}: cannot read ({ex})')
             bad += 1
+            continue
+        if f.endswith('.axaml'):
+            for line, why in thickness_problems(text):
+                print(f'{f}:{line}: {why}')
+                bad += 1
             continue
         problems, depth = scan(text)
         drift = {k: v for k, v in depth.items() if v}
