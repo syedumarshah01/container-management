@@ -4,11 +4,13 @@
              x:Class="ContainerManagement.Views.ReceivablesView"
              x:DataType="vm:ReceivablesViewModel">
   <StackPanel>
-    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
       <TextBlock Classes="h1" Text="To collect" Margin="0" VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1" ItemsSource="{Binding Lots}" SelectedItem="{Binding SelectedLot}"
-                MinWidth="260" VerticalAlignment="Center" />
-      <Button Grid.Column="2" Content="Print" Command="{Binding PrintCommand}"
+      <TextBox Grid.Column="1" Text="{Binding LotQuery}" Width="220" VerticalAlignment="Center"
+               Watermark="Search container name or number" Margin="0,0,12,0" />
+      <ComboBox Grid.Column="2" ItemsSource="{Binding LotChoices}" SelectedItem="{Binding SelectedLot}"
+                MinWidth="240" VerticalAlignment="Center" />
+      <Button Grid.Column="3" Content="Print" Command="{Binding PrintCommand}"
               Margin="12,0,0,0" VerticalAlignment="Center" />
     </Grid>
     <Border Classes="statcard" Margin="0,0,0,4">
@@ -19,12 +21,21 @@
         </StackPanel>
         <StackPanel Grid.Column="1" HorizontalAlignment="Right" IsVisible="{Binding HasLot}">
           <TextBlock Classes="label" Text="{Binding LotLabel}" />
-          <TextBlock Classes="stat" Text="{Binding LotFigure}" />
+          <Grid ColumnDefinitions="Auto,Auto">
+            <StackPanel Margin="0,0,40,0">
+              <TextBlock Classes="label" Text="Collected" />
+              <TextBlock Classes="stat ok" Text="{Binding LotCollected}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <TextBlock Classes="label" Text="In the market" />
+              <TextBlock Classes="stat" Text="{Binding LotFigure}" />
+            </StackPanel>
+          </Grid>
         </StackPanel>
       </Grid>
     </Border>
     <TextBlock Classes="muted" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap" IsVisible="{Binding HasLot}"
-               Text="That figure is what this container's bills still have owing; a customer's balance also holds advances and payouts, so the two need not match." />
+               Text="Both figures come from this container's bills; a customer's balance also holds advances and payouts, so the pair need not add to the amount owing on the left." />
     <Border Classes="card">
       <StackPanel>
         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">

@@ -50,10 +50,43 @@ public partial class ReceivablesViewModel : ViewModelBase
     /// figures are the containers' page's own rows, read as they are: this page asks who owes, and a shop
     /// waiting on one shipment's money wants its figure without going hunting for it.</summary>
     public ObservableCollection<ContainerProfitRow> Lots { get; } = new();
+
+    /// <summary>The picker's own list: what <see cref="Lots"/> holds after the container search is applied. The
+    /// page reads its figures off <see cref="Lots"/>, so narrowing a dropdown cannot narrow a total.</summary>
+    public ObservableCollection<ContainerProfitRow> LotChoices { get; } = new();
+
     [ObservableProperty] private ContainerProfitRow? selectedLot;
+    [ObservableProperty] private string lotQuery = "";
     [ObservableProperty] private string lotLabel = "";
     [ObservableProperty] private string lotFigure = "";
+    [ObservableProperty] private string lotCollected = "";
     public bool HasLot => !string.IsNullOrEmpty(LotFigure);
+
+    partial void OnLotQueryChanged(string value) => ApplyLotFilter();
+
+    /// <summary>
+    /// Which containers the dropdown offers. The one it is pointing at stays in the list and stays chosen even
+    /// when it stops matching the words: a picker that drops your choice mid-typing has changed the figure on the
+    /// page, not only the list it was picked from.
+    /// </summary>
+    private void ApplyLotFilter()
+    {
+        var keep = SelectedLot;
+        var q = LotQuery?.Trim();
+        LotChoices.Clear();
+        foreach (var l in Lots)
+        {
+            if (string.IsNullOrEmpty(q)
+                || l.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (l.ContainerNumber ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || l.Origin.Contains(q, StringComparison.OrdinalIgnoreCase))
+                LotChoices.Add(l);
+        }
+        if (keep is not null && LotChoices.All(l => l.ContainerId != keep.ContainerId))
+            LotChoices.Insert(0, keep);
+        if (keep is not null && !ReferenceEquals(SelectedLot, keep))
+            SelectedLot = keep;
+    }
     [ObservableProperty] private string advances = "—";
     [ObservableProperty] private string net = "—";
 
@@ -75,6 +108,7 @@ public partial class ReceivablesViewModel : ViewModelBase
         foreach (var lot in lots.OrderByDescending(l => l.InMarket).ThenBy(l => l.Title))
             Lots.Add(lot);
         SelectedLot = Lots.FirstOrDefault(l => l.ContainerId == keep) ?? Lots[0];
+        ApplyLotFilter();
     }
 
     partial void OnSelectedLotChanged(ContainerProfitRow? value)
@@ -83,14 +117,17 @@ public partial class ReceivablesViewModel : ViewModelBase
         {
             LotLabel = "";
             LotFigure = "";
+            LotCollected = "";
         }
         else
         {
-            LotLabel = "In the market on " + value.Title
+            LotLabel = "On " + value.Title
                        + (string.IsNullOrWhiteSpace(value.ContainerNumber) ? "" : " · " + value.ContainerNumber);
-            // The row's own text, not a second formatting of the figure: the number on this page is the number
-            // on the container's page, word for word.
+            // The row's own texts, not a second formatting of the figures: the money on this page is the money on
+            // the container's page, word for word, and what came in and what is still out are read from the same
+            // place rather than one of them being worked out from the other.
             LotFigure = value.InMarketText;
+            LotCollected = value.CollectedText;
         }
         OnPropertyChanged(nameof(HasLot));
     }
