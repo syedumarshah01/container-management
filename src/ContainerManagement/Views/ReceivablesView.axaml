@@ -4,11 +4,12 @@
              x:Class="ContainerManagement.Views.ReceivablesView"
              x:DataType="vm:ReceivablesViewModel">
   <StackPanel>
-    <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />
-    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
       <TextBlock Classes="h1" Text="To collect" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding Lots}" SelectedItem="{Binding SelectedLot}"
                 MinWidth="260" VerticalAlignment="Center" />
+      <Button Grid.Column="2" Content="Print" Command="{Binding PrintCommand}"
+              Margin="12,0,0,0" VerticalAlignment="Center" />
     </Grid>
     <Border Classes="statcard" Margin="0,0,0,4">
       <Grid ColumnDefinitions="*,Auto">

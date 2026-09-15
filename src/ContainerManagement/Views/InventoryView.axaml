@@ -14,11 +14,13 @@
                 HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
 
-      <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
-        <Grid ColumnDefinitions="*,280">
+      <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
+        <Grid ColumnDefinitions="*,280,Auto">
           <TextBlock Classes="h1" Text="Stock" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
                    VerticalAlignment="Top" Margin="16,0,0,12" />
+          <Button Grid.Column="2" Content="Print" Command="{Binding PrintCommand}"
+                  VerticalAlignment="Top" Margin="16,0,0,12" />
         </Grid>
 
         <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">

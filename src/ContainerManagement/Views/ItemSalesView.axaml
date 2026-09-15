@@ -6,8 +6,10 @@
              x:DataType="vm:ItemSalesViewModel">
   <StackPanel>
 
-    <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />
-    <TextBlock Classes="h1" Text="Item sales" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Item sales" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Top" />
+    </Grid>
     <TextBlock Classes="muted" Text="Search an item to see how much you sold and who bought it." Margin="0,0,0,16" />
 
     <Border Classes="card">
