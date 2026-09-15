@@ -33,22 +33,23 @@
         <ComboBox ItemsSource="{Binding ReportChoices}" SelectedItem="{Binding SelectedReport}" MinWidth="240" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
-                  IsVisible="{Binding ShowRange}">
+                  VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="From" VerticalAlignment="Center" />
-        <DatePicker SelectedDate="{Binding FromDate}" />
+        <DatePicker SelectedDate="{Binding FromDate}" VerticalAlignment="Center" />
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
-                  IsVisible="{Binding ShowRange}">
+                  VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
         <TextBlock Classes="label" Text="To" VerticalAlignment="Center" />
-        <DatePicker SelectedDate="{Binding ToDate}" />
+        <DatePicker SelectedDate="{Binding ToDate}" VerticalAlignment="Center" />
       </StackPanel>
       <Button Grid.Column="3" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}"
               IsVisible="{Binding ShowRange}" Margin="0,0,8,0" VerticalAlignment="Bottom" />
-      <!-- The reset belongs with the dates and only while there are some: a page already on this month does
-           not need a button telling you to go back to it. -->
+      <!-- The reset belongs with the dates and only while there are some: a report already reading what the
+           reset would put back does not need a button saying so, and its label names where it lands - this
+           month, this year, or the whole book. -->
       <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Left"
                   VerticalAlignment="Bottom" IsVisible="{Binding ShowRange}">
-        <Button Content="{Binding ResetLabel}" Command="{Binding ThisMonthCommand}" IsVisible="{Binding HasRange}" />
+        <Button Content="{Binding ResetLabel}" Command="{Binding ClearRangeCommand}" IsVisible="{Binding HasRange}" />
       </StackPanel>
     </Grid>
 
@@ -329,8 +330,9 @@
 
     <Border Classes="card" IsVisible="{Binding ShowContainers}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Containers" />
-        <DataGrid ItemsSource="{Binding Containers}" x:CompileBindings="False" Margin="0,10,0,0">
+        <TextBlock Classes="h2" Text="Containers" Margin="0,0,0,2" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding PeriodLabel}" Margin="0,0,0,12" />
+        <DataGrid ItemsSource="{Binding Containers}" x:CompileBindings="False">
           <DataGrid.Columns>
             <DataGridTextColumn Header="Container" Binding="{Binding Title}" Width="*" />
             <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="110" />

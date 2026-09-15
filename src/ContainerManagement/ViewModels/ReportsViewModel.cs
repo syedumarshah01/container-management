@@ -127,16 +127,23 @@ public partial class ReportsViewModel : ViewModelBase
     public bool ShowItems => Is("items");
 
     /// <summary>Whether the dates in the header can change what is below them at all.</summary>
-    public bool ShowRange => Is("period") || Is("till") || Is("sales") || Is("bills") || Is("items");
+    public bool ShowRange => Is("period") || Is("containers") || Is("till") || Is("sales") || Is("bills")
+                             || Is("items");
 
     /// <summary>The profit reports, and only they, get the CSV button: a sheet is written from the two lists
     /// this page can show, and offering it beside a till or a stock table would be a button that writes
     /// something other than what is in front of the person pressing it.</summary>
     public bool ShowExport => ShowContainers || ShowItems;
 
-    /// <summary>What the reset button is worth here: a month's card goes back to this month, a year's table
-    /// goes back to this year, and a button that promises the wrong one is a trap.</summary>
-    public string ResetLabel => Is("till") || Is("sales") || Is("bills") ? "This year" : "This month";
+    /// <summary>
+    /// What the reset button is worth here, because clearing the dates does not land every report in the same
+    /// place: a year's table goes back to this year, the month's card to this month, and the two reports that
+    /// read their services with no dates at all go back to the whole book. A button that promises the wrong one
+    /// is a trap - on the profit reports it would be promising a month and delivering everything ever sold.
+    /// </summary>
+    public string ResetLabel => Is("till") || Is("sales") || Is("bills") ? "This year"
+        : Is("containers") || Is("items") ? "Whole book"
+        : "This month";
 
     public bool HasRange => Period.HasRange(FromDate?.DateTime.Date, ToDate?.DateTime.Date);
 
@@ -183,8 +190,10 @@ public partial class ReportsViewModel : ViewModelBase
     [RelayCommand]
     private async Task ApplyAsync() => await LoadAsync();
 
+    /// <summary>Clears the dates and reads the report again. It does not say "this month" because that is not
+    /// what every report does with an empty pair of boxes - the card's own heading says what the rows are.</summary>
     [RelayCommand]
-    private async Task ThisMonthAsync()
+    private async Task ClearRangeAsync()
     {
         FromDate = null;
         ToDate = null;
@@ -207,7 +216,12 @@ public partial class ReportsViewModel : ViewModelBase
         var last = to ?? monthStart.AddMonths(1).AddDays(-1);
         var (cardStart, cardEnd) = ranged ? (from, to) : (start, last);
         var year = (from ?? to ?? DateTime.Today).Year;
-        PeriodLabel = ranged ? Period.Words(from, to) : start.ToString("MMMM yyyy");
+        // The heading has to say what the rows underneath were actually read over: the two reports that hand
+        // their service the dates as they stand, empty included, are the whole book when nothing is typed, and
+        // not a month that happens to be running.
+        PeriodLabel = ranged ? Period.Words(from, to)
+            : key is "containers" or "items" ? "Whole book"
+            : start.ToString("MMMM yyyy");
         YearLabel = year.ToString(CultureInfo.InvariantCulture);
 
         switch (key)
@@ -267,7 +281,7 @@ public partial class ReportsViewModel : ViewModelBase
             }
             case "containers":
             {
-                var rows = await _reports.GetContainerProfitsAsync();
+                var rows = await _reports.GetContainerProfitsAsync(from, to);
                 ListNote = Fill(Containers, rows.OrderByDescending(r => r.InMarket).ThenBy(r => r.Title),
                     "biggest still out first");
                 break;
@@ -319,8 +333,8 @@ public partial class ReportsViewModel : ViewModelBase
     /// over or filed without anyone having to remember which boxes the page was showing.</summary>
     /// <summary>
     /// The two profit sheets, each one the report of the same name on this page and read exactly the way that
-    /// report reads it: the containers sheet is the book as it stands, the items sheet takes the dates the page
-    /// is holding. A file that quietly covered a different stretch from the card above it is the quickest way
+    /// report reads it, dates included: both take the pair the page is holding, so an empty pair writes the
+    /// whole book in either file. A file that quietly covered a different stretch from the card above it is the quickest way
     /// for a CSV and a screen to start telling two stories, and on a page like this one of them ends up in
     /// somebody's accounts.
     /// </summary>
@@ -331,7 +345,9 @@ public partial class ReportsViewModel : ViewModelBase
         var to = ToDate?.DateTime.Date;
         try
         {
-            var rows = await _reports.GetContainerProfitsAsync();
+            // Read the same way, with the same pair of dates, so the file and the card above it cannot become
+            // two different answers to one question.
+            var rows = await _reports.GetContainerProfitsAsync(from, to);
             var items = await _reports.GetItemProfitsAsync(from, to, null);
             _export.ProfitWorkbook(rows.ToList(), items.ToList());
             _shell.Notify("CSV files opened. Excel can open them.");
@@ -344,9 +360,9 @@ public partial class ReportsViewModel : ViewModelBase
     {
         var key = SelectedReport?.Key ?? "book";
         var tables = new List<PrintTable>();
-        var subtitle = key is "book" or "containers" or "owes" or "stock"
+        var subtitle = key is "book" or "owes" or "stock"
             ? "As it stands today"
-            : key is "period" or "items" ? PeriodLabel : $"{YearLabel}";
+            : key is "period" or "items" or "containers" ? PeriodLabel : $"{YearLabel}";
 
         if (ShowBook)
         {

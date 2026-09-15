@@ -371,6 +371,12 @@ rather than assuming it. Say the word and I will move those columns to text for 
    current one, and should *not* when it is a year in the past - that difference is what a closing balance is
    for. Press Print and the paper should carry the same thirteen lines, in the same words, with the year named
    once at the head of the sheet.
+4p. On **Reports**, choose **Containers** and set a range a month wide. The money figures should move with the
+   dates and the *list* should not: the rows are the containers the book holds, and the range decides which of
+   their sales are counted, not which containers appear - so a lot that traded only last year should still be in
+   the table, at Rs 0 sold. Then clear the dates with the button beside Apply, which on this report says
+   "Whole book" rather than "This month", and every figure should come back to exactly what the containers list
+   shows. Press Excel / CSV with a range set and the two sheets should hold these same figures, not the book.
 4e. On a container, type a weight (kg each) on two items and enter a freight expense: the line under the
    expenses list should read "Rs X over Y kg = Rs Z a kilo", and each item's cost should have risen by its
    own kilos times that Z, divided by how many pieces were landed. Do it on paper for one item and it
