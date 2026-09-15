@@ -106,7 +106,7 @@
 
     <Border Classes="card" IsVisible="{Binding ShowTill}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Till, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="h2" Text="Main ledger" Margin="0,0,0,2" />
         <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
         <Grid ColumnDefinitions="*,*,*,*" Margin="0,0,0,14">
           <StackPanel>
@@ -140,7 +140,7 @@
 
     <Border Classes="card" IsVisible="{Binding ShowSales}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Sales, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="h2" Text="Sales" Margin="0,0,0,2" />
         <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
         <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,0,0,14">
           <StackPanel>
@@ -179,7 +179,7 @@
 
     <Border Classes="card" IsVisible="{Binding ShowBills}">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Shop bills, month by month" Margin="0,0,0,2" />
+        <TextBlock Classes="h2" Text="Expenses" Margin="0,0,0,2" />
         <TextBlock Classes="muted" FontSize="12" Text="{Binding YearLabel}" Margin="0,0,0,12" />
         <Grid ColumnDefinitions="*,*" Margin="0,0,0,14">
           <StackPanel>

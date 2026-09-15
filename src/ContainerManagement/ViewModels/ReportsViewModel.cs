@@ -57,9 +57,9 @@ public partial class ReportsViewModel : ViewModelBase
     {
         new("Whole book", "book"),
         new("Period figures", "period"),
-        new("Till, month by month", "till"),
-        new("Sales, month by month", "sales"),
-        new("Shop bills, month by month", "bills"),
+        new("Main ledger", "till"),
+        new("Sales", "sales"),
+        new("Expenses", "bills"),
         new("Containers", "containers"),
         new("Who owes", "owes"),
         new("Stock", "stock"),
@@ -353,19 +353,19 @@ public partial class ReportsViewModel : ViewModelBase
         }
         if (ShowTill)
         {
-            tables.Add(new PrintTable($"Till in {YearLabel}",
+            tables.Add(new PrintTable("Month by month",
                 new[] { "Month", "In", "Out", "Returns", "Cash at the month's end" },
                 TillPaper(), null, 1));
         }
         if (ShowSales)
         {
-            tables.Add(new PrintTable($"Sales in {YearLabel}",
+            tables.Add(new PrintTable("Month by month",
                 new[] { "Month", "Bills", "Sold", "Received", "Still owed", "Profit" },
                 SalesPaper(), null, 1));
         }
         if (ShowBills)
         {
-            tables.Add(new PrintTable($"Shop bills in {YearLabel}",
+            tables.Add(new PrintTable("Month by month",
                 new[] { "Month", "Lines", "Money" }, BillsPaper(), null, 1));
         }
         if (ShowContainers)
