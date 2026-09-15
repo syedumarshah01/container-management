@@ -53,7 +53,7 @@
     <Border Classes="card" IsVisible="{Binding ShowBook}">
       <StackPanel>
         <TextBlock Classes="h2" Text="The book, as it stands today" />
-        <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
+        <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,10,0,0">
           <StackPanel>
             <TextBlock Classes="label" Text="Sold" />
             <TextBlock Classes="stat" Text="{Binding BookRevenue}" />
@@ -70,23 +70,9 @@
             <TextBlock Classes="label" Text="Stock on the shelf" />
             <TextBlock Classes="stat" Text="{Binding BookStock}" />
           </StackPanel>
-        </Grid>
-        <Grid ColumnDefinitions="*,*,*,*" Margin="0,14,0,0">
-          <StackPanel>
-            <TextBlock Classes="label" Text="Customers owe" />
-            <TextBlock Classes="stat" Text="{Binding BookOwed}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1">
-            <TextBlock Classes="label" Text="Left unpaid on bills" />
-            <TextBlock Classes="stat" Text="{Binding BookOutstanding}" />
-          </StackPanel>
-          <StackPanel Grid.Column="2">
+          <StackPanel Grid.Column="4">
             <TextBlock Classes="label" Text="Containers" />
             <TextBlock Classes="stat" Text="{Binding BookContainers}" />
-          </StackPanel>
-          <StackPanel Grid.Column="3">
-            <TextBlock Classes="label" Text="Low stock" />
-            <TextBlock Classes="stat" Text="{Binding BookLowStock}" />
           </StackPanel>
         </Grid>
       </StackPanel>

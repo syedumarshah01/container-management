@@ -82,9 +82,6 @@ public partial class ReportsViewModel : ViewModelBase
     [ObservableProperty] private string bookProfit = Money.Pkr(0);
     [ObservableProperty] private string bookInMarket = Money.Pkr(0);
     [ObservableProperty] private string bookStock = Money.Pkr(0);
-    [ObservableProperty] private string bookOwed = Money.Pkr(0);
-    [ObservableProperty] private string bookOutstanding = Money.Pkr(0);
-    [ObservableProperty] private string bookLowStock = "";
 
     [ObservableProperty] private string periodContainers = "0";
     [ObservableProperty] private string periodRevenue = Money.Pkr(0);
@@ -216,11 +213,6 @@ public partial class ReportsViewModel : ViewModelBase
                 BookProfit = Money.Pkr(book.TotalProfit);
                 BookInMarket = Money.Pkr(book.MoneyInMarket);
                 BookStock = Money.Pkr(book.InventoryValue);
-                BookOwed = Money.Pkr(book.MoneyOwedByCustomers);
-                BookOutstanding = Money.Pkr(book.Outstanding);
-                BookLowStock = book.LowStockCount == 0
-                    ? "Nothing low"
-                    : book.LowStockCount + " items low";
                 break;
             }
             case "period":
@@ -335,10 +327,7 @@ public partial class ReportsViewModel : ViewModelBase
                 new[] { "Profit", BookProfit },
                 new[] { "Still in the market", BookInMarket },
                 new[] { "Stock on the shelf", BookStock },
-                new[] { "Customers owe", BookOwed },
-                new[] { "Left unpaid on bills", BookOutstanding },
                 new[] { "Containers", BookContainers },
-                new[] { "Low stock", BookLowStock },
             }, null, 1));
         }
         if (ShowPeriod)
