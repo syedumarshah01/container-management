@@ -35,7 +35,6 @@ public partial class ReportsViewModel : ViewModelBase
     private readonly ShopExpenseService _shopExpenses;
     private readonly PrintService _print;
     private readonly IAppShell _shell;
-    private bool _ready;
 
     // The whole lists, kept for the sheet. The collections the grids bind to are the cut-down copies.
     private List<ContainerProfitRow> _containers = new();
@@ -55,22 +54,12 @@ public partial class ReportsViewModel : ViewModelBase
         _shopExpenses = shopExpenses;
         _print = print;
         _shell = shell;
-        SelectedMonth = MonthChoices.First(m => m.Number == DateTime.Today.Month);
-        SelectedYear = Years.First(y => y.Year == DateTime.Today.Year);
-        // Set last, because the two lines above move the pickers and every picker asks the page to load: a page
-        // that read the database before it was built would be reading it with half an object.
-        _ready = true;
     }
 
-    public IReadOnlyList<MonthChoice> MonthChoices { get; } = Enumerable.Range(1, 12)
-        .Select(m => new MonthChoice(m, new DateTime(2000, m, 1).ToString("MMMM")))
-        .ToList();
-
-    public ObservableCollection<YearChoice> Years { get; } = new(
-        Enumerable.Range(DateTime.Today.Year - 5, 8).Reverse().Select(y => new YearChoice(y)));
-
-    [ObservableProperty] private MonthChoice? selectedMonth;
-    [ObservableProperty] private YearChoice? selectedYear;
+    // The dates, read the way every other page on this book reads them: either end may be left out, and
+    // nothing moves until Apply is pressed.
+    [ObservableProperty] private DateTimeOffset? fromDate;
+    [ObservableProperty] private DateTimeOffset? toDate;
 
     // The book, as it stands today.
     [ObservableProperty] private string bookContainers = "0";
@@ -82,8 +71,8 @@ public partial class ReportsViewModel : ViewModelBase
     [ObservableProperty] private string bookOutstanding = Money.Pkr(0);
     [ObservableProperty] private string bookLowStock = "";
 
-    // The month in the header. Only the figures the service filters by dates appear here.
-    [ObservableProperty] private string monthLabel = "This month";
+    // The period in the header. Only the figures the service filters by dates appear under this heading.
+    [ObservableProperty] private string periodLabel = "This month";
     [ObservableProperty] private string yearLabel = "";
 
     // Each table's title, once, so the card and the printed sheet never carry two spellings of one date.
@@ -127,19 +116,25 @@ public partial class ReportsViewModel : ViewModelBase
 
     public override async Task LoadAsync()
     {
-        var year2 = SelectedYear?.Year ?? DateTime.Today.Year;
-        var month = SelectedMonth?.Number ?? DateTime.Today.Month;
-        var start = new DateTime(year2, month, 1);
-        var last = start.AddMonths(1).AddDays(-1);
-        MonthLabel = start.ToString("MMMM yyyy");
+        var from = FromDate?.DateTime.Date;
+        var to = ToDate?.DateTime.Date;
+        var ranged = Period.HasRange(from, to);
+        // With no dates the page reads the month it is standing in, which is what a shop wants from a report
+        // page on a Tuesday morning; with dates it reads exactly those dates, one-ended ones included.
+        var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var start = from ?? monthStart;
+        var last = to ?? monthStart.AddMonths(1).AddDays(-1);
+        var (cardStart, cardEnd) = ranged ? (from, to) : (start, last);
+        var year2 = (from ?? to ?? DateTime.Today).Year;
+        PeriodLabel = ranged ? Period.Words(from, to) : start.ToString("MMMM yyyy");
         YearLabel = year2.ToString(CultureInfo.InvariantCulture);
         TillHeading = $"Till in {YearLabel}";
         SalesHeading = $"Sales in {YearLabel}";
         BillsHeading = $"Shop bills in {YearLabel}";
-        ItemsHeading = $"Profit by item, {MonthLabel}";
+        ItemsHeading = $"Profit by item, {PeriodLabel}";
 
         var book = await _reports.GetDashboardAsync();
-        var period = await _reports.GetDashboardAsync(start, last);
+        var period = await _reports.GetDashboardAsync(cardStart, cardEnd);
 
         BookContainers = book.TotalContainers.ToString(CultureInfo.InvariantCulture);
         BookRevenue = Money.Pkr(book.TotalRevenue);
@@ -160,7 +155,7 @@ public partial class ReportsViewModel : ViewModelBase
         _containers = await _reports.GetContainerProfitsAsync();
         _receivables = await _ledger.GetReceivablesAsync();
         _stock = await _reports.GetGrandInventoryAsync();
-        _items = await _reports.GetItemProfitsAsync(start, last, null);
+        _items = await _reports.GetItemProfitsAsync(from, to, null);
         _till = await _cash.GetYearCashAsync(year2);
         _salesYear = await _reports.GetYearSalesAsync(year2);
         _bills = await _shopExpenses.GetYearAsync(year2);
@@ -224,14 +219,25 @@ public partial class ReportsViewModel : ViewModelBase
         };
     }
 
-    partial void OnSelectedMonthChanged(MonthChoice? value)
-    {
-        if (_ready) _ = LoadAsync();
-    }
+    /// <summary>Whether the page is being read over dates at all. The reset is offered only while it is,
+    /// because a page already on this month does not need a button telling you to go back to it.</summary>
+    public bool HasRange => Period.HasRange(FromDate?.DateTime.Date, ToDate?.DateTime.Date);
 
-    partial void OnSelectedYearChanged(YearChoice? value)
+    partial void OnFromDateChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(HasRange));
+
+    partial void OnToDateChanged(DateTimeOffset? value) => OnPropertyChanged(nameof(HasRange));
+
+    /// <summary>Re-reads the page with the dates as they stand, so the figures change when the shop says - and
+    /// only then, because a page that moved on every turn of a date picker cannot be read while it moves.</summary>
+    [RelayCommand]
+    private async Task ApplyAsync() => await LoadAsync();
+
+    [RelayCommand]
+    private async Task ThisMonthAsync()
     {
-        if (_ready) _ = LoadAsync();
+        FromDate = null;
+        ToDate = null;
+        await LoadAsync();
     }
 
     [RelayCommand]
@@ -261,7 +267,7 @@ public partial class ReportsViewModel : ViewModelBase
 
         // The figures are the strings the page is already holding, so a sheet printed from here is the page.
         _print.PrintTables("reports.html", "Reports",
-            $"The book as it stands today, and {MonthLabel} of {YearLabel}", new[]
+            $"The book as it stands today, and {PeriodLabel}", new[]
             {
                 new PrintTable("The book",
                     new[] { "What", "Money" },
@@ -276,7 +282,7 @@ public partial class ReportsViewModel : ViewModelBase
                         new[] { "Containers", BookContainers },
                         new[] { "Low stock", BookLowStock },
                     }, null, 1),
-                new PrintTable(MonthLabel,
+                new PrintTable(PeriodLabel,
                     new[] { "What", "Money" },
                     new List<IReadOnlyList<string>>
                     {
@@ -300,6 +306,6 @@ public partial class ReportsViewModel : ViewModelBase
                 new PrintTable(ItemsHeading,
                     new[] { "Item", "Sold", "Amount", "Profit" }, items, null, 1),
             });
-        _shell.Notify($"Printed every report on one sheet: the book, {MonthLabel}, {YearLabel}.");
+        _shell.Notify($"Printed every report on one sheet: the book, {PeriodLabel}, {YearLabel}.");
     }
 }

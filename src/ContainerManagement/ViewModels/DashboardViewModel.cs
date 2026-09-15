@@ -56,7 +56,7 @@ public partial class DashboardViewModel : ViewModelBase
         var to = ToDate?.DateTime.Date;
         Hint = from is null && to is null
             ? DateTime.Today.ToString("MMMM yyyy")
-            : PeriodWords(from, to);
+            : Period.Words(from, to);
         LastBackup = _backups.ListBackups().FirstOrDefault()?.WhenText ?? "None yet";
 
         var book = await _reports.GetDashboardAsync(from, to);
@@ -73,7 +73,7 @@ public partial class DashboardViewModel : ViewModelBase
         BookLabel = from is null && to is null ? "Whole book" : "In the period";
         BookHint = from is null && to is null
             ? ""
-            : PeriodWords(from, to) + ": what was sold, what those bills still have out there, and profit. "
+            : Period.Words(from, to) + ": what was sold, what those bills still have out there, and profit. "
               + "Containers are the ones that landed in them, sold or not, and stock is the shelf as at today.";
 
         var (sales, profit, days) = await _reports.GetHomeMonthAsync();
@@ -84,17 +84,6 @@ public partial class DashboardViewModel : ViewModelBase
             Days.Add(d);
     }
 
-    private static string PeriodWords(DateTime? from, DateTime? to)
-    {
-        string Day(DateTime d) => d.ToString("d MMM yyyy");
-        if (from is DateTime f && to is DateTime t)
-            return f == t ? Day(f) : Day(f) + " to " + Day(t);
-        if (from is DateTime only)
-            return "from " + Day(only);
-        return to is DateTime until ? "up to " + Day(until) : "the whole book";
-    }
-
-    /// <summary>Re-reads the page with the dates as they stand, so the figures change when the shop says so.</summary>
     [RelayCommand]
     private void Print()
     {
@@ -113,6 +102,8 @@ public partial class DashboardViewModel : ViewModelBase
         _shell.Notify("Printed from the page you were on.");
     }
 
+    /// <summary>Re-reads the page with the dates as they stand, so the figures change when the shop says so -
+    /// and only then, because a page that moved on every keystroke of a date picker cannot be read at all.</summary>
     [RelayCommand]
     private async Task ApplyAsync() => await LoadAsync();
 

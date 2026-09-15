@@ -428,6 +428,26 @@ public class CustomerPayoutRow
 /// and its total line. Text, not figures - a print that receives text cannot invent a number that the page
 /// never showed, and it cannot round a second time.
 /// </summary>
+/// <summary>
+/// The dates a page was given, said the same way on every page. Two pages describing one range in two sets of
+/// words are two ranges as far as a shop can tell, so the sentence is written here once and nowhere else: one
+/// day alone, a stretch between two, or an end left open because the shop only said "since".
+/// </summary>
+public static class Period
+{
+    public static string Words(DateTime? from, DateTime? to)
+    {
+        string Day(DateTime d) => d.ToString("d MMM yyyy");
+        if (from is DateTime f && to is DateTime t)
+            return f == t ? Day(f) : Day(f) + " to " + Day(t);
+        if (from is DateTime only)
+            return "from " + Day(only);
+        return to is DateTime until ? "up to " + Day(until) : "the whole book";
+    }
+
+    public static bool HasRange(DateTime? from, DateTime? to) => from is not null || to is not null;
+}
+
 public sealed record PrintTable(
     string Heading,
     IReadOnlyList<string> Headers,
