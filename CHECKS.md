@@ -16,7 +16,7 @@ has to follow to be worth adding.
 | `Flows` | a container from the bill written on it through the sale, the payment, the return and the payout; the ledger's order; the chat message built from a customer's ledger; the range on Home; profit following a corrected cost |
 | `Reconciliation` | **what happens to a figure after it is written** - a bill edited, a receipt deleted, an expense corrected, a shelf re-counted, a container closed, a sale cancelled - and the same lists the pages are built from, reconciled row by row |
 | `YearStatement` | one builder for a year's total line, used by the table and by the print, so a total cannot disagree with itself |
-| `MonthReceipts` | a month's receipts on the customer's page, the till and the year statement, all the same money |
+| `MonthReceipts` | a month's receipts on the customer's page, the till and the printed year statement, all the same money |
 | `InvoiceStanding` | a printed bill's "previous balance" read from the ledger at that bill's own line, so reprinting cannot rewrite history |
 | `FreightSplit` | the expenses shared by weight into a piece's cost: shares equal the bills to the paisa, the odd paisa on the biggest lot, and an unweighed item stops the sharing for the box |
 | `PrintPaper` | the paper is the screen, said again: cells copied and never recomputed, names escaped so a table cannot be broken by an ampersand, totals last and marked, and every Print button matched to a print command and back - across the whole source folder, not one page at a time |

@@ -38,7 +38,7 @@ has to follow to be worth adding.
 | Home's dates | the two boxes at the head of Home belong to the book card and to nothing else: a range wide enough to hold the bills sees the whole book's sales, profit and market figure, a year with nothing in it says zero on every figure including the containers counted, a range left open at the far end has run to today, and one typed the wrong way round reads its own first day rather than answering with nothing. A container's own count is by the arrival date written when it was booked, so a lot that has only landed is in the period it landed in - sold or not - and is not in the week before it. "This month" under the card takes no dates at all - the page keeps one figure that needs no reading of the headings first - and stock stays the shelf as at today, which the card says out loud |
 | the customer's own details | name, mobile, address and note are editable on the customer's page, because the number there is what the WhatsApp button dials: a SIM that changed should not put the page out of use |
 | the date on a money line | a receipt, a payout and an expense are stored on the day the form was set to, not the day Record was pressed - the fixtures date money into other months and other years and find it in exactly those columns, never in the current one |
-| the year statement | each year's twelve months add back to the year's own line under them - one builder for that line, used by the table and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
+| the year's month-by-month tables | each year's twelve months add back to the year's own line under them - one builder for that line, used by the Reports tables and by the print, so a total cannot disagree with itself: cash in less cash out plus what the year brought forward is December's closing figure, a year never reaches into the next January, the value of goods returned is shown beside the cash columns and added to neither, a month with nothing in it is still a row, and the printed statement carries the same figures as the pages it was made from |
 | the selling year | a month's profit is its sold money less the cost of those goods, an advance paid without pointing at a bill does not close that bill, and a month whose only movement is a return sells a negative figure - Home's rule, not a second rule invented for paper |
 | paying a customer back | a payout moves their ledger and the till by the same figure, never past what their own book says is held of theirs, is never counted as a refund of a bill or as an expense, and reaches their page under "Paid out" rather than under "Sold" |
 | the supplier | one cash-book line per payment, never two, and every payment has one |
@@ -330,7 +330,8 @@ rather than assuming it. Say the word and I will move those columns to text for 
    only trace was the balance moving. Add the four columns up over the whole page and they should land on
    the balance printed at the head of it, paisa and all.
    "Receive money" has a date box at the head of its row, open on today. Set it to a day in a past month
-   and record: the money should appear in *that* month on the Main ledger page and on the year statement,
+   and record: the money should appear in *that* month on the Main ledger page and in that month's line of the
+   Reports page's Main ledger table,
    the ledger line should read that date with the running figure counting up through it, and the bill
    should be the same amount lighter. Only which month the money moved in depends on the date - the
    balance, the bill and the words under the box are all untouched by it.
@@ -359,21 +360,16 @@ rather than assuming it. Say the word and I will move those columns to text for 
    ledger, never "Sold". Try one paisa past what their book holds and it should be refused: a pay form must
    not be able to create a customer who owes the shop. Home's profit should not move at all, because handing
    someone their own money back settles a debt, it is not an expense.
-4d. Open **Year statement** and pick a year the shop traded in. The page is three tables and no prose, and
-   each table shows all thirteen of its lines at once - the year's own line is the last one in the card, not
-   something below a scroll bar. It is headed "Total {year}" in all three tables, including the main ledger,
-   where a bare "December" would read as a thirteenth month; it is tinted and set bolder than the months.
-   Add a column's twelve months by hand and the figure at the foot should be it. The "After costs" figure at
-   the top should be the last line of the Sales table less the last line of the costs table, which is the
-   only arithmetic on the page that crosses two tables. The till's December closing should equal what the
-   Main ledger page holds if the year is the current one, and should *not* if it is a year in the past -
-   that difference is what a closing balance is for. A month with nothing in it should be a row of dashes,
-   not a missing row. Press Print and the paper should carry the same figures, the same twelve-plus-total
-   shape, and one line saying what the year was carrying when it opened.
-   The columns are read down, so on the page the figures and the words naming them both sit in the middle of
-   their column - including the total line, which stays tinted and bolder than the months so it does not read
-   as a thirteenth month. The paper keeps its figures right-joined under their headings, because a column of
-   amounts is added up on paper the way it is added up in a ledger; only the page was asked to centre.
+4d. Open **Reports**, choose **Main ledger**, and set the dates so `From` falls in a year the shop traded in -
+   the year's tables read the year your `From` date sits in. The table shows all thirteen of its lines at once:
+   the year's own line is the last one, headed "Total {year}", tinted and set bolder than the months, because a
+   total that looks like a thirteenth month is read as one. Add a column's twelve months by hand and the figure
+   at the foot should be it. Do the same with **Sales** and **Expenses**; under Sales, "Still owed" is what the
+   customers still hold. A month with nothing in it should be a row of dashes, not a missing row. The till
+   table's December "Cash at the month's end" should equal what the Main ledger page holds when the year is the
+   current one, and should *not* when it is a year in the past - that difference is what a closing balance is
+   for. Press Print and the paper should carry the same thirteen lines, in the same words, with the year named
+   once at the head of the sheet.
 4e. On a container, type a weight (kg each) on two items and enter a freight expense: the line under the
    expenses list should read "Rs X over Y kg = Rs Z a kilo", and each item's cost should have risen by its
    own kilos times that Z, divided by how many pieces were landed. Do it on paper for one item and it
