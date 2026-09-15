@@ -5,7 +5,7 @@
              x:DataType="vm:ReceivablesViewModel">
   <StackPanel>
     <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
-      <TextBlock Classes="h1" Text="To collect" VerticalAlignment="Center" />
+      <TextBlock Classes="h1" Text="To collect" Margin="0" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding Lots}" SelectedItem="{Binding SelectedLot}"
                 MinWidth="260" VerticalAlignment="Center" />
       <Button Grid.Column="2" Content="Print" Command="{Binding PrintCommand}"

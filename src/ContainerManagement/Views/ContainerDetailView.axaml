@@ -24,13 +24,14 @@
         <DockPanel LastChildFill="True" Margin="0,0,0,16">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
                       VerticalAlignment="Top">
-  <Button Content="Print" Command="{Binding PrintCommand}" />
-            <Button Content="Back" Command="{Binding BackCommand}" />
+            <Button Content="Print" Command="{Binding PrintCommand}" />
             <Button Content="Close / re-open" Command="{Binding ToggleCloseCommand}" />
             <Button Classes="gold" Content="Sell" Command="{Binding SellFromHereCommand}" />
+            <!-- Back last, as it is on a sale's own page: it is how you leave, not what you came to do. -->
+            <Button Content="Back" Command="{Binding BackCommand}" />
           </StackPanel>
           <StackPanel>
-            <TextBlock Text="{Binding Title}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Classes="h1" Text="{Binding Title}" Margin="0" TextWrapping="Wrap" />
             <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
           </StackPanel>
         </DockPanel>

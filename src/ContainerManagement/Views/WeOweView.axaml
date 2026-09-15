@@ -4,9 +4,9 @@
              x:Class="ContainerManagement.Views.WeOweView"
              x:DataType="vm:WeOweViewModel">
   <StackPanel>
-    <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="h1" Text="We owe" />
-      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Top" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="We owe" Margin="0" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
     </Grid>
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
                Text="What is still due to suppliers in China, and to customers whose own ledger is in their favour. Paying here takes the money off cash in the Main ledger." />

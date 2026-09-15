@@ -13,7 +13,7 @@
         <Button Content="Back" Command="{Binding BackCommand}" />
       </StackPanel>
       <StackPanel>
-        <TextBlock Text="{Binding Heading}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Classes="h1" Text="{Binding Heading}" Margin="0" TextWrapping="Wrap" />
         <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
         <TextBlock Classes="bad" Text="This sale is cancelled. Stock is back in the container."
                    IsVisible="{Binding IsCancelled}" Margin="0,8,0,0" />

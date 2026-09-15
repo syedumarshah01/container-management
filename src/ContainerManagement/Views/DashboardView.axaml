@@ -9,11 +9,11 @@
         <TextBlock Classes="h1" Text="Home" Margin="0,0,0,4" />
         <TextBlock Classes="muted" Text="{Binding Hint}" Margin="0,0,0,16" />
       </StackPanel>
-      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}"
-              VerticalAlignment="Top" Margin="16,0,0,0" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+        <Button Content="Print" Command="{Binding PrintCommand}" />
+        <Button Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}" />
+      </StackPanel>
     </Grid>
-
-    <Button Content="Print" Command="{Binding PrintCommand}" HorizontalAlignment="Right" Margin="0,0,0,8" />
     <!-- The dates are the page's, not a card's: they belong to the book figures below and to nothing else,
          and putting them at the head of one card would suggest the other cards quietly moved with them. -->
     <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">
@@ -66,7 +66,7 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="This month" Margin="0,0,0,10" />
+        <TextBlock Classes="h2" Text="This month" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Total sales" />

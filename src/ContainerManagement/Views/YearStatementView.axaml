@@ -30,7 +30,7 @@
   <StackPanel>
     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
       <StackPanel VerticalAlignment="Center">
-        <TextBlock Classes="h1" Text="Year statement" />
+        <TextBlock Classes="h1" Text="Year statement" Margin="0" />
       </StackPanel>
       <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
         <TextBlock Classes="label" Text="After costs" />
@@ -38,7 +38,7 @@
       </StackPanel>
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
         <ComboBox ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" MinWidth="120" />
-        <Button Classes="primary" Content="Print" Command="{Binding PrintCommand}" />
+        <Button Content="Print" Command="{Binding PrintCommand}" />
       </StackPanel>
     </Grid>
 

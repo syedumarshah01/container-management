@@ -140,7 +140,9 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="card" Margin="0,16,0,0">
+      <!-- The one gap between cards, like every other pair of cards on this book: the card above already
+           carries sixteen below it, and a second sixteen made this card look like it belonged elsewhere. -->
+      <Border Classes="card" Margin="0">
         <StackPanel>
           <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
             <TextBlock Classes="h2" Text="Expenses" Margin="0" VerticalAlignment="Center" />

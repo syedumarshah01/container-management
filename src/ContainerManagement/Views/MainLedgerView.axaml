@@ -6,8 +6,8 @@
   <StackPanel>
 
     <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="h1" Text="Main ledger" />
-      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Top" />
+      <TextBlock Classes="h1" Text="Main ledger" Margin="0,0,0,4" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
     </Grid>
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
                Text="This is cash in the shop. Customer payments come in by themselves. Supplier payments and daily expenses come out by themselves — do not type expenses here again. Pay a supplier on the We owe page." />
@@ -45,7 +45,6 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Month" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Month" />
