@@ -67,7 +67,7 @@ public partial class ContainersViewModel : ViewModelBase
         var q = Query?.Trim();
         if (!string.IsNullOrEmpty(q))
             src = _all.Where(r => r.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-                                  || r.ContainerNumber.Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || (r.ContainerNumber ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
                                   || (r.Origin ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
                                   || r.StatusText.Contains(q, StringComparison.OrdinalIgnoreCase)
                                   || r.ArrivalText.Contains(q, StringComparison.OrdinalIgnoreCase));

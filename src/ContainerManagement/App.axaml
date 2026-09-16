@@ -191,20 +191,15 @@
             beside a button or a caption, and that 12 lifts the box off the shared bottom edge and the row is
             never level however the cells are aligned. So a field in a row of controls says Margin="0" and lets
             the row's own margin space it - the date boxes at the head of Home and of Reports do, and anything
-            new that joins them should too. -->
+            new that joins them should too.
+            What cannot be fixed from here is what is inside a date box: it is three little selectors for day,
+            month and year, and the request to centre them (VerticalContentAlignment) does not exist on
+            DatePicker in 11.2.3 - the build answers AVLN2000 to anyone who tries it, which was me, once. The
+            box's own edges are level; its contents are the theme's to arrange. -->
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
     <Style Selector="NumericUpDown">
       <Setter Property="FormatString" Value="#,##0.##" />
-    </Style>
-    <Style Selector="DatePicker">
-      <!--  A date box is not one field: it is three little selectors for day, month and year standing in a
-            row inside the box. Left to themselves they sit at the top of the 38 the book asks every field to
-            be, so the numbers ride above the words and the button beside the box however level the boxes
-            themselves are. Asking for the middle of the box, which is what a text box and a combo already do,
-            is the whole of it. Where the theme ignores the request the layout is no worse than it was, and
-            this is the line to change if a date box still reads high after a build. -->
-      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
     <Style Selector="ScrollViewer">
