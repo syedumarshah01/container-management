@@ -26,6 +26,28 @@ date is the day it was pushed.
 - Print on thirteen more pages - containers, a container's goods and bills, bills, customers, to collect, we
   owe, the till's bills, stock, profit, an item's sales, the main ledger, the order-sheet list and Home. Each
   sheet is built out of the words the page is already showing, so paper and screen cannot tell two stories.
+- A new **Reports** page. One list of the reports the book can make - the whole book as it stands, a stretch
+  of days, the till month by month, sales month by month, the shop's own bills, containers, who owes, stock and
+  profit by item - and one report on the screen at a time, chosen from that list. The date boxes appear beside
+  the reports that can be read over them and not beside the others, and the button that clears them says where
+  it lands: this month, this year, or the whole book. Print writes the report on the screen, so a sheet in a
+  drawer says what it was.
+- The **Year statement** and **Profit** pages are gone. Their tables are the Reports page's Main ledger, Sales,
+  Expenses, Containers and Profit by item, so the month-by-month figures live in one place instead of three,
+  and the year's line at the foot of each table is shaded and bolder than the months, so it cannot be read as a
+  thirteenth month and counted twice. Profit's two Excel/CSV sheets are on the Reports page now, beside Print.
+- Sales, containers, to collect and both payment forms on We Owe have a box to search. Typing narrows what you
+  can see and moves no figure: the money in the cards above a list is read before the search runs, and a payment
+  picker keeps the supplier or customer it was pointed at even while you type past them.
+- To collect now shows two figures for the container you pick: what has been collected on it, and what is still
+  in the market - the same two words the containers list uses, so one figure is not called three things.
+- Every bill on a container is on its expenses list, in the currency it was taken in, with the yen rate beside
+  it; correcting an item's cost price moves that lot's sold lines, its returns and the profit figures with them,
+  and leaves the price the customer was billed where it was.
+- Cash in hand on the main ledger is a month, not the book, and the card names the month it closes and what the
+  month before handed over.
+- Boxes and their captions on a line now stand on that line: a date box beside a button or a heading used to
+  sit half a row above it, on every page that has one.
 
 ## 1.0.0
 

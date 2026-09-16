@@ -197,6 +197,15 @@
     <Style Selector="NumericUpDown">
       <Setter Property="FormatString" Value="#,##0.##" />
     </Style>
+    <Style Selector="DatePicker">
+      <!--  A date box is not one field: it is three little selectors for day, month and year standing in a
+            row inside the box. Left to themselves they sit at the top of the 38 the book asks every field to
+            be, so the numbers ride above the words and the button beside the box however level the boxes
+            themselves are. Asking for the middle of the box, which is what a text box and a combo already do,
+            is the whole of it. Where the theme ignores the request the layout is no worse than it was, and
+            this is the line to change if a date box still reads high after a build. -->
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
     <Style Selector="ScrollViewer">
       <Setter Property="AllowAutoHide" Value="True" />
