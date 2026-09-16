@@ -114,43 +114,6 @@ public class PrintService
         return path;
     }
 
-    /// <summary>
-    /// Shows the file where it lies, selected, so a shop can drag it into a chat or print it from there
-    /// without hunting through folders. A no-op where the desktop has no such idea: nothing is worse than a
-    /// button that opens an error about the filing cabinet.
-    /// </summary>
-    public static void Reveal(string path)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                return;
-            if (OperatingSystem.IsWindows())
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{path}\"",
-                    UseShellExecute = true,
-                });
-            }
-            else
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "xdg-open",
-                    // Quoted as a shell wants, with doubled quotes in a verbatim string rather than backslashes.
-                    Arguments = $@"""{Path.GetDirectoryName(path)}""",
-                    UseShellExecute = false,
-                });
-            }
-        }
-        catch
-        {
-            // The path is on the page already. A desktop that will not show it is not worth an error line.
-        }
-    }
-
     public string OpenHtml(string html, string fileName)
     {
         var path = Path.Combine(DbPaths.PrintDirectory, fileName);
@@ -280,82 +243,6 @@ public class PrintService
     public string PrintTable(string fileName, string title, string? subtitle, IReadOnlyList<string> headers,
         IReadOnlyList<IReadOnlyList<string>> rows, IReadOnlyList<string>? total, int textColumns = 1) =>
         PrintTables(fileName, title, subtitle, new[] { new PrintTable("", headers, rows, total, textColumns) });
-
-    /// <summary>The PDF that stands beside an HTML page: same folder, same name, .pdf.</summary>
-    public static string PdfPathFor(string htmlPath) =>
-        Path.ChangeExtension(htmlPath, ".pdf");
-
-    /// <summary>
-    /// The PDF, made by the browser that is already on the PC - Edge on every Windows 10 and 11, Chrome where
-    /// somebody has put it. A headless print of the same page the shop can print by hand, so there is one
-    /// document and one layout and not a second renderer that can put a figure somewhere else. Returns the file
-    /// when it exists, and nothing when no browser answered: a missing browser is a message, never a half file.
-    /// </summary>
-    public string? TryPdf(string htmlPath, string pdfFileName, int seconds = 40)
-    {
-        var outPath = Path.Combine(DbPaths.PrintDirectory, pdfFileName);
-        foreach (var browser in BrowserPaths())
-        {
-            try
-            {
-                // The file, the folder and the URL may each hold a space, so each is quoted: an argument the
-                // shell cannot finish is a browser that appears not to work, and that is a diagnosis nobody
-                // needs. A verbatim quote variable, not a backslash - this file has been broken by one.
-                var quote = "\"";
-                var args = "--headless --disable-gpu --no-sandbox --no-pdf-header-footer "
-                    + "--print-to-pdf=" + quote + outPath + quote
-                    + " file:///" + quote + htmlPath.Replace('\\', '/').Trim() + quote;
-                using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = browser,
-                    Arguments = args,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardError = true,
-                });
-                if (p is null)
-                    continue;
-                if (!p.WaitForExit(seconds * 1000))
-                {
-                    try { p.Kill(entireProcessTree: true); } catch { /* gone */ }
-                    continue;
-                }
-                if (p.ExitCode == 0 && File.Exists(outPath) && new FileInfo(outPath).Length > 1024)
-                    return outPath;
-            }
-            catch
-            {
-                // This browser is not the answer; the next one may be, and if none is the page says so.
-            }
-        }
-        return null;
-    }
-
-    /// <summary>Where a browser is put, without asking the registry or the network about it.</summary>
-    public static IReadOnlyList<string> BrowserPaths()
-    {
-        var roots = new[]
-        {
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        };
-        var found = new List<string>();
-        foreach (var root in roots.Where(r => !string.IsNullOrWhiteSpace(r)))
-        {
-            foreach (var rel in new[]
-            {
-                @"Microsoft\Edge\Application\msedge.exe",
-                @"Google\Chrome\Application\chrome.exe",
-            })
-            {
-                var full = Path.Combine(root, rel);
-                if (File.Exists(full))
-                    found.Add(full);
-            }
-        }
-        return found;
-    }
 
     public static string ShareNumber(string? phone)
     {
@@ -534,9 +421,10 @@ public class PrintService
     }
 
     /// <summary>
-    /// The link a share opens. No words, no text on the link at all: an empty "?text=" is a blinking cursor in
-    /// a chat box, and a shop sending a PDF has nothing to type. Kept apart from the sending so the shape of the
-    /// link can be read and checked without a browser being launched, which a check must never do.
+    /// The link a share opens. No words, no text on the link at all: an empty "?text=" is a blinking cursor
+    /// handed to whoever is being written to, and a chat should open on the message or on nothing. Kept apart
+    /// from the sending so the shape of the link can be read and checked without a browser being launched,
+    /// which a check must never do.
     /// </summary>
     public static string ShareUrl(string digits, string? text) => string.IsNullOrEmpty(text)
         ? $"https://wa.me/{digits}"
@@ -552,8 +440,7 @@ public class PrintService
     public static string WhatsApp(string? phone, string text)
     {
         var digits = ShareNumber(phone);
-        // No words to say, no text in the link: the chat opens empty, which is what a share that carries a
-        // file wants - a shop with a PDF in one hand does not need a sentence typed into the other.
+        // No words to say, no text in the link: the chat opens clean rather than on an empty sentence.
         var url = ShareUrl(digits, text);
         var query = string.IsNullOrEmpty(text) ? "" : "&text=" + Uri.EscapeDataString(text);
         var problem = "nothing on this computer is set to open a web link";

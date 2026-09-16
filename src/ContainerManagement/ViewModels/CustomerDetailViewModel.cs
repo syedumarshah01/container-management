@@ -315,28 +315,15 @@ public partial class CustomerDetailViewModel : ViewModelBase
                 throw new InvalidOperationException("This customer's ledger is empty - there is nothing to send.");
             var bal = await _ledger.GetBalanceAsync(_id);
             var shop = ShopSettings.Load();
-            var typed = !string.IsNullOrWhiteSpace(shop.WhatsAppMessage);
+            // The ledger, as words, in the chat: nothing is written to a folder, nothing is launched beyond the
+            // link itself, and nothing is left for the shop to drag anywhere. The lines are the customer's own,
+            // in the order the money moved, and the Print button next door is still the way to put the same
+            // ledger on paper.
             var message = PrintService.ShareText(shop.CompanyName, c.Name, rows, bal,
                 PrintService.ShareUrlBudget, shop.WhatsAppMessage);
             text = message;
-            // The ledger itself is what goes to the customer, as a file - a page of figures in a chat can be
-            // read, kept and printed; a sentence about a balance cannot be audited. The PDF is the very same
-            // document the Print button puts on paper, so there is one ledger and not two versions of it.
-            var html = _print.WriteHtml(_print.StatementHtml(c, rows, bal, shop), $"ledger-{_id}.html");
-            var pdf = await Task.Run(() => _print.TryPdf(html, $"ledger-{_id}.pdf"));
-            var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone,
-                pdf is null ? message : (typed ? message : "")));
-            if (pdf is null)
-            {
-                _shell.Notify("The ledger could not be made into a PDF on this PC, so the message went as text instead. "
-                    + "Print ledger gives you the same page to print or save.");
-                return;
-            }
-            // The chat opens with the number dialled and the file next to it on screen: WhatsApp cannot be sent
-            // a file by a link, and a shop should not have to find the folder to hand one over.
-            PrintService.Reveal(pdf);
-            _shell.Notify($"Chat opened with {dialed}. Your ledger PDF is ready: drop it into the chat, or "
-                + "paste it, then press send.");
+            var dialed = await Task.Run(() => PrintService.WhatsApp(c.Phone, message));
+            _shell.Notify($"Chat opened with {dialed}.");
         }
         catch (Exception ex)
         {

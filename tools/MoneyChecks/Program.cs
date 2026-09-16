@@ -328,16 +328,8 @@ public static class Program
                 && System.Text.RegularExpressions.Regex.Matches(two, "class='total'").Count == 1,
             "a total was shared between two tables, or one went missing");
 
-        Head("a PDF is the same page, asked of the browser that is already there");
-        Check("the PDF sits beside the HTML it was made from, with the same name",
-            Path.GetFileName(PrintService.PdfPathFor(@"C:\shop\Print\ledger-7.html")) == "ledger-7.pdf",
-            PrintService.PdfPathFor(@"C:\shop\Print\ledger-7.html"));
-        Check("and no path is promised: the browser list is only what exists on this PC",
-            PrintService.BrowserPaths().All(x => x.EndsWith("msedge.exe") || x.EndsWith("chrome.exe")),
-            string.Join(" | ", PrintService.BrowserPaths()));
-
         Head("a share with no words opens the chat empty, and one with words says them safely");
-        Eq("no message means no query on the link, which is a share carrying a file",
+        Eq("no message means no query on the link, so the chat opens clean",
             "https://wa.me/923331234567", PrintService.ShareUrl("923331234567", ""));
         Eq("and null reads the same way",
             "https://wa.me/923331234567", PrintService.ShareUrl("923331234567", null));

@@ -20,9 +20,6 @@ date is the day it was pushed.
 - Settings can hold a message of your own. What you type is what goes, with the book's figures only at
   {name} {shop} {date} {balance} {words} {ledger}, and a word the book cannot fill is refused when you save.
 - An error at the bottom of the window reads as an error, so a refused send is no longer a dead button.
-- The WhatsApp button now carries the customer's ledger as a PDF: the page is written, turned into a PDF by the
-  browser on the PC, the chat opens on their number, and the file is shown ready to drop in or paste. If no
-  browser can make it, the words go instead and the page says so.
 - Print on thirteen more pages - containers, a container's goods and bills, bills, customers, to collect, we
   owe, the till's bills, stock, profit, an item's sales, the main ledger, the order-sheet list and Home. Each
   sheet is built out of the words the page is already showing, so paper and screen cannot tell two stories.
