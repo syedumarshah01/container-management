@@ -32,11 +32,11 @@
           <StackPanel>
             <TextBlock Classes="label" Text="Total stock value" />
             <TextBlock Classes="stat" Text="{Binding TotalValue}" />
-            <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
-            <!-- What the view is not listing, in the money the total above already counts: an absence has to be
-                 named, or a shelf looks like it shrank. -->
-            <TextBlock Classes="muted" Text="{Binding AsideText}" TextWrapping="Wrap"
-                       IsVisible="{Binding ShowAsideNote}" Margin="0,4,0,0" />
+            <!-- The card is its figure. A line under a money figure earns its place only when there is
+                 something to say, so the low-stock line appears when something actually is low, and what the
+                 view leaves out is counted in the button that shows it rather than spelled out here. -->
+            <TextBlock Classes="muted" Text="{Binding LowHint}" TextWrapping="Wrap"
+                       IsVisible="{Binding ShowLowHint}" Margin="0,8,0,0" />
           </StackPanel>
         </Border>
 

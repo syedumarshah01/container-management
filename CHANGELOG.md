@@ -23,8 +23,10 @@ date is the day it was pushed.
 - Stock on the **Grand Inventory** page: the shelf a closed container holds is out of sight until you press
   *Closed lots (n)* beside Print, the way a closed lot is put aside on its own page. Hiding is the view's choice
   and nothing else - an item that an open lot also holds stays listed, listing fewer lots; one held only by
-  closed lots leaves the list; and every shelf figure, the row's and the page's, is the book's in either view,
-  named in the line under the total so an absence cannot be mistaken for a smaller shelf. The printed sheet lists
+  closed lots leaves the list; and every shelf figure, the row's and the page's, is the book's in either view, so
+  putting stock out of sight cannot make it worth less. The card says nothing else about it - what is aside is
+  counted in the button that reveals it, and the one line under the figure appears only when something really is
+  low, where it used to finish an empty sentence with "No low-stock items." The printed sheet lists
   what is on screen, adds up to itself, and says at the top what it left out. While here, the figures above the
   list stopped being recomputed over the search box: a card named *Total stock value* that moved when somebody
   typed a letter was answering a different question from the one it looks like.

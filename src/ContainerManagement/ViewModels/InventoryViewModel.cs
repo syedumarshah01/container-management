@@ -28,9 +28,6 @@ public partial class InventoryViewModel : ViewModelBase
 
     [ObservableProperty] private string query = "";
     [ObservableProperty] private string totalValue = "—";
-    [ObservableProperty] private string productCount = "—";
-    [ObservableProperty] private string lotCount = "—";
-    [ObservableProperty] private string unitsRemaining = "—";
     [ObservableProperty] private string lowHint = "";
     [ObservableProperty] private InventoryRow? selected;
     [ObservableProperty] private InventoryLot? selectedLot;
@@ -45,13 +42,14 @@ public partial class InventoryViewModel : ViewModelBase
 
     [ObservableProperty] private string closedLabel = "Closed lots";
     [ObservableProperty] private bool showClosedButton;
-    [ObservableProperty] private string asideText = "";
 
     partial void OnShowClosedChanged(bool value) => ApplyFilter();
 
-    partial void OnAsideTextChanged(string value) => OnPropertyChanged(nameof(ShowAsideNote));
+    /// <summary>The card under the figure holds one line, and only when it has something to say: "nothing is
+    /// low" is not a fact about anybody's shelf. What the view leaves out is counted in the button for it.</summary>
+    public bool ShowLowHint => LowHint.Length > 0;
 
-    public bool ShowAsideNote => AsideText.Length > 0;
+    partial void OnLowHintChanged(string value) => OnPropertyChanged(nameof(ShowLowHint));
 
     public override async Task LoadAsync()
     {
@@ -145,24 +143,19 @@ public partial class InventoryViewModel : ViewModelBase
         // The card reads the book, not the filtered list: a figure on a card named Total stock value that moved
         // when somebody typed a letter was answering a different question from the one it looks like. When the
         // list is narrowed, the card says how much of it is listed, which is all a search may honestly do.
+        // One figure on the card, and only the book's own. The counts of items, lots and units this page used to
+        // carry were shown nowhere and read by nothing, which on a money page is not spare code but a number that
+        // will eventually disagree with the shelf it stopped describing.
         TotalValue = Money.Pkr(Money.Round(_all.Sum(r => r.TotalValue)));
-        ProductCount = _all.Count.ToString();
-        LotCount = _all.Sum(r => r.Lots.Count).ToString();
-        UnitsRemaining = Money.Qty(Money.Round(_all.Sum(r => r.TotalRemaining)));
         var low = _all.Count(r => r.IsLow);
-        LowHint = low == 0 ? "No low-stock items." : low + " items are at or below the low-stock level (Settings).";
-        if (list.Count != _all.Count)
-            LowHint += "  " + list.Count + " of " + ProductCount + " items listed.";
+        LowHint = low == 0 ? "" : low + " items are at or below the low-stock level (Settings).";
 
-        // Named rather than left as an absence: the button counts what it covers, and the line under the total
-        // says what that stock is worth, so nobody has to wonder whether the shelf shrank.
+        // The count of what is aside belongs to the control that reveals it, where reading it is also doing
+        // something about it - not to a sentence under the money, which would itself change as the button went.
 
         var aside = StockListRules.Aside(_all);
         ShowClosedButton = aside.Items > 0;
         ClosedLabel = ShowClosed ? "Open lots only" : $"Closed lots ({aside.Items})";
-        AsideText = ShowClosed || aside.Items == 0
-            ? ""
-            : $"{Money.Pkr(aside.Value)} · {Money.Qty(aside.Units)} units · {aside.Lots} closed lots - not listed";
 
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.ProductId == id) : null;
     }
