@@ -86,7 +86,8 @@ Then run `publish/mac/ProBooks`.
 | Plan a China order before buying | **Order sheets** → New sheet → type the rows |
 | New container + items | **Containers** → fill title → Create → add items / expenses |
 | Send goods back to the supplier (units off the lot, cost off what we owe) | **Containers** → open the lot → *Return to supplier* → pick the line, type the units |
-| Take money back from a supplier | **We owe** → *Suppliers who owe us* → pick, amount, **Receive** |
+| Take money back from a supplier | **We owe** → *Suppliers who owe us* → pick the supplier in the table, type the amount, **Receive** |
+| Set a finished lot aside, then pull it back | **Containers** → open the lot → **Close / re-open**; then **Containers** → **Put away** → pick → **Re-open** |
 | Sell (must pick container) | **New Sale** |
 | Grand inventory | **Grand Inventory** |
 | Customer ledger | **Customers** → double-click a name |

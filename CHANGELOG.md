@@ -16,6 +16,13 @@ date is the day it was pushed.
   in - on Main ledger as IN, on the date you type - and it is never counted as a sale or as income.
 - Both are reversible in order: a receipt can be taken back out, and a return only once no money received counts
   on it. The lot's paper carries what went back as its own table, and so does the We owe page.
+- A finished lot can be **put aside**. Closing a container takes it out of the Containers list, and *Put away*
+  beside the Print button shows the ones that are set aside, with **Re-open** to pull one back. Reports, the till,
+  what you owe them and what they owe you are untouched by closing - the lot is out of the way, not out of the
+  book, and nothing is counted twice or dropped.
+- The *Suppliers who owe us* card on We owe is one table and one row of boxes now: the supplier is picked in the
+  table, the figure their money is measured against is on the amount box's own label, and the note sits in the
+  same row instead of taking a card of its own.
 - Home's date boxes moved to the top of the page and now change the whole-book figures. This month stays this
   month, whatever the boxes say.
 - A container is counted in the period it landed in, sold or not, by the arrival date written when it was

@@ -12,13 +12,16 @@ public partial class ContainersViewModel : ViewModelBase
     private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly InventoryService _inventory;
+    private readonly AccessService _access;
     private readonly IAppShell _shell;
 
-    public ContainersViewModel(ReportService reports, InventoryService inventory, IAppShell shell, PrintService print)
+    public ContainersViewModel(ReportService reports, InventoryService inventory, AccessService access,
+        IAppShell shell, PrintService print)
     {
         _print = print;
         _reports = reports;
         _inventory = inventory;
+        _access = access;
         _shell = shell;
     }
 
@@ -44,6 +47,21 @@ public partial class ContainersViewModel : ViewModelBase
     [ObservableProperty] private decimal? newWeight;
     [ObservableProperty] private bool showAddForm;
 
+    /// <summary>
+    /// Closed containers are put aside rather than shown among the working ones: the lot's own page, the till
+    /// and Reports keep every figure it holds, so the list only stops nagging. This flag is that view switch,
+    /// and the only thing it changes is which rows are in front of you - nothing is filtered away from a total.
+    /// </summary>
+    [ObservableProperty] private bool showPutAway;
+
+    [ObservableProperty] private string listTitle = "Open containers";
+
+    [ObservableProperty] private string toggleLabel = "Put away";
+
+    [ObservableProperty] private bool showPutAwayButton;
+
+    partial void OnShowPutAwayChanged(bool value) => ApplyFilter();
+
     private List<ContainerProfitRow> _all = new();
 
     [ObservableProperty] private string query = "";
@@ -63,7 +81,11 @@ public partial class ContainersViewModel : ViewModelBase
     /// </summary>
     private void ApplyFilter()
     {
-        IEnumerable<ContainerProfitRow> src = _all;
+        // The state split happens first, and it is a split of the same list rather than a second query, so the
+        // figures on a row cannot be different answers depending on which half you are looking at.
+        IEnumerable<ContainerProfitRow> src = _all.Where(r => ShowPutAway
+            ? r.Status == ContainerStatus.Closed
+            : r.Status != ContainerStatus.Closed);
         var q = Query?.Trim();
         if (!string.IsNullOrEmpty(q))
             src = _all.Where(r => r.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
@@ -74,6 +96,47 @@ public partial class ContainersViewModel : ViewModelBase
         Rows.Clear();
         foreach (var r in src)
             Rows.Add(r);
+
+        var aside = _all.Count(r => r.Status == ContainerStatus.Closed);
+        // No button when it would show an empty table, and the label says what the other half is called.
+        ShowPutAwayButton = aside > 0 || ShowPutAway;
+        ToggleLabel = ShowPutAway ? "Open containers" : aside > 0 ? $"Put away ({aside})" : "Put away";
+        ListTitle = ShowPutAway ? "Put away" : "Open containers";
+        // A picked row survives typing in the search box, because it was picked for a reason; it is dropped
+        // only when the row has genuinely left this half of the list.
+        if (Selected is not null && !Rows.Contains(Selected))
+            Selected = null;
+    }
+
+    [RelayCommand]
+    private void TogglePutAway() => ShowPutAway = !ShowPutAway;
+
+    /// <summary>
+    /// Put a container back among the working ones, from the list, so the aside view is a shelf and not a
+    /// dead end. The same word the lot's own page uses, and the same owner gate, so closing and re-opening
+    /// cannot be done by two different sets of hands.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReopenAsync()
+    {
+        if (Selected is null)
+        {
+            _shell.Notify("Pick a container in the table first.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to re-open a container.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.SetStatusAsync(Selected.ContainerId, ContainerStatus.Open);
+            _shell.MarkChanged();
+            _shell.Notify("Container re-opened.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
     /// <summary>
@@ -89,7 +152,7 @@ public partial class ContainersViewModel : ViewModelBase
             r.Title, r.Origin, r.ArrivalText, r.StatusText, r.QtySoldText,
             r.RevenueText, r.CollectedText, r.InMarketText, r.RemainingValueText, r.ProfitText,
         }).Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTable("containers.html", "Containers", null,
+        _print.PrintTable("containers.html", "Containers", ShowPutAway ? "Put away" : null,
             new[] { "Container", "From", "Landed", "State", "Sold", "Sold for", "Collected", "In the market", "Stock value", "Profit" },
             rows, null, 4);
         _shell.Notify("Printed from the page you were on.");

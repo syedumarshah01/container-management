@@ -45,6 +45,7 @@ public static class Program
             await InvoiceStanding(dir);
             await FreightSplit(dir);
             await SupplierDue(dir);
+            await PutAway(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -2022,6 +2023,77 @@ public static class Program
         await using var db = await factory.CreateDbContextAsync();
         var row = await db.CashBook.AsNoTracking().FirstAsync(e => e.SupplierReceiptId != null);
         return (row.AmountIn, row.AmountOut, row.Description);
+    }
+
+    // ---------------------------------------------------------------------- put aside, not put away
+
+    /// <summary>
+    /// What closing a container does and does not do. It takes the lot out of the working list on the
+    /// Containers page - a display choice, made by the page - and it moves no money, changes no profit row and
+    /// leaves nothing unpaid: a box that is put aside is still owed to, still owes stock, and can be brought
+    /// back to exactly what it was.
+    /// </summary>
+    private static async Task PutAway(string dir)
+    {
+        var file = Path.Combine(dir, "put-away.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var inventory = new InventoryService(f);
+        var sales = new SalesService(f);
+        var ledger = new LedgerService(f);
+        var reports = new ReportService(f);
+
+        var live = await inventory.CreateContainerAsync("LIVE box", "PA-1", "Japan", new DateTime(2026, 4, 2),
+            null, "PKR", 1m, null, null, null, null, "Ali Traders", 50_000m, 0m, null);
+        var done = await inventory.CreateContainerAsync("DONE box", "PA-2", "Japan", new DateTime(2026, 4, 3),
+            null, "PKR", 1m, null, null, null, null, "Ali Traders", 40_000m, 10_000m, "TT");
+        var liveMug = await inventory.AddGoodsAsync(live.Id, "Ceramic mug", "pcs", "MUG-1", 40m, 500m, null, null, null, null, null);
+        var doneMug = await inventory.AddGoodsAsync(done.Id, "Ceramic mug", "pcs", "MUG-1", 30m, 600m, null, null, null, null, null);
+        var customer = await ledger.CreateCustomerAsync("Aside buyer", null, null, null);
+        await sales.CreateSaleAsync(customer.Id, new DateTime(2026, 4, 4), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = done.Id, ContainerItemId = doneMug.Id, ProductId = doneMug.ProductId, ProductName = "Ceramic mug", Unit = "pcs", Quantity = 20m, UnitPrice = 900m }
+        }, 9_000m, "Cash", null, 0m, null);
+        await ledger.RecordPaymentAsync(customer.Id, new DateTime(2026, 4, 6), 6_000m, "Cash", null, done.Id);
+
+        var before = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id);
+        var beforeCash = await CashInHandAsync(f);
+        Head("closing a lot changes which list it is on, and nothing that is counted");
+        Check("while it is open with stock left, it is one of the lots to sell from",
+            (await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+        Eq("both lots are on the list while both are open", 2m, (await reports.GetContainerProfitsAsync()).Count);
+        await inventory.SetStatusAsync(done.Id, ContainerStatus.Closed);
+        var rows = await reports.GetContainerProfitsAsync();
+        Eq("the closed one is still in the rows the page is built from - hiding it is the page's choice",
+            2m, rows.Count);
+        var after = rows.Single(r => r.ContainerId == done.Id);
+        Check("and it arrives marked as closed rather than as something else",
+            after.Status == ContainerStatus.Closed, after.Status.ToString());
+        Eq("its profit row is the same figure it was", before.Profit, after.Profit);
+        Eq("its sales are the same", before.Revenue, after.Revenue);
+        Eq("what is still out there with customers is the same", before.InMarket, after.InMarket);
+        Eq("and the till did not move by a paisa", 0m, await CashInHandAsync(f) - beforeCash);
+        Check("it is off the lots that hold stock to sell from",
+            !(await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+
+        Head("and it comes back to exactly what it was");
+        await inventory.SetStatusAsync(done.Id, ContainerStatus.Open);
+        Check("back among the lots with stock, once it is re-opened",
+            (await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+        var reopened = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id);
+        Eq("with the same profit as before it was ever closed", before.Profit, reopened.Profit);
+        Eq("the same money is still owed on it as was owed before", 40_000m, await BillOnLotAsync(f, done.Id));
+        await inventory.SetStatusAsync(done.Id, ContainerStatus.Closed);
+        await inventory.PaySupplierAsync(done.Id, new DateTime(2026, 4, 7), 5_000m, "TT", null);
+        Eq("and a lot that is put away can still be paid, because the debt did not go anywhere", 35_000m,
+            await BillOnLotAsync(f, done.Id));
     }
 
     private static async Task<ContainerItem> ReadItemAsync(IDbContextFactory<AppDbContext> factory, int itemId)

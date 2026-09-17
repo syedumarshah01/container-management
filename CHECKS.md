@@ -1,7 +1,7 @@
 # What the money checks prove, and what they cannot
 
-`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **471
-assertions over 77 of the app's 118 service methods**, in 61 named groups, against a throwaway database in
+`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **484
+assertions over 79 of the app's 118 service methods**, in 62 named groups, against a throwaway database in
 your temp folder. `Documents\ProBooks` is never opened, no browser or printer is launched, and the exit code
 is the number of failures.
 
@@ -20,6 +20,7 @@ has to follow to be worth adding.
 | `InvoiceStanding` | a printed bill's "previous balance" read from the ledger at that bill's own line, so reprinting cannot rewrite history |
 | `FreightSplit` | the expenses shared by weight into a piece's cost: shares equal the bills to the paisa, the odd paisa on the biggest lot, and an unweighed item stops the sharing for the box |
 | `SupplierDue` | goods handed back to a supplier: the units leave the lot and the shelf at the cost on the line and nothing else, the credit settles the lot's bill before it becomes money due back, the bill is never pushed below what was paid on it, the freight the returned units carried falls on the units that stayed, the profit row does not move when nothing sold, a receipt in from the supplier lands in the till as money in and nowhere as a sale, neither a return nor a receipt can be undone in the wrong order, and a table another version left in the file under the same name is refused at startup by name rather than surfacing as a missing column on a page |
+| `PutAway` | what closing a container does and does not do: the lot leaves the lists that are only for selling, keeps every money figure it had, stays in the rows the Containers page is built from so hiding it is a choice the page makes rather than a figure that changed, can still be paid while it is shut, and comes back identical when it is re-opened |
 | `PrintPaper` | the paper is the screen, said again: cells copied and never recomputed, names escaped so a table cannot be broken by an ampersand, totals last and marked, and every Print button matched to a print command and back - across the whole source folder, not one page at a time |
 | `Updates` | the decision an update makes, with no network in it: versions compared by numbers, the folder's own state deciding what the button may do, and the script that does the work held to a list of what it must say and what it must never say |
 | `Storage`, and the exactness sweep | no money column anywhere holds a third decimal, and no figure is stored differently from how it is printed |

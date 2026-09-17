@@ -76,7 +76,9 @@ public partial class WeOweViewModel : ViewModelBase
 
     [ObservableProperty] private bool showDueSection;
 
-    [ObservableProperty] private SupplierDueRow? receiveSupplier;
+    /// <summary>Whose money is being taken in, picked where their figures already are - in the table above -
+    /// rather than in a second picker that would then have to be kept agreeing with it.</summary>
+    [ObservableProperty] private SupplierDueRow? selectedDue;
 
     [ObservableProperty] private DateTimeOffset? receiveDate = DateTimeOffset.Now;
 
@@ -92,10 +94,10 @@ public partial class WeOweViewModel : ViewModelBase
 
     [ObservableProperty] private string dueToUsText = Money.Pkr(0);
 
-    /// <summary>The figure for the supplier picked in the receive form, as the two forms above it show theirs.
-    /// The section total is a different thing and is said separately, so a typed amount is always being measured
-    /// against one number and not the nearest one on screen.</summary>
-    [ObservableProperty] private string receiveDueText = "—";
+    /// <summary>The label over the amount box: whose money, and how much of it is due. Said on the label
+    /// rather than in a figure of its own, because a box of its own would have made two answers to the same
+    /// question on one card.</summary>
+    [ObservableProperty] private string receiveLabel = "Amount (Rs)";
 
     public override async Task LoadAsync()
     {
@@ -137,11 +139,11 @@ public partial class WeOweViewModel : ViewModelBase
         ApplyCustomerFilter();
 
         var dueBack = await _cash.SupplierDueAsync();
-        var keepSupplier = ReceiveSupplier?.SupplierId;
+        var keepSupplier = SelectedDue?.SupplierId;
         Due.Clear();
         foreach (var d in dueBack)
             Due.Add(d);
-        ReceiveSupplier = keepSupplier is int sid ? Due.FirstOrDefault(x => x.SupplierId == sid) : null;
+        SelectedDue = keepSupplier is int picked ? Due.FirstOrDefault(x => x.SupplierId == picked) : null;
         ShowDueSection = Due.Count > 0;
         DueToUsText = Money.Pkr(dueBack.Where(x => x.Due > 0.009m).Sum(x => x.Due));
         await ShowReceiptsAsync();
@@ -268,13 +270,15 @@ public partial class WeOweViewModel : ViewModelBase
     /// amount owed is what their ledger says, in rupees, before the amount is typed - so the shop can see
     /// the ceiling it will be held to rather than discover it in a refusal.
     /// </summary>
-    /// <summary>The receipts on file for the supplier picked in the receive form, latest first - the same
-    /// shape as the payouts below, and for the same reason: money that has been taken in has to be readable
-    /// where it was written, and removable if it was written wrongly.</summary>
+    /// <summary>What has already come in from the supplier picked in the table, latest first: money taken has
+    /// to be readable where it was written, and removable if it was written wrongly.</summary>
     private async Task ShowReceiptsAsync()
     {
-        ReceiveDueText = ReceiveSupplier is null ? "—" : Money.Pkr(Math.Max(0m, ReceiveSupplier.Due));
-        if (ReceiveSupplier is null)
+        ReceiveLabel = SelectedDue is null
+            ? "Amount (Rs) · pick a supplier in the table above"
+            : "Amount (Rs) · " + SelectedDue.SupplierName + " has " + Money.Pkr(Math.Max(0m, SelectedDue.Due))
+              + " due back";
+        if (SelectedDue is null)
         {
             Receipts.Clear();
             ShowReceipts = false;
@@ -282,12 +286,12 @@ public partial class WeOweViewModel : ViewModelBase
         }
 
         Receipts.Clear();
-        foreach (var r in await _cash.ListReceiptsAsync(ReceiveSupplier.SupplierId))
+        foreach (var r in await _cash.ListReceiptsAsync(SelectedDue.SupplierId))
             Receipts.Add(r);
         ShowReceipts = Receipts.Count > 0;
     }
 
-    partial void OnReceiveSupplierChanged(SupplierDueRow? value) => _ = ShowReceiptsAsync();
+    partial void OnSelectedDueChanged(SupplierDueRow? value) => _ = ShowReceiptsAsync();
 
     private async Task ShowOwedCustomerAsync()
     {
@@ -321,7 +325,7 @@ public partial class WeOweViewModel : ViewModelBase
             .Cast<IReadOnlyList<string>>().ToList();
         var due = Due.Select(d => new[]
         {
-            d.SupplierName, d.ReturnedText, d.ReceivedText, d.DueText,
+            d.SupplierName, d.ReceivedText, d.DueText,
         }).Cast<IReadOnlyList<string>>().ToList();
         var got = Receipts.Select(r => new[]
         {
@@ -338,8 +342,9 @@ public partial class WeOweViewModel : ViewModelBase
         // The money owed back to us is its own table, with the still-due total on it, so the paper answers the
         // question the supplier asks over the phone. Only when there is something on it.
         if (due.Count > 0)
-            tables.Add(new PrintTable("Suppliers who owe us", new[] { "Supplier", "Their returns left due", "Received", "Still due" },
-                due, new[] { "Total", "", "", DueToUsText }, 1));
+            tables.Add(new PrintTable("Suppliers who owe us",
+                new[] { "Supplier", "Received so far", "Still due back" }, due,
+                new[] { "Total due back", "", DueToUsText }, 1));
         if (got.Count > 0)
             tables.Add(new PrintTable("Received from this supplier", new[] { "Date", "How", "Amount", "Note" }, got, null, 2));
         _print.PrintTables("we-owe.html", "We owe", null, tables);
@@ -376,15 +381,15 @@ public partial class WeOweViewModel : ViewModelBase
     [RelayCommand]
     private async Task ReceiveAsync()
     {
-        if (ReceiveSupplier is null)
+        if (SelectedDue is null)
         {
-            _shell.Notify("Pick the supplier the money is coming from.", true);
+            _shell.Notify("Pick the supplier in the table above first.", true);
             return;
         }
         try
         {
             await _inventory.ReceiveFromSupplierAsync(
-                ReceiveSupplier.SupplierId,
+                SelectedDue.SupplierId,
                 ReceiveDate?.DateTime ?? DateTime.Today,
                 ReceiveAmount ?? 0,
                 ReceiveMethod,

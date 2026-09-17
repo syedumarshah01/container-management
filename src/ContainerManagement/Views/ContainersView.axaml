@@ -9,6 +9,12 @@
       <!-- The paper belongs with the button that opens the day, not off on its own: print is what you do with
            the list you are already looking at. -->
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <!-- The way back to the closed lots, and the way to set them down again. It is here rather than in the
+             table because it changes what the table is, not what is typed into it. -->
+        <Button Content="{Binding ToggleLabel}" Command="{Binding TogglePutAwayCommand}"
+                IsVisible="{Binding ShowPutAwayButton}" />
+        <Button Classes="gold" Content="Re-open" Command="{Binding ReopenCommand}"
+                IsVisible="{Binding ShowPutAway}" />
         <Button Content="Print" Command="{Binding PrintCommand}" />
         <Button Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
                 IsVisible="{Binding !ShowAddForm}" />
@@ -18,7 +24,7 @@
     <Border Classes="card">
       <StackPanel>
         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-          <TextBlock Classes="h2" Text="All containers" Margin="0" VerticalAlignment="Center" />
+          <TextBlock Classes="h2" Text="{Binding ListTitle}" Margin="0" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, number, origin, date"
                    Width="300" VerticalAlignment="Center" Margin="0" />
         </Grid>

@@ -55,7 +55,7 @@ has to follow to be worth adding.
 | the till's opening figure | saying it again corrects it - cash in hand moves by the difference and not by the whole new figure - one opening line is kept, and taking it back to nothing leaves no empty line behind |
 | an expense corrected | Home's month profit moves by exactly the change, the till keeps one line at the new figure with the shop's own words for the description, a blank description or a zero amount is refused, and deleting it puts the whole figure back once |
 | a shelf re-counted | the count moves the stock and what it is worth, and no money already earned; the record keeps what it moved from, to, and why; a count above what was ever bought, or below zero, is refused |
-| a container closed | nothing moves: its sales, its profit and what is still out there stay where they were, and the box stays in the lists the pages are added up from, because a closed box is still owed to and still pays |
+| a container closed | nothing moves: its sales, its profit and what is still out there stay where they were, and it stays in every list the money is added up from - it only leaves the Containers page's working list, into *Put away* - because a closed box is still owed to and still pays |
 | the lists, against the rows under them | To collect shows each customer the figure their own page holds and leaves out anyone even or holding money back; the inventory page is the shelf added up and worth what Home's stock line says; the sell page offers exactly what the shelf holds; correcting a customer's name or number moves no money at all |
 | every row, swept | over the whole fixture shop: each bill's lines less its discount are its total, each customer's ledger adds back to their bills, receipts, returns and money handed over, each lot's shelf is what came in less what went out plus what was handed back and any count made since, what We Owe per container is that container's bill less the payments on it, and the till's own lines add to the cash in hand shown |
 | updates | the decision is made from the facts, not from what a folder looks like: a version is compared by its three numbers (1.10.0 is newer than 1.9.0, which a text compare gets backwards), unsaved work in the folder stops an update before it is offered, a folder and a branch that have each moved are handed to a person, and the script that does the work may only fetch, fast-forward, build and start - it is refused if it ever says reset or clean or names the folder holding the books |
@@ -513,6 +513,16 @@ rather than assuming it. Say the word and I will move those columns to text for 
    *Remove* on the receipts table must put the till line back out and re-open the debt; **Remove** on a return
    must be refused while money the supplier sent still counts on it, and must work after that receipt is taken
    out - units back on the shelf, amount back where it belongs.
+4r. A lot put aside and pulled back. On a container page press **Close / re-open** to close a lot. Then on
+   **Containers**: the lot must be gone from the list, and the button beside Print must read *Put away (1)* -
+   press it and the lot must be there, with the same money figures as before, and a **Re-open** button next to
+   the toggle. Press **Re-open** with nothing picked and it must say so rather than acting; pick the lot and
+   press it, and the lot must be back in the open list with the identical figures it had. Two more things must
+   not have moved at any point in that sequence: **Reports** → Containers must still count the lot while it is
+   put away, and the till on Main ledger must not have moved by a paisa. A lot with no supplier named and nothing
+   on it must still show in the *Put away* view if it is closed, and the count in the button's label is the
+   number of lots put aside, not the number you can currently see.
+
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is
