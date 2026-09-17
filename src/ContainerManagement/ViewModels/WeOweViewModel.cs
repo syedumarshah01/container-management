@@ -94,10 +94,23 @@ public partial class WeOweViewModel : ViewModelBase
 
     [ObservableProperty] private string dueToUsText = Money.Pkr(0);
 
-    /// <summary>The label over the amount box: whose money, and how much of it is due. Said on the label
-    /// rather than in a figure of its own, because a box of its own would have made two answers to the same
-    /// question on one card.</summary>
-    [ObservableProperty] private string receiveLabel = "Amount (Rs)";
+    /// <summary>The line under the table saying who the boxes below are for and what they are held to. The name
+    /// belongs to the form, not only to a row highlight; the figure is quoted from the table rather than put in a
+    /// box to be typed over. A supplier who has paid everything back is named and called what the column calls
+    /// them, because a figure there would say "Rs 0" where the table says "Settled" - two answers, one question.
+    /// </summary>
+    public string ReceiveTarget => SelectedDue is null
+        ? ""
+        : SelectedDue.Due > 0.009m
+            ? SelectedDue.SupplierName + " · " + Money.Pkr(SelectedDue.Due) + " still due back"
+            : SelectedDue.SupplierName + " · " + SelectedDue.DueText;
+
+    /// <summary>The receipt boxes appear once a supplier is picked, and the reason to pick one appears until then.
+    /// A form that cannot do anything yet is clutter, and a picker beside a table of the same names was the
+    /// clutter this card had before.</summary>
+    public bool ShowReceiveRow => SelectedDue is not null;
+
+    public bool ShowReceiveHint => SelectedDue is null;
 
     public override async Task LoadAsync()
     {
@@ -274,10 +287,9 @@ public partial class WeOweViewModel : ViewModelBase
     /// to be readable where it was written, and removable if it was written wrongly.</summary>
     private async Task ShowReceiptsAsync()
     {
-        ReceiveLabel = SelectedDue is null
-            ? "Amount (Rs) · pick a supplier in the table above"
-            : "Amount (Rs) · " + SelectedDue.SupplierName + " has " + Money.Pkr(Math.Max(0m, SelectedDue.Due))
-              + " due back";
+        OnPropertyChanged(nameof(ReceiveTarget));
+        OnPropertyChanged(nameof(ShowReceiveRow));
+        OnPropertyChanged(nameof(ShowReceiveHint));
         if (SelectedDue is null)
         {
             Receipts.Clear();

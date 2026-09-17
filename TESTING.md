@@ -523,6 +523,16 @@ rather than assuming it. Say the word and I will move those columns to text for 
    on it must still show in the *Put away* view if it is closed, and the count in the button's label is the
    number of lots put aside, not the number you can currently see.
 
+4s. What the *Suppliers who owe us* card shows, and when. On **We owe**, while a supplier owes you money, the card
+   must be four things and no more: the heading with *due back in total* and the figure on the same line, the
+   three-column table, one line reading *Pick a supplier in the table above*, and nothing else - no date box, no
+   amount box, no button, until a row is picked. Click a row and that line must be gone, replaced by the supplier's
+   name and what is still due back from them, with one row of boxes under it - date, amount, how the money came in,
+   note, **Receive** - all sitting on the same bottom line, and the amount spelled out in words beneath it. Nothing
+   on the card may state one figure twice. Record the receipt and the row must read larger under *Received so far*
+   and smaller under *Still due back*, by exactly that amount; while nobody owes you anything the card must not
+   appear at all.
+
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is

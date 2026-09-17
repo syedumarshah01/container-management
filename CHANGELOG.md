@@ -20,9 +20,11 @@ date is the day it was pushed.
   beside the Print button shows the ones that are set aside, with **Re-open** to pull one back. Reports, the till,
   what you owe them and what they owe you are untouched by closing - the lot is out of the way, not out of the
   book, and nothing is counted twice or dropped.
-- The *Suppliers who owe us* card on We owe is one table and one row of boxes now: the supplier is picked in the
-  table, the figure their money is measured against is on the amount box's own label, and the note sits in the
-  same row instead of taking a card of its own.
+- The *Suppliers who owe us* card on We owe is a heading with its total, the table of who owes what, and a single
+  row of boxes that appears only once a supplier is picked in that table. There is no second picker beside the
+  table, no figure of its own repeating what a column already says, and no empty form sitting under a list waiting
+  to be told who it is for; the amount box's unit is read off the words under it and its ceiling off the line
+  above it, in the same shape as the receive-money row on a customer's page.
 - Home's date boxes moved to the top of the page and now change the whole-book figures. This month stays this
   month, whatever the boxes say.
 - A container is counted in the period it landed in, sold or not, by the arrival date written when it was
