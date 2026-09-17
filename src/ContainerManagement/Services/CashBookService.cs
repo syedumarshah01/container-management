@@ -216,6 +216,84 @@ public class CashBookService
         });
     }
 
+    /// <summary>
+    /// What the returns have left due back from a supplier, after everything already received: the part of each
+    /// credit that the lot's bill could not absorb, less the money that has come in against it. One formula,
+    /// kept with the till's own helpers, so the figure the We Owe page offers and the figure a receipt is
+    /// allowed to take cannot become two different answers.
+    /// </summary>
+    public static decimal DueBackToUs(IEnumerable<SupplierReturn> returns, IEnumerable<SupplierReceipt> receipts)
+        => Money.Round(returns.Sum(r => r.DueToUs) - receipts.Sum(x => x.Amount));
+
+    /// <summary>
+    /// Money a supplier sends back, landed in the till as money in. It is not a sale and not a refund of a
+    /// customer's money: it is the return of what went out for goods that are no longer here, which is why it
+    /// carries its own kind rather than being filed beside the takings.
+    /// </summary>
+    public static void PostSupplierReceipt(AppDbContext db, SupplierReceipt rec, string supplierName, string? note)
+    {
+        var tail = string.IsNullOrWhiteSpace(note) ? "" : " · " + note.Trim();
+        db.CashBook.Add(new CashBookEntry
+        {
+            Date = rec.Date,
+            Kind = CashBookKind.SupplierIn,
+            Description = rec.Method + " from " + supplierName + " · goods sent back" + tail,
+            AmountIn = rec.Amount,
+            AmountOut = 0,
+            SupplierReceiptId = rec.Id
+        });
+    }
+
+    public static void RemoveSupplierReceipt(AppDbContext db, int receiptId)
+    {
+        var rows = db.CashBook.Where(e => e.SupplierReceiptId == receiptId).ToList();
+        db.CashBook.RemoveRange(rows);
+    }
+
+    /// <summary>The suppliers holding our money, per supplier: what their returns left owing back, what has
+    /// come in since, and what is still due. Suppliers with nothing on either side are not listed.</summary>
+    public async Task<List<SupplierDueRow>> SupplierDueAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.Suppliers.AsNoTracking()
+            .Include(s => s.Returns)
+            .Include(s => s.Receipts)
+            .ToListAsync();
+        return rows
+            .Select(s =>
+            {
+                var due = DueBackToUs(s.Returns, s.Receipts);
+                return new SupplierDueRow
+                {
+                    SupplierId = s.Id,
+                    SupplierName = string.IsNullOrWhiteSpace(s.Name) ? "Supplier" : s.Name,
+                    Returned = Money.Round(s.Returns.Sum(r => r.DueToUs)),
+                    Received = Money.Round(s.Receipts.Sum(x => x.Amount)),
+                    Due = due
+                };
+            })
+            .Where(x => x.Returned > 0.009m || x.Received > 0.009m)
+            .OrderByDescending(x => x.Due).ThenBy(x => x.SupplierName)
+            .ToList();
+    }
+
+    public async Task<List<SupplierReceiptRow>> ListReceiptsAsync(int supplierId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return (await db.SupplierReceipts.AsNoTracking().Where(x => x.SupplierId == supplierId).ToListAsync())
+            .OrderByDescending(x => x.Date.Date).ThenByDescending(x => x.Id)
+            .Select(x => new SupplierReceiptRow
+            {
+                Id = x.Id,
+                SupplierId = x.SupplierId,
+                Date = x.Date,
+                Amount = x.Amount,
+                Method = x.Method,
+                Notes = x.Notes
+            })
+            .ToList();
+    }
+
     public static void PostExpense(AppDbContext db, ShopExpense exp)
     {
         db.CashBook.Add(new CashBookEntry

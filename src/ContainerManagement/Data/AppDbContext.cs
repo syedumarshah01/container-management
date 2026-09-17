@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
     public DbSet<CustomerPayout> CustomerPayouts => Set<CustomerPayout>();
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
+    public DbSet<SupplierReceipt> SupplierReceipts => Set<SupplierReceipt>();
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
@@ -171,6 +173,35 @@ public class AppDbContext : DbContext
             e.Property(x => x.Method).HasMaxLength(40);
             e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.CustomerId, x.Date });
+        });
+
+        model.Entity<SupplierReturn>(e =>
+        {
+            e.ToTable("SupplierReturns");
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitCost).HasPrecision(18, 2);
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.CreditedOwing).HasPrecision(18, 2);
+            e.Property(x => x.DueToUs).HasPrecision(18, 2);
+            // A return belongs to the goods line it came off, and that line going takes the note with it: a
+            // record of goods that no longer exist is not a figure anybody can check. The lot and the supplier
+            // are the other way round - their rows are the book's, so a lot with returns on it is not free to
+            // be rewritten into nothing.
+            e.HasOne(x => x.ContainerItem).WithMany().HasForeignKey(x => x.ContainerItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Container).WithMany().HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Supplier).WithMany(s => s.Returns).HasForeignKey(x => x.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SupplierId, x.Date });
+        });
+
+        model.Entity<SupplierReceipt>(e =>
+        {
+            e.ToTable("SupplierReceipts");
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasOne(x => x.Supplier).WithMany(s => s.Receipts).HasForeignKey(x => x.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SupplierId, x.Date });
         });
 
         model.Entity<StockAdjustment>(e =>

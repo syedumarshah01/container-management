@@ -13,6 +13,38 @@ public static class SchemaPatcher
         AddColumn(con, "Sales", "DueDate", "TEXT");
         AddColumn(con, "Sales", "Status", "INTEGER NOT NULL DEFAULT 0");
         AddColumn(con, "Sales", "CancelledAt", "TEXT");
+        AddColumn(con, "CashBook", "SupplierReceiptId", "INTEGER");
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS SupplierReturns (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SupplierId INTEGER NOT NULL,
+                ContainerId INTEGER NOT NULL,
+                ContainerItemId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Quantity REAL NOT NULL,
+                UnitCost REAL NOT NULL,
+                Amount REAL NOT NULL,
+                CreditedOwing REAL NOT NULL,
+                DueToUs REAL NOT NULL,
+                Notes TEXT
+            );
+            CREATE INDEX IF NOT EXISTS IX_SupplierReturns_SupplierId_Date
+                ON SupplierReturns(SupplierId, Date);
+            """);
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS SupplierReceipts (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SupplierId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Amount REAL NOT NULL,
+                Method TEXT,
+                Notes TEXT
+            );
+            CREATE INDEX IF NOT EXISTS IX_SupplierReceipts_SupplierId_Date
+                ON SupplierReceipts(SupplierId, Date);
+            """);
 
         AddColumn(con, "Products", "PhotoPath", "TEXT");
         AddColumn(con, "Products", "LastSalePrice", "REAL");

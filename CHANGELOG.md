@@ -6,6 +6,16 @@ date is the day it was pushed.
 
 ## 1.1.0
 
+- A container page has a **Return to supplier** section under its expenses: pick the goods line, type how many
+  units went back, and the units leave the lot and the shelf. What they were bought for comes off what you owe
+  that supplier on the lot - the freight they carried does not, because that money was spent on the shipment and
+  now falls on the units that stayed. Nothing is typed for the money: it is the cost on the line, so a return can
+  never be made to say a different figure from the goods it is about.
+- When a return is worth more than the lot owes, the leftover becomes money the supplier owes you, listed on
+  **We owe** under **Suppliers who owe us**. Take it in there when it arrives and it lands in the till as money
+  in - on Main ledger as IN, on the date you type - and it is never counted as a sale or as income.
+- Both are reversible in order: a receipt can be taken back out, and a return only once no money received counts
+  on it. The lot's paper carries what went back as its own table, and so does the We owe page.
 - Home's date boxes moved to the top of the page and now change the whole-book figures. This month stays this
   month, whatever the boxes say.
 - A container is counted in the period it landed in, sold or not, by the arrival date written when it was

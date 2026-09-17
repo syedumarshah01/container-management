@@ -44,6 +44,7 @@ public static class Program
             await MonthReceipts(dir);
             await InvoiceStanding(dir);
             await FreightSplit(dir);
+            await SupplierDue(dir);
             Storage(dir);
         }
         catch (Exception ex)
@@ -1825,6 +1826,169 @@ public static class Program
 
     /// <summary>The item as the tables hold it, read fresh: a service's return value is the object it was
     /// working with and can carry a figure another save has since moved.</summary>
+    // ---------------------------------------------------------- goods handed back to a supplier
+
+    /// <summary>
+    /// The supplier-return path end to end: units off the lot and off the shelf at the cost on the line, the
+    /// credit against what the lot owes, what the bill could not absorb standing as money due back, and that
+    /// money arriving in the till as a receipt in. No money figure on this path is typed by the shop, which is
+    /// the point: a return can never be made to say something different from the goods it is about.
+    /// </summary>
+    private static async Task SupplierDue(string dir)
+    {
+        var file = Path.Combine(dir, "supplier-due.db");
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite($"Data Source={file};Cache=Shared;Mode=ReadWriteCreate"));
+        var sp = services.BuildServiceProvider();
+        var f = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+
+        var inventory = new InventoryService(f);
+        var cash = new CashBookService(f);
+        var reports = new ReportService(f);
+        var date = new DateTime(2026, 3, 2);
+
+        var box = await inventory.CreateContainerAsync("DUE box", "DUE-1", "Japan", date, null, "PKR", 1m,
+            null, null, null, null, "Ali Traders", 100_000m, 0m, null);
+        var mug = await inventory.AddGoodsAsync(box.Id, "Ceramic mug", "pcs", "MUG-1", 100m, 400m, null, null, null, 1m, null);
+        await inventory.AddExpenseAsync(box.Id, date, "sea freight", 10_000m, null);
+        var supplierId = await SupplierOfAsync(f, box.Id);
+        var tillAtStart = await CashInHandAsync(f);
+        var before = (await reports.GetContainerProfitAsync(box.Id))!;
+        var landedBefore = (await ReadItemAsync(f, mug.Id)).LandedUnitCost;
+
+        Head("the units go off the lot and off the shelf, at the cost on the line and nothing else");
+        var ret = await inventory.ReturnToSupplierAsync(mug.Id, date, 20m, "dead on arrival");
+        Eq("20 mugs at Rs 400 are worth Rs 8,000", 8_000m, ret.Amount);
+        Eq("and all of it comes off what the lot owes, because the lot owes plenty", 8_000m, ret.CreditedOwing);
+        Eq("so nothing is due back from them on this return", 0m, ret.DueToUs);
+        var item = await ReadItemAsync(f, mug.Id);
+        Eq("purchased shrinks with it - the lot bought 80", 80m, item.QuantityReceived);
+        Eq("and 80 are on the shelf", 80m, item.QuantityRemaining);
+        Eq("the bill on the lot is 92,000 now", 92_000m, await BillOnLotAsync(f, box.Id));
+        Eq("which is what the We Owe page says, from those same figures", 92_000m,
+            (await cash.SupplierContainersAsync()).First(x => x.Id == box.Id).Owed);
+        Eq("and the till did not move at all: goods went back, not money", 0m, await CashInHandAsync(f) - tillAtStart);
+
+        Head("the freight those units carried is now carried by the ones that stayed");
+        var landed = (await ReadItemAsync(f, mug.Id)).LandedUnitCost;
+        Eq("to the paisa: 400 on the piece plus a hundred and twenty-five of freight", 525m, landed);
+        Check("and it rose, because the freight now falls on 80 units and not the 100 that were bought",
+            landed > landedBefore, $"{Money.Round(landedBefore, 2)} before, {Money.Round(landed, 2)} now");
+        var after = (await reports.GetContainerProfitAsync(box.Id))!;
+        Eq("the lot's bills are untouched - the freight was spent and stays spent", 10_000m, after.Expenses);
+        Eq("the stock on the shelf is what is left, costed as it now stands", 42_000m, after.RemainingValue);
+        Eq("and sending goods back is not income: the profit figure does not move", before.Profit, after.Profit);
+        await Throws<InvalidOperationException>("a count cannot invent the units that left the building",
+            async () => await inventory.AdjustStockAsync(mug.Id, 90m, "recount"));
+        await inventory.AdjustStockAsync(mug.Id, 80m, "recount");
+        Eq("a count of what is genuinely left passes", 80m, (await ReadItemAsync(f, mug.Id)).QuantityRemaining);
+        await Throws<InvalidOperationException>("more than is here cannot be sent back",
+            async () => await inventory.ReturnToSupplierAsync(mug.Id, date, 90m, null));
+        await Throws<InvalidOperationException>("nor can nothing",
+            async () => await inventory.ReturnToSupplierAsync(mug.Id, date, 0m, null));
+        await Throws<InvalidOperationException>("nor a negative",
+            async () => await inventory.ReturnToSupplierAsync(mug.Id, date, -5m, null));
+        Eq("and a refused sending took no units off the lot", 80m, (await ReadItemAsync(f, mug.Id)).QuantityReceived);
+        Eq("and no money off the bill", 92_000m, await BillOnLotAsync(f, box.Id));
+
+        Head("what the bill cannot absorb is money the supplier owes us");
+        await inventory.PaySupplierAsync(box.Id, date, 92_000m, "TT", null);
+        Eq("the bill paid down to nothing owing", 0m, await BillOnLotAsync(f, box.Id));
+        var ret2 = await inventory.ReturnToSupplierAsync(mug.Id, date, 40m, "wrong size");
+        Eq("40 mugs at Rs 400 are Rs 16,000", 16_000m, ret2.Amount);
+        Eq("with nothing left to settle, none of it was credited", 0m, ret2.CreditedOwing);
+        Eq("and all of it is due back from them", 16_000m, ret2.DueToUs);
+        var dueRow = (await cash.SupplierDueAsync()).Single();
+        Eq("the We Owe page names one supplier holding our money", 16_000m, dueRow.Due);
+        Eq("the lot's bill was never pushed below what was paid on it", 92_000m, await BillOnLotAsync(f, box.Id));
+        Eq("and the lot does not give a second, opposite answer about the same money", 0m,
+            (await cash.SupplierContainersAsync()).First(x => x.Id == box.Id).Owed);
+        await Throws<InvalidOperationException>("taking in more than they owe us is refused",
+            async () => await inventory.ReceiveFromSupplierAsync(supplierId, date, 20_000m, "Cash", null));
+        Eq("and a refused receipt wrote nothing anywhere", 0m, await ReceiptCountAsync(f, supplierId));
+        Eq("nothing in the till either", 0m, await CashInHandAsync(f) - tillAtStart);
+
+        Head("their money in: a receipt in the till, and not a sale");
+        await inventory.ReceiveFromSupplierAsync(supplierId, date, 4_000m, "Cheque", "cheque 221");
+        Eq("the till gained exactly that", 4_000m, await CashInHandAsync(f) - tillAtStart);
+        var line = await ReceiptLineAsync(f);
+        Check("it is money in and not money out", line.In == 4_000m && line.Out == 0m, $"{line.In} in, {line.Out} out");
+        Check("the line says whose money it is and why", line.Text.Contains("Ali Traders")
+              && line.Text.Contains("goods sent back"), line.Text);
+        Eq("and what they owe back shrank by that figure and no other", 12_000m,
+            (await cash.SupplierDueAsync()).Single().Due);
+        await inventory.ReceiveFromSupplierAsync(supplierId, date, 12_000m, "Cash", null);
+        Eq("the rest in, and the account is closed", 0m, (await cash.SupplierDueAsync()).Single().Due);
+        Eq("the till holds the whole credit", 16_000m, await CashInHandAsync(f) - tillAtStart);
+        var stillListed = await cash.SupplierDueAsync();
+        Check("the supplier stays listed once it has been on it, so a receipt can be found and taken back out",
+            stillListed.Count == 1 && stillListed[0].Received == 16_000m, $"{stillListed.Count} rows");
+
+        Head("a return can be undone until its money has been taken");
+        var receipts = await ReceiptIdsAsync(f, supplierId);
+        await inventory.RemoveReceiptAsync(receipts[1]);
+        Eq("taking a receipt out opens the debt up again", 12_000m, (await cash.SupplierDueAsync()).Single().Due);
+        Eq("and the till line goes with it, to the paisa", 4_000m, await CashInHandAsync(f) - tillAtStart);
+        await Throws<InvalidOperationException>("but the return itself stays put while money they sent still counts on it",
+            async () => await inventory.RemoveReturnAsync(ret2.Id));
+        await inventory.RemoveReceiptAsync((await ReceiptIdsAsync(f, supplierId))[0]);
+        await inventory.RemoveReturnAsync(ret2.Id);
+        item = await ReadItemAsync(f, mug.Id);
+        Eq("now the units are on the lot and the shelf again", 80m, item.QuantityReceived);
+        Eq("80 to count", 80m, item.QuantityRemaining);
+        Eq("the credit was never on the bill, so there is nothing to put back on it", 92_000m,
+            await BillOnLotAsync(f, box.Id));
+        Eq("and what they owe back is open again", 16_000m, (await cash.SupplierDueAsync()).Single().Due);
+        Eq("the freight spread follows the units back up to the 80-unit figure", 525m, item.LandedUnitCost);
+        Eq("one return is left on the book and the other is gone", 1m, await ReturnCountAsync(f, box.Id));
+        await Throws<InvalidOperationException>("only what is on the shelf can still be sent back",
+            async () => await inventory.ReturnToSupplierAsync(mug.Id, date, 81m, null));
+    }
+
+    private static async Task<int> SupplierOfAsync(IDbContextFactory<AppDbContext> factory, int containerId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        return (await db.Containers.AsNoTracking().FirstAsync(x => x.Id == containerId)).SupplierId ?? 0;
+    }
+
+    private static async Task<decimal> BillOnLotAsync(IDbContextFactory<AppDbContext> factory, int containerId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var c = await db.Containers.AsNoTracking().Include(x => x.SupplierPayments).FirstAsync(x => x.Id == containerId);
+        return Money.Round(c.SupplierAmount - c.SupplierPayments.Sum(p => p.Amount));
+    }
+
+    private static async Task<decimal> ReturnCountAsync(IDbContextFactory<AppDbContext> factory, int containerId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        return await db.SupplierReturns.CountAsync(x => x.ContainerId == containerId);
+    }
+
+    private static async Task<decimal> ReceiptCountAsync(IDbContextFactory<AppDbContext> factory, int supplierId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        return await db.SupplierReceipts.CountAsync(x => x.SupplierId == supplierId);
+    }
+
+    private static async Task<List<int>> ReceiptIdsAsync(IDbContextFactory<AppDbContext> factory, int supplierId)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        return await db.SupplierReceipts.AsNoTracking().Where(x => x.SupplierId == supplierId)
+            .OrderBy(x => x.Id).Select(x => x.Id).ToListAsync();
+    }
+
+    private static async Task<(decimal In, decimal Out, string Text)> ReceiptLineAsync(
+        IDbContextFactory<AppDbContext> factory)
+    {
+        await using var db = await factory.CreateDbContextAsync();
+        var row = await db.CashBook.AsNoTracking().FirstAsync(e => e.SupplierReceiptId != null);
+        return (row.AmountIn, row.AmountOut, row.Description);
+    }
+
     private static async Task<ContainerItem> ReadItemAsync(IDbContextFactory<AppDbContext> factory, int itemId)
     {
         await using var db = await factory.CreateDbContextAsync();

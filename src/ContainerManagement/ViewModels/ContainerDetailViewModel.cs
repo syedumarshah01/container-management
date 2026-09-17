@@ -82,6 +82,33 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string editSupplier = "";
     [ObservableProperty] private decimal? editSupplierAmount;
 
+    // The goods-back-to-supplier section. No money box on purpose: the amount is the cost that is already on
+    // the line, and where it goes is settled by the rule the service holds, so the only figure the shop can
+    // type is the one nobody can derive - how many units left the building.
+    [ObservableProperty] private decimal? returnQty;
+
+    [ObservableProperty] private string returnNotes = "";
+
+    [ObservableProperty] private string returnPreview = "";
+
+    /// <summary>Which line the count belongs to, as the items table has it picked. Said by the page rather than
+    /// bound through the selection so the card holds no binding that can be quietly wrong.</summary>
+    [ObservableProperty] private string returnTarget = "no goods line picked";
+
+    [ObservableProperty] private bool showReturnPreview;
+
+    [ObservableProperty] private bool canReturnGoods;
+
+    [ObservableProperty] private SupplierReturnRow? selectedReturn;
+
+    [ObservableProperty] private bool showReturns;
+
+    public ObservableCollection<SupplierReturnRow> Returns { get; } = new();
+
+    /// <summary>What this lot owes its supplier as the page stands. The preview settles a credit against it, and
+    /// it is the same figure the write settles against, so the two cannot tell different stories.</summary>
+    private decimal _owedOnLot;
+
     /// <summary>
     /// The paid box. It is not a container field but the total of that supplier's payments, so saving
     /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
@@ -108,6 +135,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         IsOwner = _access.IsOwner;
         var selectedId = SelectedItem?.Id;
         var selectedExpenseId = SelectedExpense?.Id;
+        var selectedReturnId = SelectedReturn?.Id;
 
         var c = await _inventory.GetContainerAsync(_id);
         if (c is null)
@@ -126,6 +154,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         // the figure the We owe page shows. The stored number is the bill - what is owed plus everything
         // paid - so the two are exactly one subtraction apart, done here and nowhere else.
         var owedNow = Money.Round(c.SupplierAmount - paidNow);
+        _owedOnLot = owedNow > 0.009m ? owedNow : 0m;
         EditPaidSoFar = paidNow;
         EditSupplierAmount = owedNow > 0.009m ? owedNow : 0m;
         EditArrival = c.ArrivalDate;
@@ -175,9 +204,15 @@ public partial class ContainerDetailViewModel : ViewModelBase
         Expenses.Clear();
         foreach (var e in c.Expenses.OrderByDescending(x => x.Date))
             Expenses.Add(e);
+        Returns.Clear();
+        foreach (var r in await _inventory.ReturnsOnAsync(_id))
+            Returns.Add(r);
 
         SelectedItem = selectedId is int sid ? Items.FirstOrDefault(i => i.Id == sid) : null;
         SelectedExpense = selectedExpenseId is int eid ? Expenses.FirstOrDefault(e => e.Id == eid) : null;
+        SelectedReturn = selectedReturnId is int rid ? Returns.FirstOrDefault(r => r.Id == rid) : null;
+        ShowReturns = Returns.Count > 0;
+        CanReturnGoods = c.SupplierId is not null && c.Status != ContainerStatus.Closed;
         _loadingSelection = false;
 
         var p = await _reports.GetContainerProfitAsync(_id);
@@ -194,6 +229,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
     {
         if (_loadingSelection || value is null) return;
         ShowItemForm = true;
+        ReturnTarget = value.Name + " · " + Money.Qty3(value.InStock) + " " + value.Unit + " in stock at "
+                       + Money.Pkr(value.UnitCost) + " each";
         GoodsName = value.Name;
         GoodsSku = value.Sku;
         GoodsUnit = value.Unit;
@@ -204,6 +241,37 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsIsYen = value.CostCurrency == "JPY";
         GoodsWeight = value.WeightKg;
         UpdateGoodsPreview();
+        UpdateReturnPreview();
+    }
+
+    partial void OnReturnQtyChanged(decimal? value) => UpdateReturnPreview();
+
+    /// <summary>
+    /// What sending these units back would do, said before any of it is written: the units' own cost, how much
+    /// of it the lot's bill takes off, what is left for the supplier to send back. Derived from the cost on the
+    /// line and the lot's owed figure as this page loaded them - the same two figures the write uses - so a
+    /// preview cannot promise one thing while the book records another.
+    /// </summary>
+    private void UpdateReturnPreview()
+    {
+        if (SelectedItem is null)
+            ReturnTarget = "no goods line picked";
+        if (SelectedItem is null || ReturnQty is not decimal typed || typed <= 0)
+        {
+            ReturnPreview = "";
+            ShowReturnPreview = false;
+            return;
+        }
+
+        var units = Money.Round(typed, 3);
+        var amount = Money.Round(units * SelectedItem.UnitCost);
+        var relief = Math.Min(amount, Math.Max(0m, _owedOnLot));
+        var due = Money.Round(amount - relief);
+        ReturnPreview = Money.Qty3(units) + " " + SelectedItem.Unit + " at " + Money.Pkr(SelectedItem.UnitCost)
+                        + " = " + Money.Pkr(amount)
+                        + (relief > 0.009m ? " · takes " + Money.Pkr(relief) + " off what this lot owes" : "")
+                        + (due > 0.009m ? " · " + Money.Pkr(due) + " due back from them" : "");
+        ShowReturnPreview = true;
     }
 
     [ObservableProperty] private bool showExpenseTape;
@@ -299,6 +367,58 @@ public partial class ContainerDetailViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task SendBackAsync()
+    {
+        if (SelectedItem is null)
+        {
+            _shell.Notify("Select the goods line that went back, in the items table.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to send goods back to a supplier.", true);
+            return;
+        }
+        try
+        {
+            var ret = await _inventory.ReturnToSupplierAsync(
+                SelectedItem.Id, DateTime.Today, ReturnQty ?? 0, ReturnNotes);
+            _shell.MarkChanged();
+            ReturnQty = null;
+            ReturnNotes = "";
+            _shell.Notify(ret.DueToUs > 0.009m
+                ? "Goods sent back. " + Money.Pkr(ret.CreditedOwing) + " taken off what the lot owes, and "
+                  + Money.Pkr(ret.DueToUs) + " is due back from the supplier."
+                : "Goods sent back, and " + Money.Pkr(ret.Amount) + " taken off what this lot owes.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
+    private async Task RemoveReturnAsync()
+    {
+        if (SelectedReturn is null)
+        {
+            _shell.Notify("Select the return in the table to take it off the book.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to remove a return.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.RemoveReturnAsync(SelectedReturn.Id);
+            _shell.MarkChanged();
+            _shell.Notify("Return taken off the book: the units are back on the shelf and the amount is back on the lot.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
     private void Print()
     {
         var goods = Items.Select(i => new[]
@@ -309,12 +429,24 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             e.Date.ToString("dd MMM yyyy"), e.Category, e.SourceText, e.Currency,
         }).Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, new[]
+        // Only on the paper when there is something on it: a heading for an empty table is a question the
+        // shop has to answer by looking for itself.
+        var backs = Returns.Select(r => new[]
+        {
+            r.DateText, r.ProductName, r.UnitsText, r.CostEachText, r.AmountText, r.SettledText, r.DueText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var tables = new List<PrintTable>
         {
             new PrintTable("Goods",
                 new[] { "Item", "Code", "Unit", "Cost each", "Freight each", "Weight", "Cost as written" }, goods, null, 3),
             new PrintTable("Bills", new[] { "Date", "What it was for", "As it was written", "Money" }, bills, null, 2),
-        });
+        };
+        if (backs.Count > 0)
+            tables.Add(new PrintTable("Sent back to supplier",
+                new[] { "Date", "Item", "Units", "Cost each", "Worth", "Off what we owe", "Due back" }, backs,
+                new[] { "All returns", "", Money.Qty3(Returns.Sum(r => r.Quantity)), "", Money.Pkr(Returns.Sum(r => r.Amount)),
+                    Money.Pkr(Returns.Sum(r => r.CreditedOwing)), Money.Pkr(Returns.Sum(r => r.DueToUs)) }, 2));
+        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, tables);
         _shell.Notify("Printed from the page you were on.");
     }
 

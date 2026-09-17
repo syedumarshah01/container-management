@@ -664,6 +664,198 @@ public class InventoryService
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Send units of a goods line back to the supplier. Three things happen and no more: the units leave the
+    /// lot and the shelf, the item's own cost comes off what we owe for the lot, and whatever the owing could
+    /// not absorb is left standing as money the supplier has to send back. The freight is deliberately not
+    /// clawed back - it was charged for the shipment as it went, and a returned carton of it does not come off
+    /// a shipping line - but it does now fall on the units that stayed, which is what the lot's own expense
+    /// sharing has always said.
+    /// </summary>
+    public async Task<SupplierReturn> ReturnToSupplierAsync(
+        int containerItemId, DateTime date, decimal quantity, string? notes)
+    {
+        // Units are counted to three decimals, like every quantity in the book; the money is a paisa figure
+        // worked out once, from the cost on the line as it stands.
+        quantity = Money.Round(quantity, 3);
+        if (quantity <= 0)
+            throw new InvalidOperationException("Say how many units went back.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var item = await db.ContainerItems
+            .Include(x => x.Product)
+            .Include(x => x.Container).ThenInclude(c => c!.SupplierPayments)
+            .FirstOrDefaultAsync(x => x.Id == containerItemId)
+            ?? throw new InvalidOperationException("Goods line not found.");
+        var c = item.Container;
+        if (c.SupplierId is null)
+            throw new InvalidOperationException("Set the supplier name on this container first.");
+        if (c.Status == ContainerStatus.Closed)
+            throw new InvalidOperationException("This container is closed. Re-open it to send goods back.");
+        // What has been sold is not here any more, and a supplier takes back goods, not a shop's own
+        // arithmetic: goods a customer handed back are on the shelf again and can go straight on.
+        if (quantity - item.QuantityRemaining > 0.0005m)
+            throw new InvalidOperationException("Only " + Money.Qty3(item.QuantityRemaining) + " "
+                + item.Product.Unit + " of these are left to send back. What has been sold has to come in "
+                + "from the customer first.");
+
+        var amount = Money.Round(quantity * item.UnitCost);
+        var paid = c.SupplierPayments.Sum(p => p.Amount);
+        var owed = Money.Round(c.SupplierAmount - paid);
+        var relief = Math.Min(amount, Math.Max(0m, owed));
+        var due = Money.Round(amount - relief);
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        // Purchased and in stock both shrink: the lot genuinely bought fewer units, which is what keeps
+        // purchased less in stock equal to what went out on bills, and it is what pulls the count ceiling down
+        // with it - a count cannot invent units that left the building.
+        item.QuantityReceived = Money.Round(item.QuantityReceived - quantity, 3);
+        item.QuantityRemaining = Money.Round(item.QuantityRemaining - quantity, 3);
+        // Only the part that settled the bill comes off it. Money the supplier has to return is their money,
+        // not a smaller purchase, and a lot never shows a bill below what was paid against it.
+        c.SupplierAmount = Money.Round(c.SupplierAmount - relief);
+
+        var ret = new SupplierReturn
+        {
+            SupplierId = c.SupplierId.Value,
+            ContainerId = c.Id,
+            ContainerItemId = item.Id,
+            Date = date,
+            Quantity = quantity,
+            UnitCost = Money.Round(item.UnitCost),
+            Amount = amount,
+            CreditedOwing = Money.Round(relief),
+            DueToUs = due,
+            Notes = notes?.Trim()
+        };
+        db.SupplierReturns.Add(ret);
+        await ApplyLandedCostsAsync(db, c.Id);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return ret;
+    }
+
+    /// <summary>
+    /// Undo a sending: the units come back to the lot and the shelf, and the amount that was taken off the
+    /// bill goes back on it. It is refused once money has been received from that supplier against what this
+    /// return had due back, because taking the return away would leave the receipt standing against nothing.
+    /// </summary>
+    public async Task RemoveReturnAsync(int returnId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var ret = await db.SupplierReturns
+            .Include(x => x.ContainerItem).ThenInclude(i => i!.Container)
+            .FirstOrDefaultAsync(x => x.Id == returnId)
+            ?? throw new InvalidOperationException("This return is not in the book. It may already have been removed.");
+
+        var c = ret.ContainerItem.Container;
+        if (c.Status == ContainerStatus.Closed)
+            throw new InvalidOperationException("This container is closed. Re-open it to take a return back off the book.");
+
+        var all = await db.SupplierReturns.AsNoTracking().Where(x => x.SupplierId == ret.SupplierId).ToListAsync();
+        var taken = await db.SupplierReceipts.AsNoTracking().Where(x => x.SupplierId == ret.SupplierId).ToListAsync();
+        var stillDue = CashBookService.DueBackToUs(all.Where(x => x.Id != ret.Id), taken);
+        if (stillDue < -0.009m)
+            throw new InvalidOperationException(Money.Pkr(-stillDue) + " has been received from this supplier "
+                + "against what their returns leave due back, and this return is part of what that money counts on. "
+                + "Take the receipt off the We Owe page first, then this return can go.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        c.SupplierAmount = Money.Round(c.SupplierAmount + ret.CreditedOwing);
+        var item = ret.ContainerItem;
+        item.QuantityReceived = Money.Round(item.QuantityReceived + ret.Quantity, 3);
+        item.QuantityRemaining = Money.Round(item.QuantityRemaining + ret.Quantity, 3);
+        db.SupplierReturns.Remove(ret);
+        await ApplyLandedCostsAsync(db, c.Id);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
+
+    /// <summary>
+    /// Money in from a supplier, against what their returns left owing back. Nothing is invented here: the
+    /// figure has to fit inside what is due, and the till line it writes is what Main ledger reads as IN.
+    /// </summary>
+    public async Task<SupplierReceipt> ReceiveFromSupplierAsync(
+        int supplierId, DateTime date, decimal amount, string method, string? notes)
+    {
+        amount = Money.Round(amount);
+        if (amount <= 0)
+            throw new InvalidOperationException("Amount must be greater than zero.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var supplier = await db.Suppliers.FindAsync(supplierId)
+            ?? throw new InvalidOperationException("Supplier not found.");
+        var returns = await db.SupplierReturns.AsNoTracking().Where(x => x.SupplierId == supplierId).ToListAsync();
+        if (returns.Count == 0)
+            throw new InvalidOperationException("Nothing has been sent back to this supplier, so there is nothing "
+                + "for them to send back to us.");
+        var receipts = await db.SupplierReceipts.AsNoTracking().Where(x => x.SupplierId == supplierId).ToListAsync();
+        var due = CashBookService.DueBackToUs(returns, receipts);
+        if (due <= 0.009m)
+            throw new InvalidOperationException("This supplier has nothing due back to us - their returns leave "
+                + Money.Pkr(Money.Round(returns.Sum(r => r.DueToUs))) + " owing, and "
+                + Money.Pkr(Money.Round(receipts.Sum(x => x.Amount))) + " has already been taken in against that.");
+        if (amount - due > 0.009m)
+            throw new InvalidOperationException("They have " + Money.Pkr(due) + " due back. Taking "
+                + Money.Pkr(amount) + " would put money in the till against nothing.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var rec = new SupplierReceipt
+        {
+            SupplierId = supplierId,
+            Date = date,
+            Amount = amount,
+            Method = string.IsNullOrWhiteSpace(method) ? "Cash" : method.Trim(),
+            Notes = notes?.Trim()
+        };
+        db.SupplierReceipts.Add(rec);
+        await db.SaveChangesAsync();
+        CashBookService.PostSupplierReceipt(db, rec, supplier.Name, rec.Notes);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return rec;
+    }
+
+    /// <summary>Take a receipt back out - the till's line for it goes with it, since the money did not come in
+    /// after all. What the supplier owes back opens up again by the same amount.</summary>
+    public async Task RemoveReceiptAsync(int receiptId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rec = await db.SupplierReceipts.FindAsync(receiptId)
+            ?? throw new InvalidOperationException("This receipt is not in the book. It may already have been removed.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        CashBookService.RemoveSupplierReceipt(db, rec.Id);
+        db.SupplierReceipts.Remove(rec);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
+
+    /// <summary>What has gone back to the supplier from this lot, latest first, as the page lists it.</summary>
+    public async Task<List<SupplierReturnRow>> ReturnsOnAsync(int containerId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.SupplierReturns.AsNoTracking()
+            .Include(x => x.ContainerItem).ThenInclude(i => i!.Product)
+            .Where(x => x.ContainerId == containerId)
+            .ToListAsync();
+        return rows
+            .OrderByDescending(x => x.Date.Date).ThenByDescending(x => x.Id)
+            .Select(x => new SupplierReturnRow
+            {
+                Id = x.Id,
+                Date = x.Date,
+                ProductName = x.ContainerItem?.Product?.Name ?? "Goods",
+                Quantity = x.Quantity,
+                UnitCost = x.UnitCost,
+                Amount = x.Amount,
+                CreditedOwing = x.CreditedOwing,
+                DueToUs = x.DueToUs,
+                Notes = x.Notes
+            })
+            .ToList();
+    }
+
     public async Task<decimal> SupplierBalanceAsync(int containerId)
     {
         await using var db = await _factory.CreateDbContextAsync();

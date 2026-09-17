@@ -498,6 +498,21 @@ rather than assuming it. Say the word and I will move those columns to text for 
    "We owe" here is what is left to pay, and the bill is that figure plus every payment. The words line
    and this box must say the same amount, since both are the same money.
 
+4q. Goods sent back to a supplier. On a lot with an open bill, pick a goods line in the items table, type how
+   many units went back, and read the line under the boxes *before* pressing **Send back**: the units at the cost
+   on the line, what comes off what the lot owes, what is left due back from them. Press it, then check four
+   figures. *Purchased* and *In Stock* on that line must both be smaller by those units - and a stock count above
+   the new *Purchased* must be refused, because units that left the building cannot be counted. *We owe* on the
+   lot must be smaller by exactly the amount the line said, and never below what has already been paid on the lot.
+   The *Cost each* under the line must go **up** if the lot has freight on it, since the same bills now fall on
+   fewer units, while the lot's expenses total must not move at all. **Reports** → Containers must show the same
+   profit as before the sending, and the till on Main ledger must not have moved - goods back are not income.
+   Then send back enough units to be worth more than the lot owes: the excess appears on **We owe** under
+   *Suppliers who owe us*, and taking part of it in there moves Main ledger's cash by that figure as IN, on the
+   date typed, and adds nothing to any sales or profit figure. Receiving more than is due must be refused.
+   *Remove* on the receipts table must put the till line back out and re-open the debt; **Remove** on a return
+   must be refused while money the supplier sent still counts on it, and must work after that receipt is taken
+   out - units back on the shelf, amount back where it belongs.
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is

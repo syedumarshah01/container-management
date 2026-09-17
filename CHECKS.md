@@ -1,7 +1,7 @@
 # What the money checks prove, and what they cannot
 
-`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **422
-assertions over 70 of the app's 111 service methods**, in 60 named groups, against a throwaway database in
+`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **469
+assertions over 77 of the app's 118 service methods**, in 61 named groups, against a throwaway database in
 your temp folder. `Documents\ProBooks` is never opened, no browser or printer is launched, and the exit code
 is the number of failures.
 
@@ -19,6 +19,7 @@ has to follow to be worth adding.
 | `MonthReceipts` | a month's receipts on the customer's page, the till and the printed year statement, all the same money |
 | `InvoiceStanding` | a printed bill's "previous balance" read from the ledger at that bill's own line, so reprinting cannot rewrite history |
 | `FreightSplit` | the expenses shared by weight into a piece's cost: shares equal the bills to the paisa, the odd paisa on the biggest lot, and an unweighed item stops the sharing for the box |
+| `SupplierDue` | goods handed back to a supplier: the units leave the lot and the shelf at the cost on the line and nothing else, the credit settles the lot's bill before it becomes money due back, the bill is never pushed below what was paid on it, the freight the returned units carried falls on the units that stayed, the profit row does not move when nothing sold, a receipt in from the supplier lands in the till as money in and nowhere as a sale, and neither a return nor a receipt can be undone in the wrong order |
 | `PrintPaper` | the paper is the screen, said again: cells copied and never recomputed, names escaped so a table cannot be broken by an ampersand, totals last and marked, and every Print button matched to a print command and back - across the whole source folder, not one page at a time |
 | `Updates` | the decision an update makes, with no network in it: versions compared by numbers, the folder's own state deciding what the button may do, and the script that does the work held to a list of what it must say and what it must never say |
 | `Storage`, and the exactness sweep | no money column anywhere holds a third decimal, and no figure is stored differently from how it is printed |
@@ -40,7 +41,7 @@ the payments made on it; and the till's own lines add to the cash in hand the sh
 | `ExportService` | `WriteCsv` and `ProfitWorkbook` join rows the *pages* hand them; the figures are asserted where they are computed. Compare one exported total against the page it came from. |
 | `UpdateService` - the fetch, the build, the relaunch | The rules it decides by are checked by name in `Updates`, and they are the whole of the judgement. Running git, building the app and starting a new one cannot be done from a check: it would take the machine it is verifying. Step 8 of `TESTING.md` is the one that closes that gap, and the two things it insists on - the books backed up first, and the data folder never named by the update script - are asserted in the checks themselves. |
 | `PrintService.OpenHtml`, `WhatsApp` | They hand a file or a link to Windows. A check that opens a browser hangs on a machine with no browser, so the message and the number are checked *before* the launch, and the launch itself is step `4n`. |
-| `PrintService.ShareBalance`, `CashBookService.PostExpense` / `SyncExpense` / `Remove*` / `PostRefunds` | Called inside the paths above, and asserted through them - the till line after an expense edit, the receipt line after a deleted payment - rather than twice. |
+| `PrintService.ShareBalance`, `CashBookService.PostExpense` / `SyncExpense` / `Remove*` / `PostRefunds` / `PostSupplierReceipt` | Called inside the paths above, and asserted through them - the till line after an expense edit, the receipt line after a deleted payment - rather than twice. |
 | `InventoryService.GetContainerAsync`, `LedgerService.ListCustomersAsync` | Read-only fetches. The figures they carry are checked at the pages built from them. |
 
 ## Rules for a check worth adding

@@ -298,6 +298,8 @@ public class Supplier
 
     public List<CargoContainer> Containers { get; set; } = new();
     public List<SupplierPayment> Payments { get; set; } = new();
+    public List<SupplierReturn> Returns { get; set; } = new();
+    public List<SupplierReceipt> Receipts { get; set; } = new();
 
     public override string ToString() => Name;
 }
@@ -313,6 +315,49 @@ public class SupplierPayment
     public string? Notes { get; set; }
     public int? ContainerId { get; set; }
     public CargoContainer? Container { get; set; }
+}
+
+/// <summary>
+/// Goods handed back to the supplier, one line per sending. What the units were bought for is credited
+/// against what we owe on that lot, and only what the owing cannot absorb becomes money they owe us - so a
+/// return never invents income, it moves goods out and the money that paid for them back. The figures are
+/// kept here rather than left to be re-derived: the lot's bill can be edited afterwards, and a book that
+/// recomputes what already happened tells a different story each time it is asked.
+/// </summary>
+public class SupplierReturn
+{
+    public int Id { get; set; }
+    public int SupplierId { get; set; }
+    public Supplier Supplier { get; set; } = null!;
+    public int ContainerId { get; set; }
+    public CargoContainer Container { get; set; } = null!;
+    public int ContainerItemId { get; set; }
+    public ContainerItem ContainerItem { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    /// <summary>Quantity x UnitCost, in rupees: the item's own cost, with no share of the freight in it.</summary>
+    public decimal Amount { get; set; }
+    /// <summary>How much of it was taken off what we owe on the lot. Zero when the bill was already paid.</summary>
+    public decimal CreditedOwing { get; set; }
+    /// <summary>The rest - money the supplier has to send back. Receipts come off this, oldest return first.</summary>
+    public decimal DueToUs { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Money that came back from a supplier. It is not income and it is not an expense: it is the return of a
+/// figure the till already went out for, so it lands in the till as money in and comes off what they owe us.
+/// </summary>
+public class SupplierReceipt
+{
+    public int Id { get; set; }
+    public int SupplierId { get; set; }
+    public Supplier Supplier { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = "Cash";
+    public string? Notes { get; set; }
 }
 
 public class StockAdjustment
@@ -417,7 +462,10 @@ public enum CashBookKind
     ExpenseOut = 3,
     RefundOut = 4,
     /// <summary>Cash given to a customer to settle what their own ledger says we are holding.</summary>
-    CustomerOut = 5
+    CustomerOut = 5,
+    /// <summary>Money a supplier sends back - goods they took back, an overpayment returned. It is money in,
+    /// and never a sale, so it cannot be mistaken for takings.</summary>
+    SupplierIn = 6
 }
 
 public class CashBookEntry
@@ -433,4 +481,5 @@ public class CashBookEntry
     public int? ShopExpenseId { get; set; }
     public int? SaleId { get; set; }
     public int? PayoutId { get; set; }
+    public int? SupplierReceiptId { get; set; }
 }

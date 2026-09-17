@@ -43,6 +43,15 @@ public partial class WeOweViewModel : ViewModelBase
     public ObservableCollection<CustomerOwedRow> Customers { get; } = new();
     public ObservableCollection<CustomerOwedRow> PayOptions { get; } = new();
     public ObservableCollection<CustomerPayoutRow> Payouts { get; } = new();
+
+    /// <summary>Suppliers holding our money, because goods they took back were worth more than the lot owed.
+    /// Listed whether the figure is settled or not, once a supplier has been on it - so a receipt on file can
+    /// always be found and taken back out.</summary>
+    public ObservableCollection<SupplierDueRow> Due { get; } = new();
+
+    public ObservableCollection<SupplierReceiptRow> Receipts { get; } = new();
+
+    public IReadOnlyList<string> ReceiveMethods { get; } = PaymentMethods.All;
     public IReadOnlyList<string> CustomerMethods { get; } = PaymentMethods.All;
 
     [ObservableProperty] private string totalOwed = Money.Pkr(0);
@@ -64,6 +73,29 @@ public partial class WeOweViewModel : ViewModelBase
     [ObservableProperty] private string payCustomerMethod = "Cash";
     [ObservableProperty] private string customerOwedText = "—";
     [ObservableProperty] private bool showPayouts;
+
+    [ObservableProperty] private bool showDueSection;
+
+    [ObservableProperty] private SupplierDueRow? receiveSupplier;
+
+    [ObservableProperty] private DateTimeOffset? receiveDate = DateTimeOffset.Now;
+
+    [ObservableProperty] private decimal? receiveAmount;
+
+    [ObservableProperty] private string receiveMethod = "Cash";
+
+    [ObservableProperty] private string receiveNotes = "";
+
+    [ObservableProperty] private SupplierReceiptRow? selectedReceipt;
+
+    [ObservableProperty] private bool showReceipts;
+
+    [ObservableProperty] private string dueToUsText = Money.Pkr(0);
+
+    /// <summary>The figure for the supplier picked in the receive form, as the two forms above it show theirs.
+    /// The section total is a different thing and is said separately, so a typed amount is always being measured
+    /// against one number and not the nearest one on screen.</summary>
+    [ObservableProperty] private string receiveDueText = "—";
 
     public override async Task LoadAsync()
     {
@@ -104,11 +136,24 @@ public partial class WeOweViewModel : ViewModelBase
         ApplySupplierFilter();
         ApplyCustomerFilter();
 
+        var dueBack = await _cash.SupplierDueAsync();
+        var keepSupplier = ReceiveSupplier?.SupplierId;
+        Due.Clear();
+        foreach (var d in dueBack)
+            Due.Add(d);
+        ReceiveSupplier = keepSupplier is int sid ? Due.FirstOrDefault(x => x.SupplierId == sid) : null;
+        ShowDueSection = Due.Count > 0;
+        DueToUsText = Money.Pkr(dueBack.Where(x => x.Due > 0.009m).Sum(x => x.Due));
+        await ShowReceiptsAsync();
+
         _paid = await _cash.SupplierPaymentsAsync();
         var supplierOwed = targets.Where(t => t.Owed > 0).Sum(t => t.Owed);
         var customerOwed = owed.Sum(r => r.Owed);
         TotalOwed = Money.Pkr(supplierOwed + customerOwed);
-        OwedSplit = "Suppliers " + Money.Pkr(supplierOwed) + " · Customers " + Money.Pkr(customerOwed);
+        // What is due back to us is named on the same line and deliberately not netted off this one: money
+        // coming in and money going out are two questions a shop asks separately.
+        OwedSplit = "Suppliers " + Money.Pkr(supplierOwed) + " · Customers " + Money.Pkr(customerOwed)
+                    + (dueBack.Any(x => x.Due > 0.009m) ? " · Due back to us " + DueToUsText : "");
         PayContainer = _targets.FirstOrDefault(c => c.Id == keepPay) ?? _targets.FirstOrDefault();
         Selected = Rows.FirstOrDefault(r => r.ContainerId == PayContainer?.Id);
         PayCustomer = _owed.FirstOrDefault(c => c.CustomerId == keepCustomer) ?? _owed.FirstOrDefault();
@@ -223,6 +268,27 @@ public partial class WeOweViewModel : ViewModelBase
     /// amount owed is what their ledger says, in rupees, before the amount is typed - so the shop can see
     /// the ceiling it will be held to rather than discover it in a refusal.
     /// </summary>
+    /// <summary>The receipts on file for the supplier picked in the receive form, latest first - the same
+    /// shape as the payouts below, and for the same reason: money that has been taken in has to be readable
+    /// where it was written, and removable if it was written wrongly.</summary>
+    private async Task ShowReceiptsAsync()
+    {
+        ReceiveDueText = ReceiveSupplier is null ? "—" : Money.Pkr(Math.Max(0m, ReceiveSupplier.Due));
+        if (ReceiveSupplier is null)
+        {
+            Receipts.Clear();
+            ShowReceipts = false;
+            return;
+        }
+
+        Receipts.Clear();
+        foreach (var r in await _cash.ListReceiptsAsync(ReceiveSupplier.SupplierId))
+            Receipts.Add(r);
+        ShowReceipts = Receipts.Count > 0;
+    }
+
+    partial void OnReceiveSupplierChanged(SupplierDueRow? value) => _ = ShowReceiptsAsync();
+
     private async Task ShowOwedCustomerAsync()
     {
         if (PayCustomer is null)
@@ -253,14 +319,30 @@ public partial class WeOweViewModel : ViewModelBase
             .Cast<IReadOnlyList<string>>().ToList();
         var given = Payouts.Select(x => new[] { x.DateText, x.Method, x.AmountText, x.NoteText })
             .Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTables("we-owe.html", "We owe", null, new[]
+        var due = Due.Select(d => new[]
+        {
+            d.SupplierName, d.ReturnedText, d.ReceivedText, d.DueText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var got = Receipts.Select(r => new[]
+        {
+            r.DateText, r.Method, r.AmountText, r.NoteText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var tables = new List<PrintTable>
         {
             new PrintTable("Suppliers", new[] { "Container", "Supplier", "Owed" }, owed,
                 new[] { "Total", "", TotalOwed }, 2),
             new PrintTable("Paid to suppliers", new[] { "Date", "How", "Amount", "Note" }, paid, null, 2),
             new PrintTable("Owed to customers", new[] { "Customer", "We owe them", "Paid out so far" }, back, null),
             new PrintTable("Handed to customers", new[] { "Date", "How", "Amount", "Note" }, given, null, 2),
-        });
+        };
+        // The money owed back to us is its own table, with the still-due total on it, so the paper answers the
+        // question the supplier asks over the phone. Only when there is something on it.
+        if (due.Count > 0)
+            tables.Add(new PrintTable("Suppliers who owe us", new[] { "Supplier", "Their returns left due", "Received", "Still due" },
+                due, new[] { "Total", "", "", DueToUsText }, 1));
+        if (got.Count > 0)
+            tables.Add(new PrintTable("Received from this supplier", new[] { "Date", "How", "Amount", "Note" }, got, null, 2));
+        _print.PrintTables("we-owe.html", "We owe", null, tables);
         _shell.Notify("Printed from the page you were on.");
     }
 
@@ -289,6 +371,51 @@ public partial class WeOweViewModel : ViewModelBase
         {
             _shell.Notify(ex.Message, true);
         }
+    }
+
+    [RelayCommand]
+    private async Task ReceiveAsync()
+    {
+        if (ReceiveSupplier is null)
+        {
+            _shell.Notify("Pick the supplier the money is coming from.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.ReceiveFromSupplierAsync(
+                ReceiveSupplier.SupplierId,
+                ReceiveDate?.DateTime ?? DateTime.Today,
+                ReceiveAmount ?? 0,
+                ReceiveMethod,
+                ReceiveNotes);
+            _shell.Notify("Money in from the supplier: the till has it as a receipt in, and what they owed back "
+                          + "is smaller by that figure.");
+            // The till moved, and the till is another page's headline figure.
+            _shell.MarkChanged();
+            ReceiveAmount = null;
+            ReceiveNotes = "";
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
+    private async Task RemoveReceiptAsync()
+    {
+        if (SelectedReceipt is null)
+        {
+            _shell.Notify("Select the receipt in the table to take it off the book.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.RemoveReceiptAsync(SelectedReceipt.Id);
+            _shell.MarkChanged();
+            _shell.Notify("Receipt taken out: the till line goes with it, and what they owe back opens up again.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
     [RelayCommand]

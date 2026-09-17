@@ -260,6 +260,50 @@
           </StackPanel>
         </Expander>
       </Border>
+
+      <!-- Goods handed back to the supplier. There is no amount box: what the units were bought for is already
+           on the line, and whether the money settles the lot's bill or comes back from them is the book's rule,
+           not a choice made at the keyboard. -->
+      <Border Classes="card" IsVisible="{Binding CanReturnGoods}">
+        <StackPanel>
+          <TextBlock Classes="h2" Text="Return to supplier" />
+          <Grid ColumnDefinitions="*,170,140,Auto" Margin="0,4,0,0">
+            <StackPanel Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Line picked in the items table" />
+              <TextBlock Classes="muted" Text="{Binding ReturnTarget}" TextWrapping="Wrap"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Units going back" />
+              <NumericUpDown Value="{Binding ReturnQty}" Minimum="0" Increment="1" FormatString="#,##0.###"
+                             HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,8,0">
+              <TextBlock Classes="label" Text="Why (optional)" />
+              <TextBox Text="{Binding ReturnNotes}" Watermark="dead on arrival" />
+            </StackPanel>
+            <Button Grid.Column="3" Classes="primary" Content="Send back" Command="{Binding SendBackCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,0,12" />
+          </Grid>
+          <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowReturnPreview}"
+                     Text="{Binding ReturnPreview}" Margin="0,0,0,8" />
+          <DataGrid ItemsSource="{Binding Returns}" SelectedItem="{Binding SelectedReturn}" IsVisible="{Binding ShowReturns}"
+                    MaxHeight="220" x:CompileBindings="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="120" />
+              <DataGridTextColumn Header="Item" Binding="{Binding ProductName}" Width="*" />
+              <DataGridTextColumn Header="Units" Binding="{Binding UnitsText}" Width="90" />
+              <DataGridTextColumn Header="Cost each" Binding="{Binding CostEachText}" Width="130" />
+              <DataGridTextColumn Header="Worth" Binding="{Binding AmountText}" Width="140" />
+              <DataGridTextColumn Header="Off what we owe" Binding="{Binding SettledText}" Width="160" />
+              <DataGridTextColumn Header="Due back from them" Binding="{Binding DueText}" Width="180" />
+              <DataGridTextColumn Header="Why" Binding="{Binding NoteText}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <Button Classes="danger" Content="Remove" Command="{Binding RemoveReturnCommand}" HorizontalAlignment="Left"
+                  IsVisible="{Binding ShowReturns}" Margin="0,8,0,0" />
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

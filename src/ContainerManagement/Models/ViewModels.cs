@@ -411,6 +411,65 @@ public class ExpenseYearRow
 }
 
 /// <summary>One payout the shop made to a customer, as the We Owe page lists them: newest first.</summary>
+/// <summary>One goods line going back to a supplier, with what the money did: how much of it settled the
+/// lot's bill, and how much is still to come back from them. The two figures are on the row rather than worked
+/// out at the page, because they are what the book wrote at the time.</summary>
+public class SupplierReturnRow
+{
+    public int Id { get; set; }
+    public DateTime Date { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal Amount { get; set; }
+    public decimal CreditedOwing { get; set; }
+    public decimal DueToUs { get; set; }
+    public string? Notes { get; set; }
+
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string UnitsText => Money.Qty3(Quantity);
+    public string CostEachText => Money.Pkr(UnitCost);
+    public string AmountText => Money.Pkr(Amount);
+    public string SettledText => CreditedOwing > 0.009m ? Money.Pkr(CreditedOwing) : "—";
+    public string DueText => DueToUs > 0.009m ? Money.Pkr(DueToUs) : "—";
+    public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
+}
+
+public class SupplierReceiptRow
+{
+    public int Id { get; set; }
+    public int SupplierId { get; set; }
+    public DateTime Date { get; set; }
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = string.Empty;
+    public string? Notes { get; set; }
+
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string AmountText => Money.Pkr(Amount);
+    public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
+}
+
+/// <summary>A supplier holding our money. Due is what is still to come, and it is the figure a receipt is
+/// measured against.</summary>
+public class SupplierDueRow
+{
+    public int SupplierId { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
+    public decimal Returned { get; set; }
+    public decimal Received { get; set; }
+    public decimal Due { get; set; }
+
+    public string ReturnedText => Money.Pkr(Returned);
+    public string ReceivedText => Money.Pkr(Received);
+    public string DueText => Due > 0.009m ? Money.Pkr(Due) : "Settled";
+
+    /// <summary>As the receive form's picker lists it: the money first, because that is what the shop is
+    /// deciding whether to take.</summary>
+    public string Label => SupplierName + " · due back " + (Due > 0.009m ? Money.Pkr(Due) : "nothing");
+
+    public override string ToString() => Label;
+}
+
 public class CustomerPayoutRow
 {
     public int CustomerId { get; set; }
