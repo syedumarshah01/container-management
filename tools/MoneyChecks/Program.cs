@@ -1947,6 +1947,41 @@ public static class Program
         Eq("one return is left on the book and the other is gone", 1m, await ReturnCountAsync(f, box.Id));
         await Throws<InvalidOperationException>("only what is on the shelf can still be sent back",
             async () => await inventory.ReturnToSupplierAsync(mug.Id, date, 81m, null));
+
+        Head("a table another version built is named at the door, not guessed at later");
+        // The accident this guards: a build was rolled back after creating a table, the file kept that table
+        // with that version's columns, and CREATE TABLE IF NOT EXISTS saw a table of the right name and said
+        // nothing. What came out was "no such column: s.Amount" on a page, three steps from the cause.
+        var staleCs = "Data Source=" + Path.Combine(dir, "stale-shape.db") + ";Cache=Shared;Mode=ReadWriteCreate";
+        var cleanCs = "Data Source=" + Path.Combine(dir, "clean-shape.db") + ";Cache=Shared;Mode=ReadWriteCreate";
+        var staleMessage = MessageOf(() => ShapeTheFiles(staleCs, drop: true));
+        Check("the patcher names the table and the columns it cannot read",
+            staleMessage.Contains("GoodsSentBack") && staleMessage.Contains("Amount"), staleMessage);
+        var cleanMessage = MessageOf(() => ShapeTheFiles(cleanCs, drop: false));
+        Check("and a file that is simply itself still opens", cleanMessage == "", cleanMessage);
+
+        static string MessageOf(Action action)
+        {
+            try { action(); return ""; }
+            catch (Exception ex) { return ex.Message; }
+        }
+
+        // Built on its own context rather than through the services above, so the patcher is met the way the
+        // app meets it: a bare connection string, at startup, before any page has asked for anything.
+        static void ShapeTheFiles(string connectionString, bool drop)
+        {
+            var services = new ServiceCollection();
+            services.AddDbContextFactory<AppDbContext>(o => o.UseSqlite(connectionString));
+            using var provider = services.BuildServiceProvider();
+            using var db = provider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
+            db.Database.EnsureCreated();
+            if (drop)
+            {
+                db.Database.ExecuteSqlRaw("DROP TABLE GoodsSentBack");
+                db.Database.ExecuteSqlRaw("CREATE TABLE GoodsSentBack (Id INTEGER PRIMARY KEY, WhoKnows INTEGER)");
+            }
+            SchemaPatcher.Apply(connectionString);
+        }
     }
 
     private static async Task<int> SupplierOfAsync(IDbContextFactory<AppDbContext> factory, int containerId)

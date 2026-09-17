@@ -15,8 +15,12 @@ public static class SchemaPatcher
         AddColumn(con, "Sales", "CancelledAt", "TEXT");
         AddColumn(con, "CashBook", "SupplierReceiptId", "INTEGER");
 
+        // GoodsSentBack and not SupplierReturns: a rolled-back build created SupplierReturns with its own
+        // columns, and IF NOT EXISTS cannot tell a table of that name from the one being asked for. The old
+        // table is left exactly as it is - it holds a record of goods handed back while that build was live,
+        // and dropping it would take the only account of them out of the file.
         Exec(con, """
-            CREATE TABLE IF NOT EXISTS SupplierReturns (
+            CREATE TABLE IF NOT EXISTS GoodsSentBack (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 SupplierId INTEGER NOT NULL,
                 ContainerId INTEGER NOT NULL,
@@ -29,9 +33,11 @@ public static class SchemaPatcher
                 DueToUs REAL NOT NULL,
                 Notes TEXT
             );
-            CREATE INDEX IF NOT EXISTS IX_SupplierReturns_SupplierId_Date
-                ON SupplierReturns(SupplierId, Date);
+            CREATE INDEX IF NOT EXISTS IX_GoodsSentBack_SupplierId_Date
+                ON GoodsSentBack(SupplierId, Date);
             """);
+        RequireColumns(con, "GoodsSentBack", "Id", "SupplierId", "ContainerId", "ContainerItemId", "Date",
+            "Quantity", "UnitCost", "Amount", "CreditedOwing", "DueToUs", "Notes");
 
         Exec(con, """
             CREATE TABLE IF NOT EXISTS SupplierReceipts (
@@ -45,6 +51,7 @@ public static class SchemaPatcher
             CREATE INDEX IF NOT EXISTS IX_SupplierReceipts_SupplierId_Date
                 ON SupplierReceipts(SupplierId, Date);
             """);
+        RequireColumns(con, "SupplierReceipts", "Id", "SupplierId", "Date", "Amount", "Method", "Notes");
 
         AddColumn(con, "Products", "PhotoPath", "TEXT");
         AddColumn(con, "Products", "LastSalePrice", "REAL");
@@ -268,6 +275,25 @@ public static class SchemaPatcher
         cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @t;";
         cmd.Parameters.AddWithValue("@t", table);
         return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) > 0L;
+    }
+
+    /// <summary>
+    /// Insist that a table this version reads is the shape this version reads. CREATE TABLE IF NOT EXISTS says
+    /// nothing about a table that is already there with another version's columns in it, and that silence is
+    /// what turns into "no such column" on a page three steps from the cause. Saying it at the door, with the
+    /// table and the columns named, is the difference between a shop acting on it and a shop guessing at it.
+    /// Only the tables this version adds are held to it - older ones are shaped by their own AddColumn lines.
+    /// </summary>
+    private static void RequireColumns(SqliteConnection con, string table, params string[] columns)
+    {
+        var missing = columns.Where(c => !HasColumn(con, table, c)).ToList();
+        if (missing.Count == 0)
+            return;
+        throw new InvalidOperationException(
+            "The " + table + " table in this data folder was built by another version of ProBooks and does not "
+            + "have the columns this one reads: " + string.Join(", ", missing) + ". Nothing in your books was "
+            + "changed. Restore a backup taken before that version, or bring the file back from the one in "
+            + "Settings -> Backups.");
     }
 
     private static bool HasColumn(SqliteConnection con, string table, string column)

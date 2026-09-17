@@ -177,7 +177,11 @@ public class AppDbContext : DbContext
 
         model.Entity<SupplierReturn>(e =>
         {
-            e.ToTable("SupplierReturns");
+            // The store is named for what happened, not for the entity, and deliberately not SupplierReturns:
+            // a build that was rolled back created that table with another design's columns, CREATE TABLE has
+            // nothing to say about a table that already exists, and the app would then read a shape that is not
+            // its own. A name already used by a shipped build is not free to reuse, whatever the code says now.
+            e.ToTable("GoodsSentBack");
             e.Property(x => x.Quantity).HasPrecision(18, 3);
             e.Property(x => x.UnitCost).HasPrecision(18, 2);
             e.Property(x => x.Amount).HasPrecision(18, 2);
