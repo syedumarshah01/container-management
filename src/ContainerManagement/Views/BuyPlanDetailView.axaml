@@ -95,7 +95,7 @@
               <DataGridTextColumn Header="Total cost" Binding="{Binding CostPkrText}" Width="165" />
               <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="115" />
               <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="135" />
-              <DataGridTextColumn Header="Sells each" Binding="{Binding SalePriceText}" Width="145" />
+              <DataGridTextColumn Header="Sells each" Binding="{Binding SalePriceText}" Width="165" />
               <DataGridTextColumn Header="Total sells" Binding="{Binding SaleTotalText}" Width="165" />
               <DataGridTemplateColumn Header="Profit" Width="165">
                 <DataGridTemplateColumn.CellTemplate>
@@ -111,7 +111,7 @@
 
           <Border Height="1" Background="#E6E4DE" Margin="0,16,0,14" />
 
-          <Grid ColumnDefinitions="5*,2*,3*,2*,2*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
+          <Grid ColumnDefinitions="5*,2*,3*,2*,3*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
             <StackPanel Margin="0,0,10,0">
               <TextBlock Classes="label" Text="ITEM" />
               <TextBox Text="{Binding ItemName}" Watermark="name as on the invoice" />
@@ -130,7 +130,7 @@
             </StackPanel>
             <StackPanel Grid.Column="4" Margin="0,0,10,0">
               <TextBlock Classes="label" Text="SELLS Rs EACH" />
-              <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" />
+              <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" MinWidth="150" />
             </StackPanel>
             <!-- Read back in the units a shop counts in, the moment the digits are typed: three zeros after a
                  figure should say "thousand" and five more should say "lac", because a cost entered with a stray
