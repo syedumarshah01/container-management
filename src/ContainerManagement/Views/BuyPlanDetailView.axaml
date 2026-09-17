@@ -89,9 +89,9 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="Item" Binding="{Binding ItemNameText}" Width="340" />
               <DataGridTextColumn Header="Qty" Binding="{Binding QuantityText}" Width="95" />
-              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="125" />
+              <DataGridTextColumn Header="¥ each" Binding="{Binding UnitCostYenText}" Width="150" />
               <DataGridTextColumn Header="Total ¥" Binding="{Binding CostYenText}" Width="155" />
-              <DataGridTextColumn Header="Cost each" Binding="{Binding CostPerPiecePkrText}" Width="145" />
+              <DataGridTextColumn Header="Cost each" Binding="{Binding CostPerPiecePkrText}" Width="165" />
               <DataGridTextColumn Header="Total cost" Binding="{Binding CostPkrText}" Width="165" />
               <DataGridTextColumn Header="kg each" Binding="{Binding UnitWeightText}" Width="115" />
               <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="135" />
@@ -111,7 +111,7 @@
 
           <Border Height="1" Background="#E6E4DE" Margin="0,16,0,14" />
 
-          <Grid ColumnDefinitions="3*,*,*,*,*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
+          <Grid ColumnDefinitions="5*,2*,3*,2*,2*,Auto" RowDefinitions="Auto,Auto" IsVisible="{Binding IsOwner}">
             <StackPanel Margin="0,0,10,0">
               <TextBlock Classes="label" Text="ITEM" />
               <TextBox Text="{Binding ItemName}" Watermark="name as on the invoice" />
@@ -122,7 +122,7 @@
             </StackPanel>
             <StackPanel Grid.Column="2" Margin="0,0,10,0">
               <TextBlock Classes="label" Text="¥ EACH" />
-              <NumericUpDown Value="{Binding UnitCostYen}" Minimum="0" />
+              <NumericUpDown Value="{Binding UnitCostYen}" Minimum="0" MinWidth="150" />
             </StackPanel>
             <StackPanel Grid.Column="3" Margin="0,0,10,0">
               <TextBlock Classes="label" Text="KG EACH" />
@@ -132,6 +132,11 @@
               <TextBlock Classes="label" Text="SELLS Rs EACH" />
               <NumericUpDown Value="{Binding SalePricePkr}" Minimum="0" />
             </StackPanel>
+            <!-- Read back in the units a shop counts in, the moment the digits are typed: three zeros after a
+                 figure should say "thousand" and five more should say "lac", because a cost entered with a stray
+                 zero is a cost that moves the whole sheet. The selling price below already does this; the cost
+                 box was the last money box on the page that did not. -->
+            <TextBlock Classes="words" Grid.Row="1" Grid.Column="2" Text="{Binding UnitCostYen, Converter={StaticResource WordsConv}}" />
             <TextBlock Classes="words" Grid.Row="1" Grid.Column="4" Text="{Binding SalePricePkr, Converter={StaticResource WordsConv}}" />
             <Button Grid.Column="5" Grid.Row="0" Classes="primary" Content="Add row"
                     Command="{Binding AddLineCommand}" VerticalAlignment="Bottom"
