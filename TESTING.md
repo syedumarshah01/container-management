@@ -531,7 +531,8 @@ rather than assuming it. Say the word and I will move those columns to text for 
    note, **Receive** - all sitting on the same bottom line, and the amount spelled out in words beneath it. Nothing
    on the card may state one figure twice. Record the receipt and the row must read larger under *Received so far*
    and smaller under *Still due back*, by exactly that amount; while nobody owes you anything the card must not
-   appear at all.
+   appear at all. Under it, the *Received from this supplier* card must have **Remove** at the far right of its
+   heading line, no wider than its own word - not stretched across the card, and not beside the heading.
 
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the

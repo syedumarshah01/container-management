@@ -24,7 +24,9 @@ date is the day it was pushed.
   row of boxes that appears only once a supplier is picked in that table. There is no second picker beside the
   table, no figure of its own repeating what a column already says, and no empty form sitting under a list waiting
   to be told who it is for; the amount box's unit is read off the words under it and its ceiling off the line
-  above it, in the same shape as the receive-money row on a customer's page.
+  above it, in the same shape as the receive-money row on a customer's page. The heading line of both cards now
+  puts its right-hand figure - the total due back, and **Remove** on the receipts - at the far right, sized to
+  itself, where it previously filled the space beside the heading.
 - Home's date boxes moved to the top of the page and now change the whole-book figures. This month stays this
   month, whatever the boxes say.
 - A container is counted in the period it landed in, sold or not, by the arrival date written when it was
