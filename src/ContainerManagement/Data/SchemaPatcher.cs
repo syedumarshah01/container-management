@@ -48,7 +48,6 @@ public static class SchemaPatcher
 
         AddColumn(con, "LedgerEntries", "PayoutId", "INTEGER");
         AddColumn(con, "CashBook", "PayoutId", "INTEGER");
-        AddColumn(con, "CashBook", "SupplierReturnId", "INTEGER");
 
         Exec(con, """
             CREATE TABLE IF NOT EXISTS Suppliers (
@@ -80,29 +79,6 @@ public static class SchemaPatcher
                 QuantityBefore REAL NOT NULL,
                 QuantityAfter REAL NOT NULL,
                 Reason TEXT,
-                FOREIGN KEY (ContainerItemId) REFERENCES ContainerItems(Id)
-            );
-            """);
-
-        // Goods handed back to the supplier. The money and the units are on one row because they are one
-        // decision. Quantities and money are TEXT, as EF Core's SQLite provider writes a decimal: a REAL
-        // column would put a rupee figure through a binary fraction, and every total read off this table
-        // would be off by a paisa nobody can explain to a supplier.
-        Exec(con, """
-            CREATE TABLE IF NOT EXISTS SupplierReturns (
-                Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ContainerId INTEGER NOT NULL,
-                ContainerItemId INTEGER NOT NULL,
-                Date TEXT NOT NULL,
-                Quantity TEXT NOT NULL DEFAULT '0',
-                Reason TEXT,
-                IntoTillPkr TEXT NOT NULL DEFAULT '0',
-                AgainstBillPkr TEXT NOT NULL DEFAULT '0',
-                AgainstFreightPkr TEXT NOT NULL DEFAULT '0',
-                SettlementPaymentId INTEGER,
-                FreightExpenseId INTEGER,
-                Notes TEXT,
-                FOREIGN KEY (ContainerId) REFERENCES Containers(Id),
                 FOREIGN KEY (ContainerItemId) REFERENCES ContainerItems(Id)
             );
             """);

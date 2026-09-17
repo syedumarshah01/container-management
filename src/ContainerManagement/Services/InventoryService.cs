@@ -6,31 +6,9 @@ namespace ContainerManagement.Services;
 
 public class InventoryService
 {
-    /// <summary>How a settlement that was not cash is written on the lot's payments, so the lot's balance moves
-    /// and the till does not. One string, taken from the list of methods the pages offer, because a word spelled
-    /// out twice in two files is a word that eventually gets spelled two ways.</summary>
-    public const string CreditNote = SupplierPayMethods.CreditNote;
-
     private readonly IDbContextFactory<AppDbContext> _factory;
 
     public InventoryService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
-
-    /// <summary>Whether a line on a lot's payments says money left the till. A credit note settles what is owed
-    /// without any cash moving, so a repair that fills in the till from the payments must leave it alone - the
-    /// same distinction a customer's adjustments already hold on their own page.</summary>
-    public static bool MovesCash(string? method) => method != CreditNote;
-
-    /// <summary>The one way this book works out what a container still owes: the figure written on the lot less
-    /// everything settled against it, in cash or not. The container's own page, the pay-a-supplier list and a
-    /// goods returned here all read this, because three pages that each subtracted in their own way would be
-    /// three answers to one question.</summary>
-    public static decimal OwedOnContainer(decimal billed, IEnumerable<SupplierPayment> payments) =>
-        Money.Round(billed - payments.Sum(p => p.Amount));
-
-    /// <summary>The most a physical count can say a goods line holds: what was landed, less whatever has since
-    /// gone back to the supplier. Without the subtraction a count could put goods that left the shop back in it.</summary>
-    public static decimal MaxCountable(decimal received, decimal sentBack) =>
-        Money.Round(received - sentBack, 3);
 
     public async Task<List<CargoContainer>> ListContainersAsync()
     {
@@ -50,7 +28,6 @@ public class InventoryService
             .Include(c => c.Expenses)
             .Include(c => c.Supplier)
             .Include(c => c.SupplierPayments)
-            .Include(c => c.SupplierReturns).ThenInclude(r => r.Item).ThenInclude(i => i!.Product)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
@@ -407,17 +384,8 @@ public class InventoryService
             ?? throw new InvalidOperationException("Item not found.");
         if (counted < 0)
             throw new InvalidOperationException("Count cannot be negative.");
-        // Goods that went back to the supplier are gone from the shop for good, so they are taken off what a
-        // count is allowed to say before the count is believed - otherwise a counted figure could put units
-        // that left the building back on the shelf, and the lot would show stock nobody can sell.
-        var sentBack = (await db.SupplierReturns.AsNoTracking()
-            .Where(r => r.ContainerItemId == itemId).ToListAsync()).Sum(r => r.Quantity);
-        var ceiling = MaxCountable(item.QuantityReceived, sentBack);
-        if (counted > ceiling)
-            throw new InvalidOperationException(counted > item.QuantityReceived
-                ? "Count cannot be more than purchased."
-                : $"Only {Money.Qty3(ceiling)} can be counted here: {Money.Qty3(item.QuantityReceived)} were landed "
-                  + $"and {Money.Qty3(sentBack)} went back to the supplier.");
+        if (counted > item.QuantityReceived)
+            throw new InvalidOperationException("Count cannot be more than purchased.");
 
         db.StockAdjustments.Add(new StockAdjustment
         {
@@ -671,10 +639,9 @@ public class InventoryService
         // a bill that was under-recorded belongs on the container form - so the page says which box to
         // fix instead of filing a negative nobody asked for. Same rule the customer side already holds:
         // a payment is never more than the bill.
-        var pays = await db.SupplierPayments.AsNoTracking()
-            .Where(x => x.ContainerId == containerId).ToListAsync();
-        var paid = pays.Sum(x => x.Amount);
-        var owed = OwedOnContainer(c.SupplierAmount, pays);
+        var paid = (await db.SupplierPayments.AsNoTracking()
+            .Where(x => x.ContainerId == containerId).ToListAsync()).Sum(x => x.Amount);
+        var owed = Money.Round(c.SupplierAmount - paid);
         if (amount > owed)
             throw new InvalidOperationException(owed > 0.009m
                 ? "This container is owed " + Money.Pkr(owed) + ". Record " + Money.Pkr(amount - owed)
@@ -693,10 +660,7 @@ public class InventoryService
         };
         db.SupplierPayments.Add(pay);
         await db.SaveChangesAsync();
-        // A line that settled the bill without cash - a credit note the supplier issued - has no business in
-        // the till, and a till that says money went out on it is a till nobody can count.
-        if (supplier is not null && MovesCash(pay.Method))
-            CashBookService.PostSupplierPayment(db, pay, supplier.Name, c.Title);
+        CashBookService.PostSupplierPayment(db, pay, supplier.Name, c.Title);
         await db.SaveChangesAsync();
     }
 
@@ -705,221 +669,10 @@ public class InventoryService
         await using var db = await _factory.CreateDbContextAsync();
         var c = await db.Containers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == containerId);
         if (c is null) return 0;
-        var pays = await db.SupplierPayments.AsNoTracking()
+        var paid = await db.SupplierPayments.AsNoTracking()
             .Where(p => p.ContainerId == containerId)
             .ToListAsync();
-        return OwedOnContainer(c.SupplierAmount, pays);
-    }
-
-    /// <summary>
-    /// Goods the shop hands back to the supplier, and whatever comes back with them, on one row.
-    ///
-    /// What arrived on the container is never rewritten: a lot that landed 600 pieces landed 600, whatever
-    /// happened after, and the bill the supplier sent stays the figure it was written as. This adds the two
-    /// facts that follow - the units are no longer here, and money or a settlement arrived - so the lot's stock
-    /// falls, the till rises if cash came, and what is owed on the lot falls if they adjusted the bill instead.
-    /// The three money boxes are each typed and each kept as typed, and nothing here decides between them:
-    /// where a shop's money lands is the shop's answer, not an inference from the goods.
-    /// </summary>
-    public async Task<SupplierReturn> ReturnToSupplierAsync(
-        int containerItemId, DateTime date, decimal quantity, string? reason,
-        decimal intoTillPkr, decimal againstBillPkr, decimal againstFreightPkr, string? notes)
-    {
-        quantity = Money.Round(quantity, 3);
-        intoTillPkr = Money.Round(intoTillPkr);
-        againstBillPkr = Money.Round(againstBillPkr);
-        againstFreightPkr = Money.Round(againstFreightPkr);
-        if (quantity <= 0m)
-            throw new InvalidOperationException("Units to send back must be greater than zero.");
-        if (intoTillPkr < 0m || againstBillPkr < 0m || againstFreightPkr < 0m)
-            throw new InvalidOperationException("A figure sent back cannot be negative.");
-
-        await using var db = await _factory.CreateDbContextAsync();
-        var item = await db.ContainerItems.Include(i => i.Product).FirstOrDefaultAsync(i => i.Id == containerItemId)
-            ?? throw new InvalidOperationException("Item not found.");
-        var container = await db.Containers.FindAsync(item.ContainerId)
-            ?? throw new InvalidOperationException("Container not found.");
-        var productName = item.Product.Name;
-        var unit = item.Product.Unit;
-        if (container.Status == ContainerStatus.Closed)
-            throw new InvalidOperationException("This container is closed. Re-open it to send goods back.");
-        // The units have to be in the shop to be handed over, which is what the stock figure says: goods still
-        // owed to a customer are not here, so a whole-container return is booked after their returns are.
-        if (quantity > item.QuantityRemaining)
-            throw new InvalidOperationException("Only " + Money.Qty3(item.QuantityRemaining) + " " + unit + " of "
-                + productName + " are here to send back. Take the goods in from the customers first.");
-
-        var pays = await db.SupplierPayments.Where(p => p.ContainerId == container.Id).ToListAsync();
-        var owed = OwedOnContainer(container.SupplierAmount, pays);
-        if (againstBillPkr > 0m && againstBillPkr > owed)
-            throw new InvalidOperationException("Only " + Money.Pkr(owed) + " is still owed on this container to "
-                + "settle against. Write " + Money.Pkr(owed) + " against the bill and the rest into the till.");
-        var billedNow = (await db.Expenses.AsNoTracking()
-            .Where(e => e.ContainerId == container.Id).ToListAsync()).Sum(e => e.Amount);
-        if (againstFreightPkr > 0m && againstFreightPkr > billedNow)
-            throw new InvalidOperationException(Money.Pkr(againstFreightPkr)
-                + " was never spent on this container's bills, which add up to " + Money.Pkr(billedNow) + ".");
-
-        await using var tx = await db.Database.BeginTransactionAsync();
-        var row = new SupplierReturn
-        {
-            ContainerId = container.Id,
-            ContainerItemId = item.Id,
-            Date = date.Date,
-            Quantity = quantity,
-            Reason = TrimOrNull(reason),
-            IntoTillPkr = intoTillPkr,
-            AgainstBillPkr = againstBillPkr,
-            AgainstFreightPkr = againstFreightPkr,
-            Notes = TrimOrNull(notes)
-        };
-        item.QuantityRemaining = Money.Round(item.QuantityRemaining - quantity, 3);
-        db.SupplierReturns.Add(row);
-        await db.SaveChangesAsync();
-
-        if (intoTillPkr > 0m)
-        {
-            var supplierName = container.SupplierId is int sid
-                ? (await db.Suppliers.FindAsync(sid))?.Name ?? "Supplier"
-                : "Supplier";
-            CashBookService.PostSupplierRefund(db, row, supplierName, container.Title);
-        }
-        if (againstBillPkr > 0m)
-        {
-            if (container.SupplierId is null)
-                throw new InvalidOperationException("Set the supplier name on this container to settle a bill with them.");
-            var settlement = new SupplierPayment
-            {
-                SupplierId = container.SupplierId.Value,
-                ContainerId = container.Id,
-                Date = date.Date,
-                Amount = againstBillPkr,
-                Method = CreditNote,
-                Notes = "Goods sent back — " + productName
-            };
-            db.SupplierPayments.Add(settlement);
-            await db.SaveChangesAsync();
-            row.SettlementPaymentId = settlement.Id;
-        }
-        if (againstFreightPkr > 0m)
-        {
-            // A bill line that takes money off the container, so the freight shared into every remaining piece
-            // is rebuilt from what the lot actually cost. Written here rather than typed by hand, because a
-            // recovery nobody can tie to the goods that caused it is a figure no auditor can follow.
-            var recovery = new ContainerExpense
-            {
-                ContainerId = container.Id,
-                Date = date.Date,
-                Category = "Recovered",
-                Amount = -againstFreightPkr,
-                Currency = "PKR",
-                AmountForeign = 0m,
-                Notes = "Against goods sent back — " + productName
-            };
-            db.Expenses.Add(recovery);
-            await db.SaveChangesAsync();
-            row.FreightExpenseId = recovery.Id;
-            await ApplyLandedCostsAsync(db, container.Id);
-        }
-        await db.SaveChangesAsync();
-        await tx.CommitAsync();
-        return row;
-    }
-
-    /// <summary>
-    /// Undo a goods return, line and all: the units go back on the shelf, and whatever was recorded with them
-    /// comes back out of the book. It is the same removal the container's bill lines allow, because a figure
-    /// typed in a hurry on a night when the shipment was being unloaded is a mistake the shop has to be able
-    /// to take back, and it cannot take it back by hand without going into the database.
-    /// </summary>
-    public async Task RemoveReturnAsync(int returnId)
-    {
-        await using var db = await _factory.CreateDbContextAsync();
-        var row = await db.SupplierReturns.FindAsync(returnId)
-            ?? throw new InvalidOperationException("This entry is gone. It may have been removed.");
-        var item = await db.ContainerItems.FindAsync(row.ContainerItemId)
-            ?? throw new InvalidOperationException("Item not found.");
-        var container = await db.Containers.FindAsync(row.ContainerId)
-            ?? throw new InvalidOperationException("Container not found.");
-        if (container.Status == ContainerStatus.Closed)
-            throw new InvalidOperationException("This container is closed. Re-open it to change what went back.");
-        var sentBack = (await db.SupplierReturns.AsNoTracking()
-            .Where(r => r.ContainerItemId == row.ContainerItemId && r.Id != row.Id).ToListAsync()).Sum(r => r.Quantity);
-        var back = Money.Round(item.QuantityRemaining + row.Quantity, 3);
-        if (back > MaxCountable(item.QuantityReceived, sentBack))
-            throw new InvalidOperationException("Only " + Money.Qty3(MaxCountable(item.QuantityReceived, sentBack))
-                + " could be here if this return is removed, and " + Money.Qty3(back) + " would be. Units have "
-                + "been sold since, or sent back again - remove the later line first.");
-
-        // Each line the return wrote is taken back by its own id, so nothing is left behind and nothing of
-        // another return's is taken by mistake: the till line that points at this one, the settlement line on
-        // the lot, and the negative bill line whose absence the freight has to be shared out over again.
-        // If the container form has since been saved with a lower "paid" figure, its reconciling loop may have
-        // trimmed the settlement line away - that is the typed box being believed, as it is everywhere else in
-        // the book - so a line that is no longer here is not an error to stop on, only one to leave alone.
-        await using var tx = await db.Database.BeginTransactionAsync();
-        var tillLines = await db.CashBook.Where(e => e.SupplierReturnId == row.Id).ToListAsync();
-        db.CashBook.RemoveRange(tillLines);
-        if (row.SettlementPaymentId is int payId)
-        {
-            var settlement = await db.SupplierPayments.FindAsync(payId);
-            if (settlement is not null)
-                db.SupplierPayments.Remove(settlement);
-        }
-        if (row.FreightExpenseId is int expId)
-        {
-            var recovery = await db.Expenses.FindAsync(expId);
-            if (recovery is not null)
-                db.Expenses.Remove(recovery);
-        }
-        db.SupplierReturns.Remove(row);
-        item.QuantityRemaining = back;
-        await db.SaveChangesAsync();
-        await ApplyLandedCostsAsync(db, container.Id);
-        await db.SaveChangesAsync();
-        await tx.CommitAsync();
-    }
-
-    /// <summary>
-    /// Take a container out of the book entirely. Only allowed on a lot nothing else was ever written against:
-    /// a lot that sold, that was billed, that money moved on, or that goods came back from is a lot the year's
-    /// totals and the printed pack already speak about, and removing it would leave the book with money in it
-    /// and nothing to say why. Closing the lot does what the shop actually needs of it - it leaves the working
-    /// pages and every stock picker - and keeps the paper.
-    /// </summary>
-    public async Task DeleteContainerAsync(int id)
-    {
-        await using var db = await _factory.CreateDbContextAsync();
-        var c = await db.Containers.Include(x => x.Items).Include(x => x.Expenses)
-            .Include(x => x.SupplierPayments).Include(x => x.SupplierReturns)
-            .FirstOrDefaultAsync(x => x.Id == id)
-            ?? throw new InvalidOperationException("Container not found.");
-
-        var onASale = await db.SaleLines.CountAsync(l => l.ContainerId == id);
-        if (onASale > 0)
-            throw new InvalidOperationException("This container has " + onASale + " invoice line"
-                + (onASale == 1 ? "" : "s") + " on its goods. An invoice stays on the record even when it is "
-                + "cancelled, so the lot has to stay with it - close the container instead, and it leaves every "
-                + "working page.");
-        if (c.Expenses.Count > 0)
-            throw new InvalidOperationException("This container has " + c.Expenses.Count
-                + " bill line" + (c.Expenses.Count == 1 ? "" : "s") + " on it. Remove"
-                + (c.Expenses.Count == 1 ? " it" : " them") + " first, so the money is taken out of the book on purpose.");
-        if (c.SupplierPayments.Count > 0)
-            throw new InvalidOperationException("Money was settled to the supplier against this container, so the "
-                + "till and their account both speak of it. Close the container instead.");
-        if (c.SupplierReturns.Count > 0)
-            throw new InvalidOperationException("Goods from this container went back to the supplier, and that "
-                + "exchange is money the shop got back. Close the container instead.");
-
-        await using var tx = await db.Database.BeginTransactionAsync();
-        var itemIds = c.Items.Select(i => i.Id).ToList();
-        var counts = await db.StockAdjustments.Where(a => itemIds.Contains(a.ContainerItemId)).ToListAsync();
-        db.StockAdjustments.RemoveRange(counts);
-        db.ContainerItems.RemoveRange(c.Items);
-        db.Containers.Remove(c);
-        await db.SaveChangesAsync();
-        await tx.CommitAsync();
+        return c.SupplierAmount - paid.Sum(p => p.Amount);
     }
 
     public async Task<List<StockOption>> GetSellableStockAsync(int? containerId = null)

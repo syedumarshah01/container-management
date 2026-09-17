@@ -89,9 +89,8 @@ public class CashBookService
             .ToListAsync();
         return list.Select(c =>
         {
-            // The same subtraction the container's own page makes, from the same helper, so the amount this
-            // list invites the shop to pay cannot disagree with the amount the lot says is owed on it.
-            var owed = InventoryService.OwedOnContainer(c.SupplierAmount, c.SupplierPayments);
+            var paid = c.SupplierPayments.Sum(p => p.Amount);
+            var owed = Money.Round(c.SupplierAmount - paid);
             var supplier = string.IsNullOrWhiteSpace(c.Supplier?.Name) ? "Supplier" : c.Supplier!.Name;
             return new SupplierPayTarget
             {
@@ -217,26 +216,6 @@ public class CashBookService
         });
     }
 
-    /// <summary>
-    /// A supplier's refund for goods the shop sent back, as a till line: money in, and money that was never
-    /// income. It is kept out of the sales figures on purpose - a rupee that comes back off a bill the shop has
-    /// settled is not a piece of goods sold, and a month's takings that counts it as one is claiming a sale that
-    /// did not happen, which is the sort of figure a tax notice asks about.
-    /// </summary>
-    public static void PostSupplierRefund(AppDbContext db, SupplierReturn r, string supplierName, string? containerTitle)
-    {
-        var where = string.IsNullOrWhiteSpace(containerTitle) ? "" : " · " + containerTitle;
-        db.CashBook.Add(new CashBookEntry
-        {
-            Date = r.Date,
-            Kind = CashBookKind.SupplierIn,
-            Description = "Refund from " + supplierName + where + " · goods sent back",
-            AmountIn = r.IntoTillPkr,
-            AmountOut = 0,
-            SupplierReturnId = r.Id
-        });
-    }
-
     public static void PostExpense(AppDbContext db, ShopExpense exp)
     {
         db.CashBook.Add(new CashBookEntry
@@ -304,21 +283,8 @@ public class CashBookService
             .Include(p => p.Supplier)
             .Include(p => p.Container)
             .ToListAsync();
-        // A credit note settles a bill without any cash moving, so it has no till line to be missing: filling
-        // one in here would hand the repair a money movement the shop never made.
-        foreach (var p in supPays.Where(p => !linkedSup.Contains(p.Id) && InventoryService.MovesCash(p.Method)))
+        foreach (var p in supPays.Where(p => !linkedSup.Contains(p.Id)))
             PostSupplierPayment(db, p, p.Supplier.Name, p.Container?.Title);
-
-        var linkedRefunds = await db.CashBook.AsNoTracking()
-            .Where(e => e.SupplierReturnId != null)
-            .Select(e => e.SupplierReturnId!.Value)
-            .ToListAsync();
-        var refunds = await db.SupplierReturns.AsNoTracking()
-            .Include(r => r.Container).ThenInclude(c => c!.Supplier)
-            .ToListAsync();
-        foreach (var r in refunds.Where(r =>
-                     r.IntoTillPkr > 0m && !linkedRefunds.Contains(r.Id)))
-            PostSupplierRefund(db, r, r.Container?.Supplier?.Name ?? "Supplier", r.Container?.Title);
 
         var linkedExp = await db.CashBook.AsNoTracking()
             .Where(e => e.ShopExpenseId != null)
