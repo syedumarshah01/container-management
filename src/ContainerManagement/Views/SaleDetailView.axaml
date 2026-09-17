@@ -10,10 +10,6 @@
         <Button Content="Print" Command="{Binding PrintCommand}" />
         <Button Content="Edit" Command="{Binding EditCommand}" IsVisible="{Binding CanEdit}" />
         <Button Classes="danger" Content="Cancel sale" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}" />
-        <!-- Only ever offered on a cancelled bill nothing was paid on, and it needs a second tap: taking a
-             bill out of the book is the one thing on this page that cannot be typed back in. -->
-        <Button Classes="danger" Content="{Binding DeleteLabel}" Command="{Binding DeleteCommand}"
-                IsVisible="{Binding CanDelete}" />
         <Button Content="Back" Command="{Binding BackCommand}" />
       </StackPanel>
       <StackPanel>

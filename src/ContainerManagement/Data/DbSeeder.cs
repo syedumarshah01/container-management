@@ -174,10 +174,6 @@ public static class DbSeeder
         sale.TotalAmount = sale.Lines.Sum(l => l.LineTotal);
         db.Sales.Add(sale);
         db.SaveChanges();
-        // The demo bills are numbered the way the shop's own are after the first save, so the number on
-        // their paper is the one the book holds.
-        sale.InvoiceNo = sale.Id;
-        db.SaveChanges();
 
         db.LedgerEntries.Add(new LedgerEntry
         {

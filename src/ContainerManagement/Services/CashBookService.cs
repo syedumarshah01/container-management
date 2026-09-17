@@ -177,19 +177,15 @@ public class CashBookService
     public static string PaidExtraText(decimal extra, bool terse = false)
         => (terse ? "paid extra " : "Paid extra ") + Money.Pkr(Money.Round(extra));
 
-    public static void PostCustomerPayment(AppDbContext db, Payment pay, string customerName, int? invoiceNo = null)
+    public static void PostCustomerPayment(AppDbContext db, Payment pay, string customerName)
     {
         db.CashBook.Add(new CashBookEntry
         {
             Date = pay.Date,
             Kind = CashBookKind.CustomerIn,
-            // Named by the number on the paper rather than the row behind it, because a till line is read next
-            // to a customer's bill and the two have to be saying the same thing.
-            Description = invoiceNo is int no
-                ? $"From {customerName} · sale #{no}"
-                : pay.SaleId is int sid
-                    ? $"From {customerName} · sale #{sid}"
-                    : $"From {customerName}",
+            Description = pay.SaleId is int sid
+                ? $"From {customerName} · sale #{sid}"
+                : $"From {customerName}",
             AmountIn = pay.Amount,
             AmountOut = 0,
             PaymentId = pay.Id,
@@ -273,8 +269,7 @@ public class CashBookService
         db.CashBook.RemoveRange(rows);
     }
 
-    public static void PostRefunds(AppDbContext db, IEnumerable<Payment> pays, int saleId, string customerName,
-        int? invoiceNo = null)
+    public static void PostRefunds(AppDbContext db, IEnumerable<Payment> pays, int saleId, string customerName)
     {
         foreach (var pay in pays)
         {
@@ -282,7 +277,7 @@ public class CashBookService
             {
                 Date = DateTime.Today,
                 Kind = CashBookKind.RefundOut,
-                Description = $"Cash returned to {customerName} · cancelled sale #{invoiceNo ?? saleId}",
+                Description = $"Cash returned to {customerName} · cancelled sale #{saleId}",
                 AmountIn = 0,
                 AmountOut = pay.Amount,
                 PaymentId = pay.Id,
@@ -293,18 +288,13 @@ public class CashBookService
 
     private static async Task ImportMissingAsync(AppDbContext db)
     {
-        // A till line names the bill it belongs to by the number on that bill's paper, so this repair reads
-        // the numbers once and does not have to open a row per payment.
-        var numbers = await db.Sales.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.InvoiceNo);
-        int? NoOf(int? saleId) => saleId is int key && numbers.TryGetValue(key, out var no) ? no : null;
-
         var linkedPay = await db.CashBook.AsNoTracking()
             .Where(e => e.PaymentId != null && e.Kind == CashBookKind.CustomerIn)
             .Select(e => e.PaymentId!.Value)
             .ToListAsync();
         var pays = await db.Payments.AsNoTracking().Include(p => p.Customer).ToListAsync();
         foreach (var p in pays.Where(p => !linkedPay.Contains(p.Id)))
-            PostCustomerPayment(db, p, p.Customer.Name, NoOf(p.SaleId));
+            PostCustomerPayment(db, p, p.Customer.Name);
 
         var linkedSup = await db.CashBook.AsNoTracking()
             .Where(e => e.SupplierPaymentId != null)
@@ -350,7 +340,7 @@ public class CashBookService
                 .ToListAsync();
             foreach (var p in pays.Where(p =>
                          p.SaleId is int sid && cancelled.Contains(sid) && !refunded.Contains(p.Id)))
-                PostRefunds(db, new[] { p }, p.SaleId!.Value, p.Customer.Name, NoOf(p.SaleId));
+                PostRefunds(db, new[] { p }, p.SaleId!.Value, p.Customer.Name);
         }
 
         if (db.ChangeTracker.HasChanges())

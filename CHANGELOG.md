@@ -6,13 +6,6 @@ date is the day it was pushed.
 
 ## 1.1.0
 
-- A bill that was cancelled, with nothing ever paid on it, can be taken out of the book: open the bill and press
-  **Delete bill** twice. Everything it left behind - the receipts, the till's lines, the ledger's lines - stays,
-  because that is money that moved. This is also the way to free a container that sold out, so it can be deleted.
-- Bills keep their own number now. It used to be the shop's row number, so taking a bill out handed its number to
-  the next sale and two customers could hold paper saying the same thing. Numbers are issued once, in order, and
-  never come back around; a cancelled bill leaves a gap, which is what a voided bill looks like in a book. Old
-  bills keep the number their own paper already carries - nothing was renumbered.
 - Home's date boxes moved to the top of the page and now change the whole-book figures. This month stays this
   month, whatever the boxes say.
 - A container is counted in the period it landed in, sold or not, by the arrival date written when it was

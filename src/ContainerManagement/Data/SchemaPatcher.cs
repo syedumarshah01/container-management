@@ -13,27 +13,6 @@ public static class SchemaPatcher
         AddColumn(con, "Sales", "DueDate", "TEXT");
         AddColumn(con, "Sales", "Status", "INTEGER NOT NULL DEFAULT 0");
         AddColumn(con, "Sales", "CancelledAt", "TEXT");
-        AddColumn(con, "Sales", "InvoiceNo", "INTEGER");
-
-        // A bill's number has to outlive the bill, so it is kept in a series of its own instead of being
-        // counted off the rows. The first run gives every bill already in the book the number its own paper
-        // already carries - the row id, which is what was printed until now - because renumbering a bill that
-        // a customer is holding is not a fix, it is a second answer to the same question.
-        Exec(con, """
-            CREATE TABLE IF NOT EXISTS NumberSeries (
-                Name TEXT NOT NULL PRIMARY KEY,
-                LastIssued INTEGER NOT NULL
-            );
-            """);
-        Exec(con, "UPDATE Sales SET InvoiceNo = Id WHERE InvoiceNo IS NULL OR InvoiceNo = 0;");
-        Exec(con, "CREATE UNIQUE INDEX IF NOT EXISTS IX_Sales_InvoiceNo ON Sales(InvoiceNo);");
-        // OR IGNORE, and not a NOT EXISTS guard: a MAX over an aggregate query always answers with a row, so a
-        // guard written on the SELECT would still try to insert a second 'invoice' row on every start after the
-        // first. The key is what makes the repeat harmless.
-        Exec(con, """
-            INSERT OR IGNORE INTO NumberSeries (Name, LastIssued)
-            SELECT 'invoice', COALESCE(MAX(InvoiceNo), 0) FROM Sales;
-            """);
 
         AddColumn(con, "Products", "PhotoPath", "TEXT");
         AddColumn(con, "Products", "LastSalePrice", "REAL");

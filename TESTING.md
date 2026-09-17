@@ -514,17 +514,6 @@ rather than assuming it. Say the word and I will move those columns to text for 
    Finally, on the lot's paper (Print): the returns belong to it as their own table with a total line, and only
    when there is something to print.
 
-4r. A bill taken out of the book. Make a sale, **Cancel** it, and on that bill's own page press **Delete bill**
-   twice. Before the second tap nothing is written, and after it: the bill's page is gone, its lines are gone from
-   the invoice list and from the customer's *Invoices*, and the lot its goods came out of can now be **Delete
-   container**'d. Three figures must not have moved at all - the till on Main ledger, the customer's balance, and
-   the profit on **Reports** → Containers - and the ledger's two lines for that bill (the sale and the
-   cancellation) stay exactly where they were, because money and balances that were put right are the record.
-   Then the numbers: every bill page's heading and every printed invoice must show the same number, a new bill made
-   after the deletion must *skip* the number that bill carried rather than reuse it, and editing a bill today must
-   keep its number. Two refusals, both naming what is in the way: a bill that stands cannot be deleted, and a
-   cancelled bill that money came in on cannot be deleted either - its receipts and till lines stay.
-
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is

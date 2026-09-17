@@ -23,7 +23,6 @@ public class AppDbContext : DbContext
     public DbSet<CustomerPayout> CustomerPayouts => Set<CustomerPayout>();
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
-    public DbSet<NumberSeries> NumberSeries => Set<NumberSeries>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
     public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
@@ -88,9 +87,6 @@ public class AppDbContext : DbContext
             e.Property(x => x.DiscountAmount).HasPrecision(18, 2);
             e.HasOne(x => x.Customer).WithMany(c => c.Sales).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.Date);
-            // Unique, so a bug that issues one number twice is stopped at the door rather than found on paper
-            // in two customers' hands.
-            e.HasIndex(x => x.InvoiceNo).IsUnique();
         });
 
         model.Entity<SaleLine>(e =>
@@ -176,12 +172,6 @@ public class AppDbContext : DbContext
             e.Property(x => x.Method).HasMaxLength(40);
             e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.CustomerId, x.Date });
-        });
-
-        model.Entity<NumberSeries>(e =>
-        {
-            e.ToTable("NumberSeries");
-            e.HasKey(x => x.Name);
         });
 
         model.Entity<StockAdjustment>(e =>

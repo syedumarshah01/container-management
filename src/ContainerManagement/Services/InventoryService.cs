@@ -898,10 +898,9 @@ public class InventoryService
         var onASale = await db.SaleLines.CountAsync(l => l.ContainerId == id);
         if (onASale > 0)
             throw new InvalidOperationException("This container has " + onASale + " invoice line"
-                + (onASale == 1 ? "" : "s") + " on its goods. A bill that stands is a sale the shop made, so the "
-                + "lot has to stay with it. A cancelled bill with nothing paid on it can be taken out from that "
-                + "bill's own page, which frees the lot - and closing the container does the same for the "
-                + "working pages without touching the paper.");
+                + (onASale == 1 ? "" : "s") + " on its goods. An invoice stays on the record even when it is "
+                + "cancelled, so the lot has to stay with it - close the container instead, and it leaves every "
+                + "working page.");
         if (c.Expenses.Count > 0)
             throw new InvalidOperationException("This container has " + c.Expenses.Count
                 + " bill line" + (c.Expenses.Count == 1 ? "" : "s") + " on it. Remove"

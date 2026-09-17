@@ -39,15 +39,6 @@ public partial class SaleDetailViewModel : ViewModelBase
     [ObservableProperty] private bool canReturn;
     [ObservableProperty] private bool isCancelled;
 
-    /// <summary>A bill can be taken out of the book only through the rule the service holds - cancelled,
-    /// nothing paid on it, nothing returned - so this page asks rather than judging for itself, and the button
-    /// is never there for a bill it cannot work on.</summary>
-    [ObservableProperty] private bool canDelete;
-
-    [ObservableProperty] private bool confirmDelete;
-
-    [ObservableProperty] private string deleteLabel = "Delete bill";
-
     /// <summary>
     /// The shop does not choose how a return is settled - the rule does: what they still owe us absorbs it,
     /// and only what is left over is paid from the cashbook. What the page shows is that outcome, in
@@ -69,7 +60,7 @@ public partial class SaleDetailViewModel : ViewModelBase
         }
 
         var returnedAmount = _sale.Returns.Sum(r => r.Amount);
-        Heading = $"Sale #{_sale.InvoiceNo}";
+        Heading = $"Sale #{_sale.Id}";
         Subtitle = $"{_sale.Date:dd MMM yyyy} · {_sale.Customer.Name}" +
                    (_sale.DueDate is DateTime d ? $" · due {d:dd MMM yyyy}" : "") +
                    (string.IsNullOrWhiteSpace(_sale.Notes) ? "" : " · " + _sale.Notes);
@@ -80,8 +71,6 @@ public partial class SaleDetailViewModel : ViewModelBase
         IsCancelled = _sale.Status == SaleStatus.Cancelled;
         CanEdit = !IsCancelled && _sale.Date.Date == DateTime.Today && _sale.Returns.Count == 0;
         CanCancel = !IsCancelled && _sale.Returns.Count == 0 && (_access.IsOwner || _sale.Date.Date == DateTime.Today);
-        ConfirmDelete = false;
-        CanDelete = IsCancelled && _access.IsOwner && await _sales.BillCanBeDeletedAsync(_id);
 
         Lines.Clear();
         foreach (var l in _sale.Lines)
@@ -203,40 +192,6 @@ public partial class SaleDetailViewModel : ViewModelBase
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
-
-    /// <summary>
-    /// Take the bill out of the book. Two taps, because nothing else on this page can be undone by typing it
-    /// back in: the bill's goods lines are what stand between a finished container and being put away, and
-    /// once they are gone the sale cannot be un-cancelled by anyone.
-    /// </summary>
-    [RelayCommand]
-    private async Task DeleteAsync()
-    {
-        if (!_access.IsOwner)
-        {
-            _shell.Notify("Owner PIN needed to take a bill out of the book.", true);
-            return;
-        }
-
-        if (!ConfirmDelete)
-        {
-            ConfirmDelete = true;
-            return;
-        }
-
-        ConfirmDelete = false;
-        try
-        {
-            await _sales.DeleteCancelledSaleAsync(_id);
-            _shell.MarkChanged();
-            _shell.Notify("Bill taken out of the book. The till's lines and the customer's ledger stay as they were.");
-            _shell.Back();
-        }
-        catch (Exception ex) { _shell.Notify(ex.Message, true); }
-    }
-
-    partial void OnConfirmDeleteChanged(bool value) =>
-        DeleteLabel = value ? "Tap again to delete" : "Delete bill";
 
     [RelayCommand] private void Back() => _shell.Back();
 }
