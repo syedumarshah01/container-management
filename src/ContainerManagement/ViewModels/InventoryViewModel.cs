@@ -37,6 +37,22 @@ public partial class InventoryViewModel : ViewModelBase
     [ObservableProperty] private string lotsHeading = "Select an item to see which containers hold it.";
     [ObservableProperty] private bool hasSelectedLots;
 
+    /// <summary>Whether the shelf a closed container holds is listed too. Off by default, because the working
+    /// shelf is what this page is for - and it changes which lines are listed and nothing else: the total above,
+    /// the figures on every row and the lines on the printed sheet are the book's, read before the view is
+    /// chosen, so putting a closed container out of sight cannot make the stock worth less.</summary>
+    [ObservableProperty] private bool showClosed;
+
+    [ObservableProperty] private string closedLabel = "Closed lots";
+    [ObservableProperty] private bool showClosedButton;
+    [ObservableProperty] private string asideText = "";
+
+    partial void OnShowClosedChanged(bool value) => ApplyFilter();
+
+    partial void OnAsideTextChanged(string value) => OnPropertyChanged(nameof(ShowAsideNote));
+
+    public bool ShowAsideNote => AsideText.Length > 0;
+
     public override async Task LoadAsync()
     {
         var keepId = Selected?.ProductId;
@@ -61,9 +77,15 @@ public partial class InventoryViewModel : ViewModelBase
         foreach (var lot in value.Lots.OrderBy(l => l.ContainerTitle))
             SelectedLots.Add(lot);
         HasSelectedLots = SelectedLots.Count > 0;
+        // The row's own figures still count the lots that are not listed, so the heading says so: an item that
+        // reads 48 in stock while listing 40 is honest only if it names the other 8.
+        var hidden = value.HiddenLots > 0
+            ? "  " + value.HiddenLots + " more in "
+              + (value.HiddenLots == 1 ? "a closed container" : "closed containers") + ", not listed."
+            : "";
         LotsHeading = SelectedLots.Count == 1
-            ? value.ProductName + " is in 1 container."
-            : value.ProductName + " is in " + SelectedLots.Count + " containers.";
+            ? value.ProductName + " is in 1 container." + hidden
+            : value.ProductName + " is in " + SelectedLots.Count + " containers." + hidden;
     }
 
     [RelayCommand]
@@ -71,11 +93,27 @@ public partial class InventoryViewModel : ViewModelBase
     {
         var rows = Rows.Select(r => new[] { r.ProductName, r.SkuText, r.Unit, r.InStockText, r.ValueText, r.LotsText })
             .Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTable("stock.html", "Stock on the shelf", null,
+        // The sheet lists the rows on screen and its total is the sum of the lines it carries, so the figures on
+        // paper add back up to themselves. What the view leaves out is named at the top rather than dropped
+        // without a word, and the card above the list keeps reading the whole book either way.
+        var aside = StockListRules.Aside(_all);
+        var stamp = aside.Items == 0 ? null
+            : ShowClosed
+                ? "closed containers included - " + Money.Pkr(aside.Value) + " of it"
+                : aside.Items + " items in closed containers are not listed - " + Money.Pkr(aside.Value);
+        _print.PrintTable("stock.html", "Stock on the shelf", stamp,
             new[] { "Item", "Code", "Unit", "In stock", "Worth", "Lots" },
-            rows, new[] { "Total", "", "", UnitsRemaining, TotalValue, "" }, 3);
+            rows, new[]
+            {
+                "Total", "", "",
+                Money.Qty(Money.Round(Rows.Sum(r => r.TotalRemaining))),
+                Money.Pkr(Money.Round(Rows.Sum(r => r.TotalValue))), "",
+            }, 3);
         _shell.Notify("Printed from the page you were on.");
     }
+
+    [RelayCommand]
+    private void ToggleClosed() => ShowClosed = !ShowClosed;
 
     [RelayCommand]
     private void OpenLot()
@@ -86,13 +124,16 @@ public partial class InventoryViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        IEnumerable<InventoryRow> src = _all;
-        if (!string.IsNullOrWhiteSpace(Query))
+        // View first, then search, and the search only narrows what the view left: the rule the Containers page
+        // holds, so typing a closed container's name cannot reach stock this page is not showing.
+        IEnumerable<InventoryRow> src = StockListRules.Shown(_all, ShowClosed);
+        var q = Query?.Trim();
+        if (!string.IsNullOrEmpty(q))
         {
-            src = _all.Where(r =>
-                r.ProductName.Contains(Query, StringComparison.OrdinalIgnoreCase)
-                || (r.Sku ?? "").Contains(Query, StringComparison.OrdinalIgnoreCase)
-                || r.Lots.Any(l => l.ContainerTitle.Contains(Query, StringComparison.OrdinalIgnoreCase)));
+            src = src.Where(r =>
+                r.ProductName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (r.Sku ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || r.Lots.Any(l => l.ContainerTitle.Contains(q, StringComparison.OrdinalIgnoreCase)));
         }
 
         var list = src.ToList();
@@ -101,12 +142,27 @@ public partial class InventoryViewModel : ViewModelBase
         foreach (var r in list)
             Rows.Add(r);
 
-        TotalValue = Money.Pkr(list.Sum(r => r.TotalValue));
-        ProductCount = list.Count.ToString();
-        LotCount = list.Sum(r => r.Lots.Count).ToString();
-        UnitsRemaining = Money.Qty(list.Sum(r => r.TotalRemaining));
-        var low = list.Count(r => r.IsLow);
+        // The card reads the book, not the filtered list: a figure on a card named Total stock value that moved
+        // when somebody typed a letter was answering a different question from the one it looks like. When the
+        // list is narrowed, the card says how much of it is listed, which is all a search may honestly do.
+        TotalValue = Money.Pkr(Money.Round(_all.Sum(r => r.TotalValue)));
+        ProductCount = _all.Count.ToString();
+        LotCount = _all.Sum(r => r.Lots.Count).ToString();
+        UnitsRemaining = Money.Qty(Money.Round(_all.Sum(r => r.TotalRemaining)));
+        var low = _all.Count(r => r.IsLow);
         LowHint = low == 0 ? "No low-stock items." : low + " items are at or below the low-stock level (Settings).";
+        if (list.Count != _all.Count)
+            LowHint += "  " + list.Count + " of " + ProductCount + " items listed.";
+
+        // Named rather than left as an absence: the button counts what it covers, and the line under the total
+        // says what that stock is worth, so nobody has to wonder whether the shelf shrank.
+
+        var aside = StockListRules.Aside(_all);
+        ShowClosedButton = aside.Items > 0;
+        ClosedLabel = ShowClosed ? "Open lots only" : $"Closed lots ({aside.Items})";
+        AsideText = ShowClosed || aside.Items == 0
+            ? ""
+            : $"{Money.Pkr(aside.Value)} · {Money.Qty(aside.Units)} units · {aside.Lots} closed lots - not listed";
 
         Selected = keepId is int id ? Rows.FirstOrDefault(r => r.ProductId == id) : null;
     }

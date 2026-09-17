@@ -20,6 +20,14 @@ date is the day it was pushed.
   beside the Print button shows the ones that are set aside, with **Re-open** to pull one back. Reports, the till,
   what you owe them and what they owe you are untouched by closing - the lot is out of the way, not out of the
   book, and nothing is counted twice or dropped.
+- Stock on the **Grand Inventory** page: the shelf a closed container holds is out of sight until you press
+  *Closed lots (n)* beside Print, the way a closed lot is put aside on its own page. Hiding is the view's choice
+  and nothing else - an item that an open lot also holds stays listed, listing fewer lots; one held only by
+  closed lots leaves the list; and every shelf figure, the row's and the page's, is the book's in either view,
+  named in the line under the total so an absence cannot be mistaken for a smaller shelf. The printed sheet lists
+  what is on screen, adds up to itself, and says at the top what it left out. While here, the figures above the
+  list stopped being recomputed over the search box: a card named *Total stock value* that moved when somebody
+  typed a letter was answering a different question from the one it looks like.
 - Clicking an item in a container's list now brings that item's own **Rs for 1 yen** rate into the box, the way
   picking up a bill already does. This is not polish: a goods line's rupee cost is its yen figure times the rate
   kept on that line, so taking a yen line in hand and pressing **Save item** used to re-multiply it at whatever

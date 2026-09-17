@@ -215,6 +215,12 @@ public class InventoryRow
     public decimal TotalValue { get; set; }
     public bool IsLow { get; set; }
     public List<InventoryLot> Lots { get; set; } = new();
+
+    /// <summary>How many of this item's lot lines the page is not listing, because their containers are closed.
+    /// Kept countable rather than silently dropped, so the row can say what it leaves out: the units are on the
+    /// shelf whether or not you are looking at them, and an item that shows 40 while listing 32 is only honest
+    /// if it names the other 8.</summary>
+    public int HiddenLots { get; set; }
     public string InStockText => Money.Qty(TotalRemaining) + (IsLow ? "  low" : "");
     public string ValueText => Money.Pkr(TotalValue);
     public string SkuText => string.IsNullOrWhiteSpace(Sku) ? "—" : Sku;
@@ -237,12 +243,75 @@ public class InventoryLot
     public decimal UnitCost { get; set; }
     public decimal LandedCost { get; set; }
     public bool NeverSold { get; set; }
+    /// <summary>Whose container this line sits in, as the book records it. The stock page needs it because a
+    /// lot that is closed is put out of sight there too, and only the container knows which lots those are.</summary>
+    public ContainerStatus Status { get; set; }
+    public bool IsClosedLot => Status == ContainerStatus.Closed;
     /// <summary>The lot's stock at the landed cost, so the lines under an item's Value row add back up to
     /// that row: goods price plus what the shipment's freight and customs added per piece, which is the
     /// same figure the container page shows and the same one a sale would be costed at.</summary>
     public decimal Value => Remaining * LandedCost;
     public string RemainingText => Money.Qty(Remaining);
     public string ValueText => Money.Pkr(Value);
+}
+
+/// <summary>What the stock page lists when the lots that are closed are put out of sight, held with the rows it
+/// reads so the three rules in it can be read and checked on their own: an item whose lots are all closed leaves
+/// the list, an item held by both a closed and an open lot stays and simply lists fewer lots, and the figures on
+/// a row never move - what is on the shelf is what is on the shelf, whatever is being looked at. Only the
+/// button decides what is in front of you; never a total, and never a search.</summary>
+public static class StockListRules
+{
+    public static List<InventoryRow> Shown(IEnumerable<InventoryRow> all, bool showClosed)
+    {
+        var rows = new List<InventoryRow>();
+        foreach (var r in all)
+        {
+            if (showClosed)
+            {
+                rows.Add(r);
+                continue;
+            }
+
+            var kept = r.Lots.Where(l => !l.IsClosedLot).ToList();
+            if (kept.Count == 0) continue;
+            if (kept.Count == r.Lots.Count)
+            {
+                rows.Add(r);
+                continue;
+            }
+
+            // A copy, and only when something is hidden: the shelf figures stay the book's own, so the row an
+            // item has on screen cannot be a different answer from the row on the container's page.
+            rows.Add(new InventoryRow
+            {
+                ProductId = r.ProductId,
+                ProductName = r.ProductName,
+                Sku = r.Sku,
+                Unit = r.Unit,
+                TotalRemaining = r.TotalRemaining,
+                TotalValue = r.TotalValue,
+                IsLow = r.IsLow,
+                Lots = kept,
+                HiddenLots = r.Lots.Count - kept.Count,
+            });
+        }
+
+        return rows;
+    }
+
+    /// <summary>What the closed lots are holding, counted over the whole book: how many items it touches, how
+    /// many lots, units and rupees. One call feeds the button's label, the line under the total and the note at
+    /// the top of the printed sheet, so the three cannot disagree about what is out of sight.</summary>
+    public static (int Items, int Lots, decimal Units, decimal Value) Aside(IEnumerable<InventoryRow> all)
+    {
+        var hidden = all.Select(r => r.Lots.Where(l => l.IsClosedLot).ToList())
+            .Where(lots => lots.Count > 0).ToList();
+        return (hidden.Count,
+            hidden.Sum(lots => lots.Count),
+            Money.Round(hidden.Sum(lots => lots.Sum(l => l.Remaining))),
+            Money.Round(hidden.Sum(lots => lots.Sum(l => l.Value))));
+    }
 }
 
 public class ReceivableRow

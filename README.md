@@ -90,7 +90,7 @@ Then run `publish/mac/ProBooks`.
 | Set a sold-out lot aside, then pull it back | once nothing is left on it: **Containers** → open the lot → **Close / re-open**; then **Containers** → **Put away** → pick → **Re-open** |
 | Correct an item's cost without re-valuing it | open the lot → click the item's row: its cost, its currency and the `Rs for 1 yen` rate it was bought at all come back into the form |
 | Sell (must pick container) | **New Sale** |
-| Grand inventory | **Grand Inventory** |
+| Grand inventory | **Grand Inventory** - stock sitting on a closed container is behind *Closed lots (n)*, and the total above counts it either way |
 | Customer ledger | **Customers** → double-click a name |
 | Collect money | Customer screen → **Record payment** |
 | Uncollected credit | **Money in Market** |

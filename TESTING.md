@@ -542,6 +542,19 @@ rather than assuming it. Say the word and I will move those columns to text for 
    appear at all. Under it, the *Received from this supplier* card must have **Remove** at the far right of its
    heading line, no wider than its own word - not stretched across the card, and not beside the heading.
 
+4t. Stock from a closed container, out of sight and not out of the book. Open **Grand Inventory** on a book that
+   still holds stock on a closed lot (an older version could close one either way; a new one cannot). The button
+   beside *Print* must read *Closed lots (n)* with the number of items it covers, and the line under *Total stock
+   value* must name what is out of sight - its rupees, its units, how many closed lots. None of that may move the
+   total itself: press the button and the number above the list must be the *same figure*, with more rows listed
+   under it. Press it again and the rows that are only in closed containers must be gone from the list, while an
+   item held by an open lot *and* a closed one must stay, listing fewer lots - and its own *In stock* and *Value*
+   must not have changed, because the units are on the shelf whether you are looking at them or not; select it and
+   the heading over the lots table must say how many are not listed. Then type that closed container's name into
+   the search box: it must not reach stock the view is hiding, and the card's figures must not move while you
+   type - what may change is only how many rows are listed, and the page says so. Print with the closed lots
+   hidden and the sheet must add up to its own lines, and say at the top how much it left out.
+
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is

@@ -288,6 +288,7 @@ public class ReportService
                         ContainerId = x.ContainerId,
                         ContainerTitle = x.Container.Title,
                         ContainerItemId = x.Id,
+                        Status = x.Container.Status,
                         Remaining = x.QuantityRemaining,
                         Received = x.QuantityReceived,
                         UnitCost = x.UnitCost,

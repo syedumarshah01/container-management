@@ -15,11 +15,16 @@
     <StackPanel>
 
       <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
-        <Grid ColumnDefinitions="*,280,Auto" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="*,280,Auto,Auto" Margin="0,0,0,16">
           <TextBlock Classes="h1" Text="Stock" Margin="0" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
                    VerticalAlignment="Center" Margin="16,0,0,0" />
-          <Button Grid.Column="2" Content="Print" Command="{Binding PrintCommand}"
+          <!-- Stock a closed container holds is put aside here as a closed lot is on its own page, and the
+               button that brings it back counts what it covers and hides itself when there is nothing aside.
+               It is left of Print, which stays the last thing on the line. -->
+          <Button Grid.Column="2" Content="{Binding ClosedLabel}" Command="{Binding ToggleClosedCommand}"
+                  IsVisible="{Binding ShowClosedButton}" VerticalAlignment="Center" Margin="16,0,0,0" />
+          <Button Grid.Column="3" Content="Print" Command="{Binding PrintCommand}"
                   VerticalAlignment="Center" Margin="16,0,0,0" />
         </Grid>
 
@@ -28,6 +33,10 @@
             <TextBlock Classes="label" Text="Total stock value" />
             <TextBlock Classes="stat" Text="{Binding TotalValue}" />
             <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
+            <!-- What the view is not listing, in the money the total above already counts: an absence has to be
+                 named, or a shelf looks like it shrank. -->
+            <TextBlock Classes="muted" Text="{Binding AsideText}" TextWrapping="Wrap"
+                       IsVisible="{Binding ShowAsideNote}" Margin="0,4,0,0" />
           </StackPanel>
         </Border>
 

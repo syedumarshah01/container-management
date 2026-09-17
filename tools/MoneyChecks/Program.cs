@@ -2145,6 +2145,48 @@ public static class Program
         await inventory.PaySupplierAsync(done.Id, new DateTime(2026, 4, 7), 5_000m, "TT", null);
         Eq("and a lot that is put away can still be paid, because the debt did not go anywhere", 35_000m,
             await BillOnLotAsync(f, done.Id));
+
+        // The stock page has to cope with stock standing on a closed lot, because that is exactly what an older
+        // release left behind: nothing in the book can do it now. Out of sight there too - never lost, and never
+        // allowed to change what the shelf is worth.
+        Head("and the stock page hides a closed lot's shelf behind a button");
+        var legacy = await inventory.CreateContainerAsync("LEGACY box", "PA-3", "Japan", new DateTime(2026, 4, 8),
+            null, "PKR", 1m, null, null, null, null, "Ali Traders", 20_000m, 0m, null);
+        await inventory.AddGoodsAsync(legacy.Id, "Rice cooker", "pcs", "RC-1", 5m, 900m, null, null, null, null, null);
+        await inventory.AddGoodsAsync(legacy.Id, "Ceramic mug", "pcs", "MUG-1", 8m, 500m, null, null, null, null, null);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            // Written straight to the row, as an earlier version left it: closing through the service now
+            // refuses a lot with stock on it, which is the rule the group above pins.
+            var shut = await db.Containers.SingleAsync(c => c.Id == legacy.Id);
+            shut.Status = ContainerStatus.Closed;
+            await db.SaveChangesAsync();
+        }
+
+        var shelf = await reports.GetGrandInventoryAsync();
+        var open = StockListRules.Shown(shelf, false);
+        var everywhere = StockListRules.Shown(shelf, true);
+        var mugsAll = shelf.Single(r => r.Sku == "MUG-1");
+        var mugsOpen = open.Single(r => r.Sku == "MUG-1");
+        Check("an item an open container also holds stays on the list",
+            open.Any(r => r.Sku == "MUG-1"));
+        Eq("listing only the lots the view allows, and counting the rest instead of dropping them",
+            1m, mugsOpen.Lots.Count);
+        Check("with its shelf figures untouched by the view - 8 units on a closed lot are still 8 units",
+            mugsOpen.TotalRemaining == mugsAll.TotalRemaining && mugsOpen.TotalValue == mugsAll.TotalValue);
+        Eq("and it knows what it is not listing", 2m, mugsOpen.HiddenLots);
+        Check("an item held only by closed containers leaves the list", !open.Any(r => r.Sku == "RC-1"));
+        Check("and the button is what brings it back", everywhere.Any(r => r.Sku == "RC-1"));
+        var stockAside = StockListRules.Aside(shelf);
+        Eq("the aside counts the items it covers", 2m, stockAside.Items);
+        Eq("the lot lines behind them", 3m, stockAside.Lots);
+        Eq("the units on the shelf there", 13m, stockAside.Units);
+        Eq("and their worth, at the landed cost the row would be sold at", 8_500m, stockAside.Value);
+        Eq("the card above the list reads the book, so the view is not a valuation",
+            Money.Round(everywhere.Sum(r => r.TotalValue)), Money.Round(shelf.Sum(r => r.TotalValue)));
+        Check("and what a hidden row takes out of a sum-of-what-is-listed is only ever its own money",
+            Money.Round(shelf.Sum(r => r.TotalValue)) - Money.Round(open.Sum(r => r.TotalValue)) == 4_500m,
+            "the rice cookers, counted by the card and not by the list");
     }
 
     private static async Task<ContainerItem> ReadItemAsync(IDbContextFactory<AppDbContext> factory, int itemId)
