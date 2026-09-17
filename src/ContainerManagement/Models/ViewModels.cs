@@ -191,7 +191,7 @@ public class ContainerProfitRow
     /// three money figures on a container add up in front of whoever is reading them.</summary>
     public decimal Collected { get; set; }
 
-    public string StatusText => Status == ContainerStatus.Open ? "Open" : "Closed";
+    public string StatusText => ContainerStatusWords.Plain(Status);
     public string InMarketText => Money.Pkr(InMarket);
     public string CollectedText => Money.Pkr(Collected);
     public string ArrivalText => ArrivalDate?.ToString("dd MMM yyyy") ?? "—";

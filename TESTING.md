@@ -513,7 +513,10 @@ rather than assuming it. Say the word and I will move those columns to text for 
    *Remove* on the receipts table must put the till line back out and re-open the debt; **Remove** on a return
    must be refused while money the supplier sent still counts on it, and must work after that receipt is taken
    out - units back on the shelf, amount back where it belongs.
-4r. A lot put aside and pulled back. On a container page press **Close / re-open** to close a lot. Then on
+4r. A lot put aside and pulled back. Before anything else, the lot's own page must show its state beside its name:
+   *OPEN* in green while it is open. Press **Close / re-open** and that word must become *CLOSED* in red with
+   nothing else on the page moving, and the sheet printed from this page must carry the same word after the number
+   and the arrival date - caps and colour aside, it is one word, in one place, on all three. Then on
    **Containers**: the lot must be gone from the list, and the button beside Print must read *Put away (1)* -
    press it and the lot must be there, with the same money figures as before, and a **Re-open** button next to
    the toggle. Press **Re-open** with nothing picked and it must say so rather than acting; pick the lot and

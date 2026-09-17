@@ -119,6 +119,14 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private bool showBillHint;
 
     [ObservableProperty] private bool isClosed;
+
+    /// <summary>The lot's state as it is stamped beside its name, and as it stands at the top of the printed
+    /// sheet: the word the Reports column carries, set in caps. Both take it from <see cref="IsClosed"/>, so the
+    /// heading, the paper and the button that changes the state cannot tell three different stories.</summary>
+    public string StatusStamp => ContainerStatusWords.Stamp(IsClosed ? ContainerStatus.Closed : ContainerStatus.Open);
+
+    partial void OnIsClosedChanged(bool value) => OnPropertyChanged(nameof(StatusStamp));
+
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
     [ObservableProperty] private bool showItemForm;
@@ -446,7 +454,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 new[] { "Date", "Item", "Units", "Cost each", "Worth", "Off what we owe", "Due back" }, backs,
                 new[] { "All returns", "", Money.Qty3(Returns.Sum(r => r.Quantity)), "", Money.Pkr(Returns.Sum(r => r.Amount)),
                     Money.Pkr(Returns.Sum(r => r.CreditedOwing)), Money.Pkr(Returns.Sum(r => r.DueToUs)) }, 2));
-        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, tables);
+        // The state goes on the paper with the number and the arrival date: a closed lot's sheet must not read
+        // like a live one's, and the word is the one the heading shows.
+        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle + " · " + StatusStamp, tables);
         _shell.Notify("Printed from the page you were on.");
     }
 

@@ -20,6 +20,10 @@ date is the day it was pushed.
   beside the Print button shows the ones that are set aside, with **Re-open** to pull one back. Reports, the till,
   what you owe them and what they owe you are untouched by closing - the lot is out of the way, not out of the
   book, and nothing is counted twice or dropped.
+- A container's page stamps its state beside the lot's name: *OPEN* in green, *CLOSED* in red. It flips the moment
+  the lot is closed or re-opened, and the printed sheet for that lot now carries the same word after its number
+  and arrival date. Nothing else moves - the colour reads the state, it is not a new figure, and the words come
+  from one place so Reports, the heading and the paper cannot each invent their own.
 - The *Suppliers who owe us* card on We owe is a heading with its total, the table of who owes what, and a single
   row of boxes that appears only once a supplier is picked in that table. There is no second picker beside the
   table, no figure of its own repeating what a column already says, and no empty form sitting under a list waiting

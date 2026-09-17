@@ -31,7 +31,18 @@
             <Button Content="Back" Command="{Binding BackCommand}" />
           </StackPanel>
           <StackPanel>
-            <TextBlock Classes="h1" Text="{Binding Title}" Margin="0" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <TextBlock Classes="h1" Text="{Binding Title}" Margin="0" TextWrapping="Wrap"
+                         VerticalAlignment="Bottom" />
+              <!-- The lot's state, beside the name it belongs to, in the green and red the book already uses for
+                   a figure that is sound and one that is not - the same shape as the status word in the window's
+                   own rail. Exactly one of the two is ever shown, and both read the one word the page's model
+                   holds, so the colour cannot outlive the state it was painted for. -->
+              <TextBlock Classes="h1 ok" Text="{Binding StatusStamp}" FontSize="20" Margin="0"
+                         VerticalAlignment="Bottom" IsVisible="{Binding !IsClosed}" />
+              <TextBlock Classes="h1 bad" Text="{Binding StatusStamp}" FontSize="20" Margin="0"
+                         VerticalAlignment="Bottom" IsVisible="{Binding IsClosed}" />
+            </StackPanel>
             <TextBlock Classes="muted" Text="{Binding Subtitle}" TextWrapping="Wrap" Margin="0,4,0,0" />
           </StackPanel>
         </DockPanel>

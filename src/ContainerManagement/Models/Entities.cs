@@ -6,6 +6,17 @@ public enum ContainerStatus
     Closed = 1
 }
 
+/// <summary>The two words a container's state is called, kept here so the Reports column, the stamp on the lot's
+/// own heading and the word printed at the top of its sheet are the same pair of words rather than three pages
+/// each inventing one. The plain pair reads in a column that has a heading to say what it is; the stamped pair is
+/// a state marked beside a name, which is why it is set in caps.</summary>
+public static class ContainerStatusWords
+{
+    public static string Plain(ContainerStatus status) => status == ContainerStatus.Open ? "Open" : "Closed";
+
+    public static string Stamp(ContainerStatus status) => status == ContainerStatus.Open ? "OPEN" : "CLOSED";
+}
+
 public enum LedgerType
 {
     Sale = 0,

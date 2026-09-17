@@ -2076,6 +2076,13 @@ public static class Program
         var after = rows.Single(r => r.ContainerId == done.Id);
         Check("and it arrives marked as closed rather than as something else",
             after.Status == ContainerStatus.Closed, after.Status.ToString());
+        // The lot's page stamps its state in a coloured word and prints it at the top of the sheet; both words
+        // come from one place, and this is where that is pinned - a page that said "Shut" while another said
+        // "Closed" would be the kind of thing nobody notices until a lot is argued about.
+        Check("the open lot was called Open in the column", before.StatusText == "Open", before.StatusText);
+        Check("and stamped OPEN beside its name", ContainerStatusWords.Stamp(before.Status) == "OPEN");
+        Check("the closed lot is called Closed in the column", after.StatusText == "Closed", after.StatusText);
+        Check("and stamped CLOSED beside its name", ContainerStatusWords.Stamp(after.Status) == "CLOSED");
         Eq("its profit row is the same figure it was", before.Profit, after.Profit);
         Eq("its sales are the same", before.Revenue, after.Revenue);
         Eq("what is still out there with customers is the same", before.InMarket, after.InMarket);
