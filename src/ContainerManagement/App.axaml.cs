@@ -102,15 +102,18 @@ public partial class App : Application
         services.AddTransient<LedgerService>();
         services.AddTransient<ReportService>();
         services.AddTransient<ShopExpenseService>();
+        services.AddTransient<BuyPlanService>();
         services.AddTransient<CashBookService>();
         services.AddTransient<PrintService>();
         services.AddTransient<ExportService>();
+        services.AddTransient<UpdateService>();
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<IAppShell>(sp => sp.GetRequiredService<MainViewModel>());
 
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<ContainersViewModel>();
+        services.AddTransient<BuyPlansViewModel>();
         services.AddTransient<InventoryViewModel>();
         services.AddTransient<ItemSalesViewModel>();
         services.AddTransient<NewSaleViewModel>();
@@ -118,9 +121,9 @@ public partial class App : Application
         services.AddTransient<CustomersViewModel>();
         services.AddTransient<ReceivablesViewModel>();
         services.AddTransient<WeOweViewModel>();
-        services.AddTransient<ProfitViewModel>();
         services.AddTransient<ExpensesViewModel>();
         services.AddTransient<MainLedgerViewModel>();
+        services.AddTransient<ReportsViewModel>();
         services.AddTransient<BackupViewModel>();
         services.AddTransient<SettingsViewModel>();
     }

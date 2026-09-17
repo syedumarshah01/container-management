@@ -5,7 +5,7 @@
         x:Class="ContainerManagement.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="{Binding BrandName}"
-        Icon="/Assets/logo.png"
+        Icon="/Assets/app-icon.png"
         Width="1200" Height="780"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -13,7 +13,16 @@
   <Grid>
     <DockPanel>
       <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E6E4DE" BorderThickness="0,1,0,0" Padding="24,10">
-        <TextBlock Text="{Binding Status}" Classes.bad="{Binding IsError}" FontSize="13" Foreground="#6B7280" />
+        <!-- The status line is the only place a page says that something refused to happen, and it used to
+             say it in the same grey it uses for "Saved." - the colour was written on the control, which beats
+             the .bad class, so a failure looked like a notice. An error now gets its own element: two ordinary
+             bindings, no argument with the cascade. -->
+        <Panel>
+          <TextBlock Text="{Binding Status}" Classes="muted" FontSize="13" TextWrapping="Wrap"
+                     IsVisible="{Binding !IsError}" />
+          <TextBlock Text="{Binding Status}" Classes="bad" FontSize="13" FontWeight="SemiBold"
+                     TextWrapping="Wrap" IsVisible="{Binding IsError}" />
+        </Panel>
       </Border>
 
       <Border Width="216" Background="{StaticResource NavyBrush}">
@@ -21,10 +30,20 @@
           <StackPanel DockPanel.Dock="Top" Margin="20,24,20,8">
             <Border CornerRadius="12" ClipToBounds="True" Width="56" Height="56"
                     Background="#1B2A4A" HorizontalAlignment="Left" Margin="0,0,0,12">
-              <Image Source="/Assets/logo.png" Stretch="UniformToFill" />
+              <Image Source="/Assets/app-icon.png" Stretch="Uniform" />
             </Border>
             <TextBlock Text="{Binding BrandName}" FontSize="20" FontWeight="SemiBold"
                        Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12" />
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Margin="20,12,20,16">
+            <Border Height="1" Background="#1FFFFFFF" Margin="0,0,0,10" />
+            <Image Source="{Binding BrandArtOnDark}" Height="15" HorizontalAlignment="Left"
+                   IsVisible="{Binding HasBrandArt}" />
+            <StackPanel IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand brandOnDark" Text="SYNTAXIA" />
+              <TextBlock Classes="brandTag brandTagOnDark" Text="SOLUTIONS" Margin="0,2,0,0" />
+            </StackPanel>
           </StackPanel>
           <ListBox ItemsSource="{Binding NavItems}"
                    SelectedItem="{Binding SelectedNav}"
@@ -74,6 +93,16 @@
           <TextBlock Classes="label" Text="PIN" />
           <TextBox Text="{Binding PinInput}" PasswordChar="•" />
           <Button Classes="gold" Content="Unlock" Command="{Binding UnlockCommand}" HorizontalAlignment="Left" />
+
+          <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,18,0,10" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="9">
+            <Image Source="{Binding BrandArt}" Height="13" IsVisible="{Binding HasBrandArt}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand" Text="SYNTAXIA" FontSize="11" LetterSpacing="2.2" />
+              <TextBlock Classes="brandTag" Text="SOLUTIONS" FontSize="8" LetterSpacing="2.6"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </StackPanel>
         </StackPanel>
       </Border>
     </Border>
@@ -81,6 +110,15 @@
     <Border Background="#991B2A4A" IsVisible="{Binding NeedsActivation}">
       <Border Classes="dialog" Width="500" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel>
+          <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16">
+            <Image Source="{Binding BrandArt}" Height="26" HorizontalAlignment="Center"
+                   IsVisible="{Binding HasBrandArt}" />
+            <StackPanel IsVisible="{Binding !HasBrandArt}">
+              <TextBlock Classes="brand" Text="SYNTAXIA" HorizontalAlignment="Center" FontSize="17"
+                         LetterSpacing="3.6" />
+              <TextBlock Classes="brandTag" Text="SOLUTIONS" HorizontalAlignment="Center" Margin="0,3,0,0" />
+            </StackPanel>
+          </StackPanel>
           <TextBlock Classes="h1" Text="Activate ProBooks" />
           <TextBlock Classes="muted" Text="{Binding LicenseHint}" TextWrapping="Wrap" Margin="0,0,0,16" />
           <TextBlock Classes="label" Text="License key" />

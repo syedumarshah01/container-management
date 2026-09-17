@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,38 +9,145 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ContainersViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly ReportService _reports;
     private readonly InventoryService _inventory;
+    private readonly AccessService _access;
     private readonly IAppShell _shell;
 
-    public ContainersViewModel(ReportService reports, InventoryService inventory, IAppShell shell)
+    public ContainersViewModel(ReportService reports, InventoryService inventory, AccessService access,
+        IAppShell shell, PrintService print)
     {
+        _print = print;
         _reports = reports;
         _inventory = inventory;
+        _access = access;
         _shell = shell;
     }
 
     public ObservableCollection<ContainerProfitRow> Rows { get; } = new();
 
+    /// <summary>How the money handed over at creation went out - the same list the We owe page uses.</summary>
+    public IReadOnlyList<string> PaidMethods { get; } = SupplierPayMethods.All;
+
     [ObservableProperty] private ContainerProfitRow? selected;
     [ObservableProperty] private string newTitle = "";
     [ObservableProperty] private string newNumber = "";
     [ObservableProperty] private string newOrigin = "China";
-    [ObservableProperty] private DateTimeOffset? newArrival = DateTimeOffset.Now;
+    // Deliberately no default: the arrival date is a fact about the shipment, not about the day the
+    // entry happens to be typed in, so the form asks and waits rather than filling itself in.
+    [ObservableProperty] private DateTimeOffset? newArrival;
     [ObservableProperty] private string newNotes = "";
     [ObservableProperty] private string newSupplier = "";
     [ObservableProperty] private decimal? newSupplierAmount;
+    [ObservableProperty] private decimal? newPaid;
+    [ObservableProperty] private string newPaidMethod = "Bank Transfer";
     [ObservableProperty] private decimal? newCartons;
     [ObservableProperty] private decimal? newCbm;
     [ObservableProperty] private decimal? newWeight;
     [ObservableProperty] private bool showAddForm;
 
+    /// <summary>
+    /// Closed containers are put aside rather than shown among the working ones: the lot's own page, the till
+    /// and Reports keep every figure it holds, so the list only stops nagging. This flag is that view switch,
+    /// and the only thing it changes is which rows are in front of you - nothing is filtered away from a total.
+    /// </summary>
+    [ObservableProperty] private bool showPutAway;
+
+    [ObservableProperty] private string listTitle = "Open containers";
+
+    [ObservableProperty] private string toggleLabel = "Put away";
+
+    [ObservableProperty] private bool showPutAwayButton;
+
+    partial void OnShowPutAwayChanged(bool value) => ApplyFilter();
+
+    private List<ContainerProfitRow> _all = new();
+
+    [ObservableProperty] private string query = "";
+
+    partial void OnQueryChanged(string value) => ApplyFilter();
+
     public override async Task LoadAsync()
     {
-        var list = await _reports.GetContainerProfitsAsync();
+        _all = await _reports.GetContainerProfitsAsync();
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// The list as the shop asked to see it. A search narrows rows and touches no figure: what is left on each
+    /// container is what the row carries, so the page cannot come to a different total than the container's own
+    /// page does because somebody typed a letter and deleted another.
+    /// </summary>
+    private void ApplyFilter()
+    {
+        // The split and the search are one rule, and it lives with the rows it reads (ContainerListRules), so a
+        // typed query narrows what is on show instead of overriding it. Before, a search rebuilt its list from
+        // the whole book, which meant a closed container came back the moment its title was typed - the put-away
+        // half of the page is put aside in the search as carefully as it is put aside in the list.
         Rows.Clear();
-        foreach (var r in list)
+        foreach (var r in ContainerListRules.Shown(_all, ShowPutAway, Query))
             Rows.Add(r);
+
+        var aside = ContainerListRules.Aside(_all);
+        // No button when it would show an empty table, and the label says what the other half is called.
+        ShowPutAwayButton = aside > 0 || ShowPutAway;
+        ToggleLabel = ShowPutAway ? "Open containers" : aside > 0 ? $"Put away ({aside})" : "Put away";
+        ListTitle = ShowPutAway ? "Put away" : "Open containers";
+        // A picked row survives typing in the search box, because it was picked for a reason; it is dropped
+        // only when the row has genuinely left this half of the list.
+        if (Selected is not null && !Rows.Contains(Selected))
+            Selected = null;
+    }
+
+    [RelayCommand]
+    private void TogglePutAway() => ShowPutAway = !ShowPutAway;
+
+    /// <summary>
+    /// Put a container back among the working ones, from the list, so the aside view is a shelf and not a
+    /// dead end. The same word the lot's own page uses, and the same owner gate, so closing and re-opening
+    /// cannot be done by two different sets of hands.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReopenAsync()
+    {
+        if (Selected is null)
+        {
+            _shell.Notify("Pick a container in the table first.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to re-open a container.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.SetStatusAsync(Selected.ContainerId, ContainerStatus.Open);
+            _shell.MarkChanged();
+            _shell.Notify("Container re-opened.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    /// <summary>
+    /// The list as the page shows it, on paper. Every cell is the text the row already carries, and there is
+    /// no total line here because the page has none: a figure the screen never showed must not appear on the
+    /// sheet, however obvious it looks.
+    /// </summary>
+    [RelayCommand]
+    private void Print()
+    {
+        var rows = Rows.Select(r => new[]
+        {
+            r.Title, r.Origin, r.ArrivalText, r.StatusText, r.QtySoldText,
+            r.RevenueText, r.CollectedText, r.InMarketText, r.RemainingValueText, r.ProfitText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        _print.PrintTable("containers.html", "Containers", ShowPutAway ? "Put away" : null,
+            new[] { "Container", "From", "Landed", "State", "Sold", "Sold for", "Collected", "In the market", "Stock value", "Profit" },
+            rows, null, 4);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]
@@ -58,6 +166,11 @@ public partial class ContainersViewModel : ViewModelBase
     [RelayCommand]
     private async Task CreateAsync()
     {
+        if (NewArrival is null)
+        {
+            _shell.Notify("When did it arrive? Select the date.", true);
+            return;
+        }
         try
         {
             var c = await _inventory.CreateContainerAsync(
@@ -73,13 +186,29 @@ public partial class ContainersViewModel : ViewModelBase
                 NewCbm,
                 NewWeight,
                 NewSupplier,
-                NewSupplierAmount ?? 0);
-            _shell.Notify($"Container '{c.Title}' created. Add items on the next screen.");
+                NewSupplierAmount ?? 0,
+                NewPaid ?? 0,
+                NewPaidMethod);
+            var paid = NewPaid ?? 0;
+            // The box is read as what is still owed, so the paid-now money never nets it down: this line
+            // has to say the same thing the We owe page will say a second later.
+            var owed = Money.Round(NewSupplierAmount ?? 0);
+            var what = $"Container '{c.Title}' created.";
+            if (paid > 0)
+                what += owed > 0.009m
+                    ? $" {Money.Pkr(paid)} paid by {NewPaidMethod}, {Money.Pkr(owed)} still owed."
+                    : $" {Money.Pkr(paid)} paid by {NewPaidMethod}, supplier settled.";
+            else if (owed > 0.009m)
+                what += $" {Money.Pkr(owed)} owed on this container.";
+            what += " Add items on the next screen.";
+            _shell.Notify(what);
             NewTitle = "";
             NewNumber = "";
+            NewArrival = null;
             NewNotes = "";
             NewSupplier = "";
             NewSupplierAmount = 0;
+            NewPaid = null;
             NewCartons = null;
             NewCbm = null;
             NewWeight = null;

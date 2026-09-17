@@ -13,6 +13,45 @@ public static class SchemaPatcher
         AddColumn(con, "Sales", "DueDate", "TEXT");
         AddColumn(con, "Sales", "Status", "INTEGER NOT NULL DEFAULT 0");
         AddColumn(con, "Sales", "CancelledAt", "TEXT");
+        AddColumn(con, "CashBook", "SupplierReceiptId", "INTEGER");
+
+        // GoodsSentBack and not SupplierReturns: a rolled-back build created SupplierReturns with its own
+        // columns, and IF NOT EXISTS cannot tell a table of that name from the one being asked for. The old
+        // table is left exactly as it is - it holds a record of goods handed back while that build was live,
+        // and dropping it would take the only account of them out of the file.
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS GoodsSentBack (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SupplierId INTEGER NOT NULL,
+                ContainerId INTEGER NOT NULL,
+                ContainerItemId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Quantity REAL NOT NULL,
+                UnitCost REAL NOT NULL,
+                Amount REAL NOT NULL,
+                CreditedOwing REAL NOT NULL,
+                DueToUs REAL NOT NULL,
+                Notes TEXT
+            );
+            CREATE INDEX IF NOT EXISTS IX_GoodsSentBack_SupplierId_Date
+                ON GoodsSentBack(SupplierId, Date);
+            """);
+        RequireColumns(con, "GoodsSentBack", "Id", "SupplierId", "ContainerId", "ContainerItemId", "Date",
+            "Quantity", "UnitCost", "Amount", "CreditedOwing", "DueToUs", "Notes");
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS SupplierReceipts (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                SupplierId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Amount REAL NOT NULL,
+                Method TEXT,
+                Notes TEXT
+            );
+            CREATE INDEX IF NOT EXISTS IX_SupplierReceipts_SupplierId_Date
+                ON SupplierReceipts(SupplierId, Date);
+            """);
+        RequireColumns(con, "SupplierReceipts", "Id", "SupplierId", "Date", "Amount", "Method", "Notes");
 
         AddColumn(con, "Products", "PhotoPath", "TEXT");
         AddColumn(con, "Products", "LastSalePrice", "REAL");
@@ -32,6 +71,22 @@ public static class SchemaPatcher
         AddColumn(con, "Containers", "WeightKg", "REAL");
         AddColumn(con, "Containers", "SupplierId", "INTEGER");
         AddColumn(con, "Containers", "SupplierAmount", "REAL NOT NULL DEFAULT 0");
+
+        // A container expense can be written in yen, so the line keeps the figure as typed, the rate it was
+        // converted at and the rupee total the books use. Decimals are TEXT here, as EF Core's SQLite
+        // provider writes them: a REAL column would put a money figure through a binary fraction.
+        AddColumn(con, "Expenses", "Currency", "TEXT NOT NULL DEFAULT 'PKR'");
+        AddColumn(con, "Expenses", "AmountForeign", "TEXT NOT NULL DEFAULT '0'");
+        AddColumn(con, "Expenses", "RateUsed", "TEXT");
+
+        // An item's cost price can be typed in yen, so the invoice's own figure and the rate it was taken
+        // at stay on the item. TEXT again for the rate, as above: a float column would put the figure a
+        // rupee total was multiplied by through a binary fraction.
+        AddColumn(con, "ContainerItems", "CostCurrency", "TEXT NOT NULL DEFAULT 'PKR'");
+        AddColumn(con, "ContainerItems", "CostRate", "TEXT");
+
+        AddColumn(con, "LedgerEntries", "PayoutId", "INTEGER");
+        AddColumn(con, "CashBook", "PayoutId", "INTEGER");
 
         Exec(con, """
             CREATE TABLE IF NOT EXISTS Suppliers (
@@ -130,11 +185,81 @@ public static class SchemaPatcher
             );
             """);
 
+        // Money the shop paid out to a customer, because their own ledger was in their favour.
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS CustomerPayouts (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                CustomerId INTEGER NOT NULL,
+                Date TEXT NOT NULL,
+                Amount TEXT NOT NULL,
+                Method TEXT,
+                Notes TEXT,
+                FOREIGN KEY (CustomerId) REFERENCES Customers(Id)
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_CustomerPayouts_CustomerId ON CustomerPayouts(CustomerId, Date);");
+
         Exec(con, """
             UPDATE ContainerItems
             SET LandedUnitCost = UnitCost
             WHERE LandedUnitCost IS NULL OR LandedUnitCost = 0;
             """);
+
+        // Buy plans (China order sheets) — a plan and its item rows.
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS BuyPlans (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Title TEXT NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                YenRate TEXT NOT NULL,
+                ExpensePkr TEXT NOT NULL
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlans_CreatedAt ON BuyPlans(CreatedAt);");
+
+        Exec(con, """
+            CREATE TABLE IF NOT EXISTS BuyPlanLines (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                PlanId INTEGER NOT NULL,
+                ItemName TEXT NOT NULL,
+                Quantity TEXT NOT NULL,
+                UnitCostYen TEXT NOT NULL,
+                UnitWeightKg TEXT NOT NULL,
+                SalePricePkr TEXT NOT NULL,
+                FOREIGN KEY (PlanId) REFERENCES BuyPlans(Id) ON DELETE CASCADE
+            );
+            """);
+
+        Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlanLines_PlanId ON BuyPlanLines(PlanId);");
+
+        // One row per bill on a sheet, as a container keeps them. Made only when it is missing, and the day
+        // it is made a sheet that had a single total typed into it keeps standing: that figure becomes one
+        // row, so nobody opens an old sheet to find its expense gone, and the new rows start where the book
+        // left off. The total itself is not re-typed - it is the sum of the rows from then on.
+        if (!HasTable(con, "BuyPlanExpenses"))
+        {
+            Exec(con, """
+                CREATE TABLE BuyPlanExpenses (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    PlanId INTEGER NOT NULL,
+                    Description TEXT NOT NULL,
+                    AmountPkr TEXT NOT NULL,
+                    Currency TEXT NOT NULL,
+                    AmountForeign TEXT NOT NULL,
+                    RateUsed TEXT,
+                    FOREIGN KEY (PlanId) REFERENCES BuyPlans(Id) ON DELETE CASCADE
+                );
+                """);
+            Exec(con, "CREATE INDEX IF NOT EXISTS IX_BuyPlanExpenses_PlanId ON BuyPlanExpenses(PlanId);");
+            Exec(con, """
+                INSERT INTO BuyPlanExpenses (PlanId, Description, AmountPkr, Currency, AmountForeign, RateUsed)
+                SELECT Id, 'Other', ExpensePkr, 'PKR', '0', NULL
+                FROM BuyPlans
+                WHERE ExpensePkr IS NOT NULL AND CAST(ExpensePkr AS REAL) > 0;
+                """);
+        }
     }
 
     private static void AddColumn(SqliteConnection con, string table, string column, string decl)
@@ -142,6 +267,33 @@ public static class SchemaPatcher
         if (HasColumn(con, table, column))
             return;
         Exec(con, $"ALTER TABLE {table} ADD COLUMN {column} {decl};");
+    }
+
+    private static bool HasTable(SqliteConnection con, string table)
+    {
+        using var cmd = con.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @t;";
+        cmd.Parameters.AddWithValue("@t", table);
+        return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) > 0L;
+    }
+
+    /// <summary>
+    /// Insist that a table this version reads is the shape this version reads. CREATE TABLE IF NOT EXISTS says
+    /// nothing about a table that is already there with another version's columns in it, and that silence is
+    /// what turns into "no such column" on a page three steps from the cause. Saying it at the door, with the
+    /// table and the columns named, is the difference between a shop acting on it and a shop guessing at it.
+    /// Only the tables this version adds are held to it - older ones are shaped by their own AddColumn lines.
+    /// </summary>
+    private static void RequireColumns(SqliteConnection con, string table, params string[] columns)
+    {
+        var missing = columns.Where(c => !HasColumn(con, table, c)).ToList();
+        if (missing.Count == 0)
+            return;
+        throw new InvalidOperationException(
+            "The " + table + " table in this data folder was built by another version of ProBooks and does not "
+            + "have the columns this one reads: " + string.Join(", ", missing) + ". Nothing in your books was "
+            + "changed. Restore a backup taken before that version, or bring the file back from the one in "
+            + "Settings -> Backups.");
     }
 
     private static bool HasColumn(SqliteConnection con, string table, string column)

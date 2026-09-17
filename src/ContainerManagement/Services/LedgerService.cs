@@ -74,11 +74,13 @@ public class LedgerService
             .AsNoTracking()
             .Where(e => e.CustomerId == customerId)
             .ToListAsync();
+        // Day by day in the order the money moved, and inside a day in the order the lines were written.
+        // Grouping every line of one bill together reads tidily for a moment and then lies about the
+        // sequence - a payment made last month against an older bill appearing above this month's return
+        // - and the sequence is the one thing a ledger exists to show. The opening line leads its day.
         entries = entries
             .OrderBy(e => e.Date.Date)
             .ThenBy(e => e.Type == LedgerType.Opening ? 0 : 1)
-            .ThenBy(e => e.SaleId ?? e.Id)
-            .ThenBy(e => LedgerRank(e.Type))
             .ThenBy(e => e.Id)
             .ToList();
 
@@ -96,17 +98,21 @@ public class LedgerService
                 Debit = e.Debit,
                 Credit = e.Credit,
                 RunningBalance = running,
+                Step = rows.Count + 1,
                 SaleId = e.SaleId,
                 PaymentId = e.PaymentId
             });
         }
-        rows.Reverse();
+        // Not reversed here: the printed statement reads top down from the opening balance, which is this
+        // order, while the page wants the newest line under the reader's eye. The page reverses; the book
+        // stays in the order it happened.
         return rows;
     }
 
     public async Task<Payment> ReceivePaymentAsync(
         int customerId, DateTime date, decimal amount, string method, string? notes, int? saleId = null)
     {
+        amount = Money.Round(amount);
         if (amount <= 0)
             throw new InvalidOperationException("Payment amount must be greater than zero.");
 
@@ -178,6 +184,7 @@ public class LedgerService
 
     public async Task SetOpeningBalanceAsync(int customerId, decimal theyOwe)
     {
+        theyOwe = Money.Round(theyOwe);
         await using var db = await _factory.CreateDbContextAsync();
         if (!await db.Customers.AnyAsync(c => c.Id == customerId))
             throw new InvalidOperationException("Customer not found.");
@@ -204,14 +211,204 @@ public class LedgerService
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<Payment>> ListPaymentsAsync(int customerId)
+    /// <summary>
+    /// The standing an invoice should print: what the customer's book held up to that bill's own line, what
+    /// the bill left unpaid when it was written, and the two added together. Not today's figures. An invoice
+    /// is a document about the day it was written, and a previous balance back-derived from what the book
+    /// happens to hold now moves every time this customer pays or is billed again - so re-printing last
+    /// month's bill would claim that money was already owed before it, and its arithmetic would still look
+    /// right because the plug is what makes it add up. The cut is this bill's line in the order the ledger
+    /// keeps, which takes in whatever the book holds for that day - including a line corrected or added
+    /// afterwards with an earlier date - and leaves out everything that came after it. Today's outstanding
+    /// travels with it, one figure, so the paper can still be used to chase the money.
+    /// </summary>
+    public async Task<(decimal Previous, decimal ThisInvoice, decimal DueThatDay, decimal DueToday)>
+        GetInvoiceStandingAsync(int saleId)
     {
         await using var db = await _factory.CreateDbContextAsync();
-        return await db.Payments.AsNoTracking()
+        var sale = await db.Sales.FindAsync(saleId)
+            ?? throw new InvalidOperationException("Invoice not found.");
+
+        var rows = await GetLedgerAsync(sale.CustomerId);
+        var at = rows.FirstOrDefault(r => r.Type == LedgerType.Sale && r.SaleId == saleId)
+            ?? throw new InvalidOperationException(
+                "This bill has no line in the customer's ledger, so its standing cannot be printed.");
+
+        // The row carries the balance the book had reached at that line - it is added before the row is
+        // built - so the figure before the bill is that line's own movement taken back off it. No summing
+        // over a range of dates, which is where a day boundary or a backdated entry gets missed.
+        var previous = Money.Round(at.RunningBalance - (at.Debit - at.Credit));
+        var thisInvoice = sale.Status == SaleStatus.Cancelled
+            ? 0m
+            : Money.Round(sale.TotalAmount - sale.PaidNow);
+        return (previous, thisInvoice, Money.Round(previous + thisInvoice), await GetBalanceAsync(sale.CustomerId));
+    }
+
+    /// <summary>
+    /// What a customer handed over, in one month - or in the whole book when no month is given - together
+    /// with the lines that make it up. The adding is done here rather than by the page so that the figure
+    /// beside a month's rows *is* those rows: a receipts list whose headline was worked out separately is a
+    /// headline that can quietly stop matching the paper under it.
+    ///
+    /// Only receipts count. A payout is money leaving the till to that same customer and a return credit
+    /// moves their ledger without any cash, so neither is collected money, and neither is netted off the
+    /// figure - which is why this reads the receipts table and not the ledger. The day is taken off each row
+    /// after the rows are in memory: these date columns are TEXT, and asking SQLite for a range of days
+    /// compares the strings instead of the dates.
+    /// </summary>
+    public async Task<(decimal Amount, int Count, List<Payment> Rows)> GetReceiptsAsync(
+        int customerId, int? year, int? month)
+    {
+        if ((year is null) != (month is null))
+            throw new ArgumentException("A month needs a year: pass both, or neither for every month.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var all = await db.Payments.AsNoTracking()
             .Where(p => p.CustomerId == customerId)
-            .OrderByDescending(p => p.Date)
-            .ThenByDescending(p => p.Id)
             .ToListAsync();
+
+        var rows = year is int y && month is int m
+            ? all.Where(p => p.Date.Year == y && p.Date.Month == m).ToList()
+            : all;
+        // Newest first, as the customer's other lists are, and by writing order within a day - a receipt
+        // taken at night keeps its place beside one taken that morning.
+        rows = rows.OrderByDescending(p => p.Date).ThenByDescending(p => p.Id).ToList();
+        return (Money.Round(rows.Sum(p => p.Amount)), rows.Count, rows);
+    }
+
+    /// <summary>
+    /// Money handed to a customer to settle what their own book says we are holding of theirs. The mirror of
+    /// ReceivePaymentAsync in direction only: it is never a negative payment, because a payment is money the
+    /// till received and every other page adds those up as money in. So this writes three things in one
+    /// transaction - the payout itself, a debit on their ledger so their balance moves towards nothing, and
+    /// an outflow in the till so cash in hand falls by exactly the same figure.
+    ///
+    /// The ceiling is their ledger, not a guess: paying more than they are owed would leave the shop owed by
+    /// its own customer, which is a different thing and not something a pay form should be able to create
+    /// with a mistyped zero.
+    /// </summary>
+    public async Task<CustomerPayout> PayCustomerAsync(
+        int customerId, DateTime date, decimal amount, string method, string? notes)
+    {
+        amount = Money.Round(amount);
+        if (amount <= 0)
+            throw new InvalidOperationException("Payment amount must be greater than zero.");
+
+        await using var db = await _factory.CreateDbContextAsync();
+        var customer = await db.Customers.FindAsync(customerId)
+            ?? throw new InvalidOperationException("Customer not found.");
+        var lines = await db.LedgerEntries.AsNoTracking()
+            .Where(e => e.CustomerId == customerId)
+            .ToListAsync();
+        var balance = lines.Sum(e => e.Debit - e.Credit);
+        var owed = Money.Round(-balance);
+        if (owed <= 0.009m)
+            throw new InvalidOperationException(balance > 0.009m
+                ? "Nothing is owed to them - their ledger shows " + Money.Pkr(balance) + " still due to us."
+                : "Nothing is owed to them - their ledger is settled.");
+        if (amount - owed > 0.009m)
+            throw new InvalidOperationException(
+                "Their ledger says we owe them " + Money.Pkr(owed) + ". Paying " + Money.Pkr(amount)
+                + " would leave us owed " + Money.Pkr(amount - owed) + " by this customer - take that in as "
+                + "a payment from them instead of paying it out.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var pay = new CustomerPayout
+        {
+            CustomerId = customerId,
+            Date = date,
+            Amount = amount,
+            Method = string.IsNullOrWhiteSpace(method) ? "Cash" : method.Trim(),
+            Notes = notes?.Trim()
+        };
+        db.CustomerPayouts.Add(pay);
+        await db.SaveChangesAsync();
+
+        db.LedgerEntries.Add(new LedgerEntry
+        {
+            CustomerId = customerId,
+            Date = date,
+            Type = LedgerType.Payout,
+            Debit = amount,
+            Credit = 0,
+            Description = string.IsNullOrWhiteSpace(notes)
+                ? $"{pay.Method} paid to {customer.Name}"
+                : notes.Trim(),
+            PayoutId = pay.Id
+        });
+        db.CashBook.Add(new CashBookEntry
+        {
+            Date = date,
+            Kind = CashBookKind.CustomerOut,
+            Description = "Paid to " + customer.Name + " · " + pay.Method
+                + (string.IsNullOrWhiteSpace(notes) ? "" : " — " + notes.Trim()),
+            AmountIn = 0,
+            AmountOut = amount,
+            PayoutId = pay.Id
+        });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return pay;
+    }
+
+    /// <summary>What has been handed to a customer, newest first, so a figure on the We Owe page can be
+    /// checked against its note. Read from the payout rows, not from the ledger: the ledger line is the
+    /// book, this is the record of the money.</summary>
+    public async Task<List<CustomerPayoutRow>> ListPayoutsAsync(int customerId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.CustomerPayouts.AsNoTracking()
+            .Where(p => p.CustomerId == customerId)
+            .ToListAsync();
+        return rows
+            .OrderByDescending(p => p.Date.Date).ThenByDescending(p => p.Id)
+            .Select(p => new CustomerPayoutRow
+            {
+                CustomerId = p.CustomerId,
+                Date = p.Date,
+                Method = p.Method,
+                Amount = p.Amount,
+                Notes = p.Notes
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// The customers whose own book is in their favour, so the shop is holding their money: an advance that
+    /// was never taken as goods, or a refund their settled bill left behind. Their balance is negative and
+    /// "we owe them" is that figure without the sign - the same sum their own page runs over the same
+    /// entries, so the two pages cannot tell two stories. Someone already paid back stays listed while a
+    /// payout of theirs exists to be seen, which is why the pay form keeps a settled name selected instead
+    /// of dropping the row the shop has just cleared.
+    /// </summary>
+    public async Task<List<CustomerOwedRow>> GetCustomerOwedAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var customers = await db.Customers.AsNoTracking().ToListAsync();
+        var entries = await db.LedgerEntries.AsNoTracking().ToListAsync();
+        var payouts = await db.CustomerPayouts.AsNoTracking().ToListAsync();
+
+        var rows = new List<CustomerOwedRow>();
+        foreach (var c in customers)
+        {
+            var lines = entries.Where(e => e.CustomerId == c.Id).ToList();
+            if (lines.Count == 0)
+                continue;
+            var owed = Money.Round(-lines.Sum(e => e.Debit - e.Credit));
+            var paidOut = Money.Round(payouts.Where(p => p.CustomerId == c.Id).Sum(p => p.Amount));
+            if (owed <= 0.009m && paidOut <= 0.009m)
+                continue;
+            rows.Add(new CustomerOwedRow
+            {
+                CustomerId = c.Id,
+                Name = c.Name,
+                Phone = c.Phone,
+                Owed = owed > 0 ? owed : 0m,
+                PaidOut = paidOut
+            });
+        }
+
+        return rows.OrderByDescending(r => r.Owed).ThenBy(r => r.Name).ToList();
     }
 
     public async Task<List<ReceivableRow>> GetReceivablesAsync()
@@ -275,15 +472,6 @@ public class LedgerService
             .ThenBy(r => r.Name)
             .ToList();
     }
-
-    private static int LedgerRank(LedgerType type) => type switch
-    {
-        LedgerType.Opening => 0,
-        LedgerType.Sale => 1,
-        LedgerType.Payment => 2,
-        LedgerType.Return => 3,
-        _ => 4
-    };
 
     private static string AgingLabel(DateTime? oldestDue, decimal balance)
     {

@@ -4,10 +4,10 @@ using ContainerManagement.ViewModels;
 
 namespace ContainerManagement.Views;
 
-public partial class ProfitView : UserControl
+public partial class BuyPlansView : UserControl
 {
-    public ProfitView() => InitializeComponent();
+    public BuyPlansView() => InitializeComponent();
 
     private void OnDoubleTap(object? sender, TappedEventArgs e)
-        => (DataContext as ProfitViewModel)?.OpenCommand.Execute(null);
+        => (DataContext as BuyPlansViewModel)?.OpenCommand.Execute(null);
 }

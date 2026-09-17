@@ -1,3 +1,4 @@
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ContainerManagement.ViewModels;
@@ -5,6 +6,17 @@ namespace ContainerManagement.ViewModels;
 public abstract class ViewModelBase : ObservableObject
 {
     public bool HasLoaded { get; set; }
+
+    /// <summary>
+    /// The maker's mark, for any page that carries a signature. Two properties on the base rather than a
+    /// converter, because a plate has exactly one question to ask: is there artwork, or do we typeset the
+    /// wordmark. Null picture, no broken-image box.
+    /// </summary>
+    public Bitmap? BrandArt => Data.Brand.Artwork;
+
+    public Bitmap? BrandArtOnDark => Data.Brand.ArtworkOnDark;
+
+    public bool HasBrandArt => BrandArt is not null;
 
     /// <summary>
     /// When false, leaving and coming back keeps typed fields as they were.
@@ -24,10 +36,25 @@ public interface IAppShell
 {
     bool IsOwner { get; }
     void Notify(string message, bool error = false);
+
+    /// <summary>
+    /// Puts text where the user can paste it. A page that hands something to another program - a WhatsApp
+    /// link, a browser - needs a way to leave the text behind when that program is not there, or the shop
+    /// has to type out a ledger by hand.
+    /// </summary>
+    Task CopyTextAsync(string text);
     void Back();
     void GoDashboard();
     void GoContainers();
     void OpenContainer(int id);
+    void GoBuyPlans();
+    void OpenBuyPlan(int id);
+
+    /// <summary>
+    /// Called by a page that changed saved data, so the page behind it reloads on Back
+    /// instead of showing the numbers from before the edit.
+    /// </summary>
+    void MarkChanged();
     void GoInventory();
     void GoNewSale();
     void GoSales();

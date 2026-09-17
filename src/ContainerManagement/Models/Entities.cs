@@ -6,13 +6,26 @@ public enum ContainerStatus
     Closed = 1
 }
 
+/// <summary>The two words a container's state is called, kept here so the Reports column, the stamp on the lot's
+/// own heading and the word printed at the top of its sheet are the same pair of words rather than three pages
+/// each inventing one. The plain pair reads in a column that has a heading to say what it is; the stamped pair is
+/// a state marked beside a name, which is why it is set in caps.</summary>
+public static class ContainerStatusWords
+{
+    public static string Plain(ContainerStatus status) => status == ContainerStatus.Open ? "Open" : "Closed";
+
+    public static string Stamp(ContainerStatus status) => status == ContainerStatus.Open ? "OPEN" : "CLOSED";
+}
+
 public enum LedgerType
 {
     Sale = 0,
     Payment = 1,
     Adjustment = 2,
     Opening = 3,
-    Return = 4
+    Return = 4,
+    /// <summary>Money the shop handed over to the customer, because their book was in their favour.</summary>
+    Payout = 5
 }
 
 public enum SaleStatus
@@ -72,10 +85,30 @@ public class ContainerItem
     public decimal QuantityReceived { get; set; }
     public decimal QuantityRemaining { get; set; }
     public decimal UnitCost { get; set; }
+    /// <summary>The cost price as it was written on the invoice, in CostCurrency. Kept next to the rupee
+    /// figure rather than instead of it, so a supplier's bill can be checked against the entry forever.</summary>
     public decimal ForeignCost { get; set; }
+
+    /// <summary>Which currency the cost price was typed in. A rate is not applied twice in this book - the
+    /// rupee figure is fixed when the item is saved - so the currency has to be recorded, not guessed at
+    /// from whether the two figures happen to differ.</summary>
+    public string CostCurrency { get; set; } = "PKR";
+
+    /// <summary>The rate a yen cost price was multiplied by, kept on the item so the rupee figure can be
+    /// re-derived from the yen one. Null on an item priced in rupees.</summary>
+    public decimal? CostRate { get; set; }
+
+    /// <summary>The cost the shop typed, in the currency it was typed in - which is what the item form
+    /// shows back, so editing an item's name never has a converted rupee figure dropped into its price box.</summary>
+    public decimal CostEntered => CostCurrency == "JPY" ? ForeignCost : UnitCost;
+
     public decimal LandedUnitCost { get; set; }
     public decimal? Cartons { get; set; }
     public decimal? Cbm { get; set; }
+    /// <summary>What one piece weighs, in kilograms - the same figure the order sheet asks for, and the
+    /// one written on the carton. The container's freight is shared out over what the lot weighs in all,
+    /// which is this times how many were received. Null means it has not been weighed, which stops the
+    /// sharing for the whole container rather than guessing at it.</summary>
     public decimal? WeightKg { get; set; }
     public string? PhotoPath { get; set; }
     public string? Notes { get; set; }
@@ -83,7 +116,20 @@ public class ContainerItem
 
     public List<SaleLine> SaleLines { get; set; } = new();
 
-    public decimal EffectiveCost => UnitCost;
+    /// <summary>
+    /// What the piece actually cost: the price of the goods plus this item's share of the container's
+    /// expenses, which are shared out by weight (see InventoryService.SplitExpense). Every cost figure in the app - a
+    /// sold line's cost, what stock left in the store is worth, profit - reads this and not UnitCost, so
+    /// freight and customs are in the cost of the goods rather than a number sitting beside them.
+    /// LandedUnitCost is written by that one method, from UnitCost, every time an expense or a weight
+    /// changes: it is never added to, so no amount can be shared out twice.
+    /// </summary>
+    public decimal EffectiveCost => LandedUnitCost > 0 ? LandedUnitCost : UnitCost;
+
+    /// <summary>The freight and customs carried by one piece, on its own - what the cost column shows as
+    /// "of which freight", and the difference a shop can check: it is the item's share of the container's
+    /// expenses divided by how many pieces that share was bought for.</summary>
+    public decimal CostEachFreight => LandedUnitCost > 0 ? LandedUnitCost - UnitCost : 0m;
 }
 
 public class Customer
@@ -167,8 +213,12 @@ public class SaleLine
     public decimal UnitPrice { get; set; }
     public decimal UnitCost { get; set; }
 
-    public decimal LineTotal => Quantity * UnitPrice;
-    public decimal LineCost => Quantity * UnitCost;
+    /// <summary>
+    /// A line's money, rounded once here: the invoice, the customer's balance and the profit figures
+    /// all read these, so the bill that is printed is the bill that is stored.
+    /// </summary>
+    public decimal LineTotal => Money.Round(Quantity * UnitPrice);
+    public decimal LineCost => Money.Round(Quantity * UnitCost);
     public decimal LineProfit => LineTotal - LineCost;
 }
 
@@ -185,6 +235,23 @@ public class Payment
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
 
+/// <summary>
+/// Money the shop paid out to a customer - an advance they no longer want back as goods, or a refund their
+/// ledger left owing them. Deliberately not a Payment with a negative amount: Payment means money the till
+/// received, and every page that adds payments up would then have to subtract a sign it cannot see. The
+/// payout keeps its own row, and its own line in the customer's book and in the till.
+/// </summary>
+public class CustomerPayout
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public Customer Customer { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = "Cash";
+    public string? Notes { get; set; }
+}
+
 public class LedgerEntry
 {
     public int Id { get; set; }
@@ -197,6 +264,7 @@ public class LedgerEntry
     public string Description { get; set; } = string.Empty;
     public int? SaleId { get; set; }
     public int? PaymentId { get; set; }
+    public int? PayoutId { get; set; }
 }
 
 public class ContainerExpense
@@ -206,8 +274,30 @@ public class ContainerExpense
     public CargoContainer Container { get; set; } = null!;
     public DateTime Date { get; set; } = DateTime.Now;
     public string Category { get; set; } = "Other";
+
+    /// <summary>Always Pakistani rupees - what the books, the container's total and each item's cost use -
+    /// whether the line was written in rupees or in yen.</summary>
     public decimal Amount { get; set; }
+
+    /// <summary>The currency the figure was written in, so the shop can keep its own paperwork's number on
+    /// the line instead of only the conversion of it.</summary>
+    public string Currency { get; set; } = "PKR";
+
+    /// <summary>The amount as typed, in Currency. Zero on a line written in rupees.</summary>
+    public decimal AmountForeign { get; set; }
+
+    /// <summary>The yen rate this line was converted at. Kept on the line rather than read from the
+    /// container, because a rate changed next month must not re-value an expense already paid; the figure
+    /// on paper and the figure in the cost are then the same figure forever.</summary>
+    public decimal? RateUsed { get; set; }
+
     public string? Notes { get; set; }
+
+    /// <summary>How a rupee total was arrived at, for the line itself: a yen expense shows the yen figure
+    /// and the rate beside it, so nobody has to trust the conversion after the day it was written.</summary>
+    public string SourceText => Currency != "PKR" && AmountForeign > 0m && RateUsed is decimal rate
+        ? Money.Yen(AmountForeign) + " at " + Currencies.RateText(rate) + " = " + Money.Pkr(Amount)
+        : "";
 }
 
 public class Supplier
@@ -219,6 +309,8 @@ public class Supplier
 
     public List<CargoContainer> Containers { get; set; } = new();
     public List<SupplierPayment> Payments { get; set; } = new();
+    public List<SupplierReturn> Returns { get; set; } = new();
+    public List<SupplierReceipt> Receipts { get; set; } = new();
 
     public override string ToString() => Name;
 }
@@ -234,6 +326,49 @@ public class SupplierPayment
     public string? Notes { get; set; }
     public int? ContainerId { get; set; }
     public CargoContainer? Container { get; set; }
+}
+
+/// <summary>
+/// Goods handed back to the supplier, one line per sending. What the units were bought for is credited
+/// against what we owe on that lot, and only what the owing cannot absorb becomes money they owe us - so a
+/// return never invents income, it moves goods out and the money that paid for them back. The figures are
+/// kept here rather than left to be re-derived: the lot's bill can be edited afterwards, and a book that
+/// recomputes what already happened tells a different story each time it is asked.
+/// </summary>
+public class SupplierReturn
+{
+    public int Id { get; set; }
+    public int SupplierId { get; set; }
+    public Supplier Supplier { get; set; } = null!;
+    public int ContainerId { get; set; }
+    public CargoContainer Container { get; set; } = null!;
+    public int ContainerItemId { get; set; }
+    public ContainerItem ContainerItem { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    /// <summary>Quantity x UnitCost, in rupees: the item's own cost, with no share of the freight in it.</summary>
+    public decimal Amount { get; set; }
+    /// <summary>How much of it was taken off what we owe on the lot. Zero when the bill was already paid.</summary>
+    public decimal CreditedOwing { get; set; }
+    /// <summary>The rest - money the supplier has to send back. Receipts come off this, oldest return first.</summary>
+    public decimal DueToUs { get; set; }
+    public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Money that came back from a supplier. It is not income and it is not an expense: it is the return of a
+/// figure the till already went out for, so it lands in the till as money in and comes off what they owe us.
+/// </summary>
+public class SupplierReceipt
+{
+    public int Id { get; set; }
+    public int SupplierId { get; set; }
+    public Supplier Supplier { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Now;
+    public decimal Amount { get; set; }
+    public string Method { get; set; } = "Cash";
+    public string? Notes { get; set; }
 }
 
 public class StockAdjustment
@@ -266,13 +401,82 @@ public class ShopExpense
     public string? Notes { get; set; }
 }
 
+/// <summary>
+/// A paper-order sheet kept before the goods are bought: what will be bought from China,
+/// in yen, with the sale price per piece. It never touches stock — it is only a plan.
+/// </summary>
+public class BuyPlan
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    /// <summary>Rupees for 1 yen. Used to turn the yen cost into a rupee cost.</summary>
+    public decimal YenRate { get; set; } = 1;
+
+    /// <summary>What the sheet adds its expenses up to, in rupees. It is not typed: it is the sum of the
+    /// rows in <see cref="Expenses"/>, recomputed every time one of them is written, so the total on the
+    /// list and the lines on the sheet cannot be two different numbers.</summary>
+    public decimal ExpensePkr { get; set; }
+
+    public List<BuyPlanLine> Lines { get; set; } = new();
+    public List<BuyPlanExpense> Expenses { get; set; } = new();
+
+    public override string ToString() => Title;
+}
+
+public class BuyPlanLine
+{
+    public int Id { get; set; }
+    public int PlanId { get; set; }
+    public BuyPlan Plan { get; set; } = null!;
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public decimal UnitCostYen { get; set; }
+    public decimal UnitWeightKg { get; set; }
+    public decimal SalePricePkr { get; set; }
+}
+
+/// <summary>
+/// One expense on an order sheet - sea freight, customs, clearing, labour - written as the bill was written,
+/// in yen or in rupees. A sheet's expense figure is the sum of these rows and nothing else, which is how
+/// the container page keeps them too: the money a shipment costs is a list of bills, not a number typed next
+/// to the goods.
+/// </summary>
+public class BuyPlanExpense
+{
+    public int Id { get; set; }
+    public int PlanId { get; set; }
+    public BuyPlan Plan { get; set; } = null!;
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>What the row adds to the sheet. Always rupees, whatever currency the bill was in, because
+    /// it is rupees that the goods cost is added to.</summary>
+    public decimal AmountPkr { get; set; }
+
+    public string Currency { get; set; } = "PKR";
+
+    /// <summary>The figure as it was typed, in <see cref="Currency"/>. On a rupee row this is the same number
+    /// as AmountPkr; on a yen row it is the invoice's figure, which never changes afterwards.</summary>
+    public decimal AmountForeign { get; set; }
+
+    /// <summary>The rate a yen row was multiplied by. Kept on the row, because a rate read afresh next month
+    /// would re-value a bill the forwarder has already been quoted.</summary>
+    public decimal? RateUsed { get; set; }
+}
+
 public enum CashBookKind
 {
     Opening = 0,
     CustomerIn = 1,
     SupplierOut = 2,
     ExpenseOut = 3,
-    RefundOut = 4
+    RefundOut = 4,
+    /// <summary>Cash given to a customer to settle what their own ledger says we are holding.</summary>
+    CustomerOut = 5,
+    /// <summary>Money a supplier sends back - goods they took back, an overpayment returned. It is money in,
+    /// and never a sale, so it cannot be mistaken for takings.</summary>
+    SupplierIn = 6
 }
 
 public class CashBookEntry
@@ -287,4 +491,6 @@ public class CashBookEntry
     public int? SupplierPaymentId { get; set; }
     public int? ShopExpenseId { get; set; }
     public int? SaleId { get; set; }
+    public int? PayoutId { get; set; }
+    public int? SupplierReceiptId { get; set; }
 }

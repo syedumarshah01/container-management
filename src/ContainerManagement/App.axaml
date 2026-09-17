@@ -1,6 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:ContainerManagement"
+             xmlns:views="using:ContainerManagement.Views"
              x:Class="ContainerManagement.App"
              RequestedThemeVariant="Light">
   <Application.DataTemplates>
@@ -8,6 +9,8 @@
   </Application.DataTemplates>
 
   <Application.Resources>
+    <views:AmountWordsConverter x:Key="WordsConv" />
+    <views:MoneyTextConverter x:Key="MoneyConv" />
     <SolidColorBrush x:Key="NavyBrush">#1B2A4A</SolidColorBrush>
     <SolidColorBrush x:Key="NavySoftBrush">#243656</SolidColorBrush>
     <SolidColorBrush x:Key="GoldBrush">#C9A227</SolidColorBrush>
@@ -48,6 +51,40 @@
       <Setter Property="Foreground" Value="#1B2A4A" />
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
+    <!--  The live "this is 15 lac" line under an amount box. Pulled up into the box's own bottom
+          margin so it reads as part of the field, not as a new row.  -->
+    <Style Selector="TextBlock.words">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+      <Setter Property="Margin" Value="0,-6,0,6" />
+    </Style>
+    <!--  The maker's mark, typeset. Inter because the wordmark is geometric; LetterSpacing counts
+          device-independent pixels, so the tracking is written per size instead of as an em. The
+          on-dark pair only exists so the same plate can sit on the navy rail, where navy ink would be
+          invisible; two classes on the selector keeps it winning over the plain one on purpose rather
+          than by the order the styles happen to be declared in.  -->
+    <Style Selector="TextBlock.brand">
+      <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="3" />
+      <Setter Property="Foreground" Value="{StaticResource NavyBrush}" />
+    </Style>
+    <Style Selector="TextBlock.brandTag">
+      <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="LetterSpacing" Value="4" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.brand.brandOnDark">
+      <Setter Property="Foreground" Value="#F2FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.brandTag.brandTagOnDark">
+      <Setter Property="Foreground" Value="#80FFFFFF" />
+    </Style>
+
     <Style Selector="TextBlock.muted">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
     </Style>
@@ -149,6 +186,16 @@
 
     <Style Selector="TextBox, ComboBox, NumericUpDown, DatePicker, AutoCompleteBox">
       <Setter Property="MinHeight" Value="38" />
+      <!--  The 12 is the gap between one field and the next in a stack, which is how most of this app's forms
+            are built. It is only a gap while the field is the last thing in its cell: put a field on a LINE,
+            beside a button or a caption, and that 12 lifts the box off the shared bottom edge and the row is
+            never level however the cells are aligned. So a field in a row of controls says Margin="0" and lets
+            the row's own margin space it - the date boxes at the head of Home and of Reports do, and anything
+            new that joins them should too.
+            What cannot be fixed from here is what is inside a date box: it is three little selectors for day,
+            month and year, and the request to centre them (VerticalContentAlignment) does not exist on
+            DatePicker in 11.2.3 - the build answers AVLN2000 to anyone who tries it, which was me, once. The
+            box's own edges are level; its contents are the theme's to arrange. -->
       <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
     <Style Selector="NumericUpDown">

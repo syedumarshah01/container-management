@@ -27,7 +27,7 @@ public class ExportService
         IReadOnlyList<ItemProfitRow> items)
     {
         WriteCsv("probooks-containers.csv",
-            ["Container", "Status", "Sales", "COGS", "Expenses", "Profit", "Stock left"],
+            ["Container", "Status", "Sales", "COGS", "Freight & customs (already in COGS)", "Profit", "Stock left"],
             containers.Select(c => new[]
             {
                 c.Title, c.StatusText, c.Revenue.ToString("0.00"), c.Cogs.ToString("0.00"),

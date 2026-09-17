@@ -5,7 +5,11 @@
              x:Class="ContainerManagement.Views.ItemSalesView"
              x:DataType="vm:ItemSalesViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Item sales" />
+
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Item sales" Margin="0,0,0,4" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
+    </Grid>
     <TextBlock Classes="muted" Text="Search an item to see how much you sold and who bought it." Margin="0,0,0,16" />
 
     <Border Classes="card">

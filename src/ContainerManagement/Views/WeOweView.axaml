@@ -4,14 +4,18 @@
              x:Class="ContainerManagement.Views.WeOweView"
              x:DataType="vm:WeOweViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="We owe" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="We owe" Margin="0" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
+    </Grid>
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
-               Text="What is still due to suppliers in China. Paying here takes the money off cash in the Main ledger." />
+               Text="What is still due to suppliers in China, and to customers whose own ledger is in their favour. Paying here takes the money off cash in the Main ledger." />
 
     <Border Classes="statcard" Margin="0,0,0,16">
       <StackPanel>
         <TextBlock Classes="label" Text="Still to pay" />
         <TextBlock Classes="stat bad" Text="{Binding TotalOwed}" />
+        <TextBlock Classes="muted" Text="{Binding OwedSplit}" Margin="0,4,0,0" />
       </StackPanel>
     </Border>
 
@@ -34,21 +38,170 @@
         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="Record money you actually sent. The amount we owe is not cash until you pay it." />
         <TextBlock Classes="label" Text="Supplier" />
+        <TextBox Text="{Binding SupplierQuery}" Watermark="Search supplier or container" Margin="0,0,0,6" />
         <ComboBox ItemsSource="{Binding Containers}" SelectedItem="{Binding PayContainer}" />
         <TextBlock Classes="label" Text="We owe them" />
         <TextBlock Classes="stat" Text="{Binding WeOweThem}" Margin="0,0,0,12" />
-        <Grid ColumnDefinitions="*,*">
+        <Grid ColumnDefinitions="*,240,200">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Date" />
             <DatePicker SelectedDate="{Binding PayDate}" HorizontalAlignment="Left" />
           </StackPanel>
-          <StackPanel Grid.Column="1">
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Amount (Rs)" />
-            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+            <NumericUpDown Value="{Binding PayAmount}" Minimum="0" HorizontalAlignment="Stretch" />
+            <TextBlock Classes="words" Text="{Binding PayAmount, Converter={StaticResource WordsConv}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Paid by" />
+            <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding PayMethod}" />
           </StackPanel>
         </Grid>
+        <TextBlock Classes="label" Text="Note (optional)" />
+        <TextBox Text="{Binding PayNotes}" Watermark="e.g. HBL ref 4482, part payment" />
         <Button Classes="primary" Content="Pay" Command="{Binding PaySupplierCommand}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowPayments}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Paid to this supplier" />
+        <DataGrid ItemsSource="{Binding Payments}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="150" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="170" />
+            <DataGridTextColumn Header="Note" Binding="{Binding NoteText}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Customers we owe" />
+        <DataGrid ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Customer" Binding="{Binding Name}" Width="*" />
+            <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="160" />
+            <DataGridTextColumn Header="We owe them" Binding="{Binding OwedText}" Width="180" />
+            <DataGridTextColumn Header="Paid out" Binding="{Binding PaidOutText}" Width="170" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Pay a customer" />
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Their ledger is in their favour, so this is their money in our till. Paying it takes the figure off cash and off what we owe them - it is not an expense." />
+        <TextBlock Classes="label" Text="Customer" />
+        <TextBox Text="{Binding CustomerQuery}" Watermark="Search name or phone" Margin="0,0,0,6" />
+        <ComboBox ItemsSource="{Binding PayOptions}" SelectedItem="{Binding PayCustomer}" />
+        <TextBlock Classes="label" Text="We owe them" />
+        <TextBlock Classes="stat" Text="{Binding CustomerOwedText}" Margin="0,0,0,12" />
+        <Grid ColumnDefinitions="*,240,200">
+          <StackPanel Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Date" />
+            <DatePicker SelectedDate="{Binding PayCustomerDate}" HorizontalAlignment="Left" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Amount (Rs)" />
+            <NumericUpDown Value="{Binding PayCustomerAmount}" Minimum="0" HorizontalAlignment="Stretch" />
+            <TextBlock Classes="words" Text="{Binding PayCustomerAmount, Converter={StaticResource WordsConv}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Classes="label" Text="Paid by" />
+            <ComboBox ItemsSource="{Binding CustomerMethods}" SelectedItem="{Binding PayCustomerMethod}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="label" Text="Note (optional)" />
+        <TextBox Text="{Binding PayCustomerNotes}" Watermark="e.g. cash handed at the shop, advance returned" />
+        <Button Classes="primary" Content="Pay" Command="{Binding PayCustomerCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowPayouts}">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Paid to this customer" />
+        <DataGrid ItemsSource="{Binding Payouts}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="150" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="170" />
+            <DataGridTextColumn Header="Note" Binding="{Binding NoteText}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+    <!-- What a supplier owes back: goods they took whose cost the lot's bill could not absorb. The figure is
+         not typed anywhere here - it is what the returns added up to - and taking their money in moves the till,
+         which is why it appears on Main ledger as money in and nowhere as a sale. -->
+    <!-- One line of boxes, and only once a supplier is picked in the table: a form that cannot do anything yet
+         is clutter, and a picker beside a table of the same names was the clutter here before. The row uses the
+         alignment and widths of the other receive-money row in the book, with no labels over the boxes - the
+         unit is in the line of words under it, and the figure the amount is held to is on the line above it. -->
+    <Border Classes="card" IsVisible="{Binding ShowDueSection}">
+      <StackPanel>
+        <!-- One caption, on the line of the heading it belongs to: a figure out there on its own is a
+             question, not an answer. It is docked before the heading because the last child of a DockPanel
+             is filled into the space left, not put at the edge - the order the title rows elsewhere in
+             the book use for the same reason. -->
+        <DockPanel LastChildFill="True">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                      VerticalAlignment="Center">
+            <TextBlock Classes="label" Text="due back in total" VerticalAlignment="Center" Margin="0" />
+            <TextBlock Classes="words" Text="{Binding DueToUsText}" VerticalAlignment="Center" Margin="0" />
+          </StackPanel>
+          <TextBlock Classes="h2" Text="Suppliers who owe us" Margin="0" VerticalAlignment="Center" />
+        </DockPanel>
+        <DataGrid ItemsSource="{Binding Due}" SelectedItem="{Binding SelectedDue}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="*" />
+            <DataGridTextColumn Header="Received so far" Binding="{Binding ReceivedText}" Width="200" />
+            <DataGridTextColumn Header="Still due back" Binding="{Binding DueText}" Width="200" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <!-- One line under the table, whichever way it goes: who this is for, or what to do next. -->
+        <TextBlock Classes="label" Text="Pick a supplier in the table above"
+                   IsVisible="{Binding ShowReceiveHint}" Margin="0,10,0,0" />
+        <TextBlock Classes="label" Text="{Binding ReceiveTarget}" IsVisible="{Binding ShowReceiveRow}"
+                   Margin="0,10,0,0" />
+        <Grid ColumnDefinitions="Auto,160,150,*,Auto" IsVisible="{Binding ShowReceiveRow}">
+          <DatePicker SelectedDate="{Binding ReceiveDate}" VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <NumericUpDown Grid.Column="1" Value="{Binding ReceiveAmount}" Minimum="0"
+                         VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <ComboBox Grid.Column="2" ItemsSource="{Binding ReceiveMethods}" SelectedItem="{Binding ReceiveMethod}"
+                    VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <TextBox Grid.Column="3" Text="{Binding ReceiveNotes}" Watermark="Note (optional)"
+                   VerticalAlignment="Bottom" Margin="0,0,8,12" />
+          <Button Grid.Column="4" Classes="primary" Content="Receive" Command="{Binding ReceiveCommand}"
+                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+        </Grid>
+        <TextBlock Classes="words" Text="{Binding ReceiveAmount, Converter={StaticResource WordsConv}}"
+                   IsVisible="{Binding ShowReceiveRow}" />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowReceipts}">
+      <StackPanel>
+        <DockPanel LastChildFill="True">
+          <!-- Far right, and sized to itself: docked before the heading so the heading is the child that fills. -->
+          <Button DockPanel.Dock="Right" Classes="danger" Content="Remove" Command="{Binding RemoveReceiptCommand}"
+                  Margin="16,0,0,0" VerticalAlignment="Center" />
+          <TextBlock Classes="h2" Text="Received from this supplier" Margin="0" VerticalAlignment="Center" />
+        </DockPanel>
+        <DataGrid ItemsSource="{Binding Receipts}" SelectedItem="{Binding SelectedReceipt}" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="130" />
+            <DataGridTextColumn Header="How" Binding="{Binding Method}" Width="170" />
+            <DataGridTextColumn Header="Amount" Binding="{Binding AmountText}" Width="170" />
+            <DataGridTextColumn Header="Note" Binding="{Binding NoteText}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+    </Border>
+
   </StackPanel>
 </UserControl>

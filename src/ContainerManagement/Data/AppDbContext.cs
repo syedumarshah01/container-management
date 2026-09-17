@@ -20,10 +20,16 @@ public class AppDbContext : DbContext
     public DbSet<ContainerExpense> Expenses => Set<ContainerExpense>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+    public DbSet<CustomerPayout> CustomerPayouts => Set<CustomerPayout>();
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
+    public DbSet<SupplierReceipt> SupplierReceipts => Set<SupplierReceipt>();
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
     public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
+    public DbSet<BuyPlan> BuyPlans => Set<BuyPlan>();
+    public DbSet<BuyPlanLine> BuyPlanLines => Set<BuyPlanLine>();
+    public DbSet<BuyPlanExpense> BuyPlanExpenses => Set<BuyPlanExpense>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -54,10 +60,14 @@ public class AppDbContext : DbContext
         model.Entity<ContainerItem>(e =>
         {
             e.Ignore(x => x.EffectiveCost);
+            e.Ignore(x => x.CostEachFreight);
+            e.Ignore(x => x.CostEntered);
             e.Property(x => x.QuantityReceived).HasPrecision(18, 3);
             e.Property(x => x.QuantityRemaining).HasPrecision(18, 3);
             e.Property(x => x.UnitCost).HasPrecision(18, 2);
             e.Property(x => x.ForeignCost).HasPrecision(18, 4);
+            e.Property(x => x.CostCurrency).HasMaxLength(3);
+            e.Property(x => x.CostRate).HasPrecision(18, 6);
             e.Property(x => x.LandedUnitCost).HasPrecision(18, 4);
             e.HasOne(x => x.Container).WithMany(c => c.Items).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Product).WithMany(p => p.Items).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
@@ -134,6 +144,12 @@ public class AppDbContext : DbContext
             e.ToTable("Expenses");
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.Category).HasMaxLength(80);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.AmountForeign).HasPrecision(18, 2);
+            // Six decimals, as the order sheet's rate: the rupee total on the line is the yen figure times
+            // this number, so it has to be kept at the precision it was multiplied by.
+            e.Property(x => x.RateUsed).HasPrecision(18, 6);
+            e.Ignore(x => x.SourceText);
             e.HasOne(x => x.Container).WithMany(c => c.Expenses).HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -149,6 +165,47 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Supplier).WithMany(s => s.Payments).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Container).WithMany(c => c.SupplierPayments).HasForeignKey(x => x.ContainerId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        model.Entity<CustomerPayout>(e =>
+        {
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.Method).HasMaxLength(40);
+            e.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.CustomerId, x.Date });
+        });
+
+        model.Entity<SupplierReturn>(e =>
+        {
+            // The store is named for what happened, not for the entity, and deliberately not SupplierReturns:
+            // a build that was rolled back created that table with another design's columns, CREATE TABLE has
+            // nothing to say about a table that already exists, and the app would then read a shape that is not
+            // its own. A name already used by a shipped build is not free to reuse, whatever the code says now.
+            e.ToTable("GoodsSentBack");
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitCost).HasPrecision(18, 2);
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.CreditedOwing).HasPrecision(18, 2);
+            e.Property(x => x.DueToUs).HasPrecision(18, 2);
+            // A return belongs to the goods line it came off, and that line going takes the note with it: a
+            // record of goods that no longer exist is not a figure anybody can check. The lot and the supplier
+            // are the other way round - their rows are the book's, so a lot with returns on it is not free to
+            // be rewritten into nothing.
+            e.HasOne(x => x.ContainerItem).WithMany().HasForeignKey(x => x.ContainerItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Container).WithMany().HasForeignKey(x => x.ContainerId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Supplier).WithMany(s => s.Returns).HasForeignKey(x => x.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SupplierId, x.Date });
+        });
+
+        model.Entity<SupplierReceipt>(e =>
+        {
+            e.ToTable("SupplierReceipts");
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasOne(x => x.Supplier).WithMany(s => s.Receipts).HasForeignKey(x => x.SupplierId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.SupplierId, x.Date });
         });
 
         model.Entity<StockAdjustment>(e =>
@@ -182,6 +239,43 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.Date);
             e.HasIndex(x => x.PaymentId);
             e.HasIndex(x => x.ShopExpenseId);
+        });
+
+        model.Entity<BuyPlan>(e =>
+        {
+            e.ToTable("BuyPlans");
+            e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            e.Property(x => x.YenRate).HasPrecision(18, 6);
+            e.Property(x => x.ExpensePkr).HasPrecision(18, 2);
+            e.HasIndex(x => x.CreatedAt);
+            e.HasMany(x => x.Lines).WithOne(l => l.Plan).HasForeignKey(l => l.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Expenses).WithOne(x => x.Plan).HasForeignKey(x => x.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        model.Entity<BuyPlanExpense>(e =>
+        {
+            e.ToTable("BuyPlanExpenses");
+            e.Property(x => x.Description).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.AmountPkr).HasPrecision(18, 2);
+            e.Property(x => x.AmountForeign).HasPrecision(18, 2);
+            // Six decimals, like a container's: the rupees on the row are this number times the yen figure,
+            // so the row cannot hold one rate and re-derive another.
+            e.Property(x => x.RateUsed).HasPrecision(18, 6);
+            e.HasIndex(x => x.PlanId);
+        });
+
+        model.Entity<BuyPlanLine>(e =>
+        {
+            e.ToTable("BuyPlanLines");
+            e.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.UnitCostYen).HasPrecision(18, 4);
+            e.Property(x => x.UnitWeightKg).HasPrecision(18, 3);
+            e.Property(x => x.SalePricePkr).HasPrecision(18, 2);
+            e.HasIndex(x => x.PlanId);
         });
     }
 }

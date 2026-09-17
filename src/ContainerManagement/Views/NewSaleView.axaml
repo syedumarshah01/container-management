@@ -38,7 +38,11 @@
         <Grid ColumnDefinitions="*,160,160">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Container" />
-            <TextBlock Text="{Binding SelectedStockContainer}" Margin="0,0,0,12" />
+            <!-- Shut once the bill has a line: the lines say where the goods came from, and the invoice
+                 printed from them names one container. Remove the line to choose another. -->
+            <ComboBox ItemsSource="{Binding ContainerChoices}" SelectedItem="{Binding ContainerChoice}"
+                      IsEnabled="{Binding !IsContainerLocked}"
+                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
           </StackPanel>
           <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="In stock" />
@@ -50,7 +54,7 @@
           </StackPanel>
         </Grid>
 
-        <Grid ColumnDefinitions="*,*,Auto">
+        <Grid ColumnDefinitions="*,*,Auto" RowDefinitions="Auto,Auto">
           <StackPanel Margin="0,0,12,0">
             <TextBlock Classes="label" Text="Quantity" />
             <NumericUpDown Value="{Binding PickQty}" Minimum="0" />
@@ -62,8 +66,9 @@
             <TextBlock Classes="label" Text="Selling price (Rs)" />
             <NumericUpDown Value="{Binding PickPrice}" Minimum="0" />
           </StackPanel>
-          <Button Grid.Column="2" Classes="primary" Content="Add to bill" Command="{Binding AddLineCommand}"
-                  VerticalAlignment="Bottom" Margin="0,0,0,12" />
+          <TextBlock Classes="words" Grid.Row="1" Grid.Column="1" Text="{Binding PickPrice, Converter={StaticResource WordsConv}}" />
+          <Button Grid.Column="2" Grid.Row="0" Classes="primary" Content="Add to bill"
+                  Command="{Binding AddLineCommand}" VerticalAlignment="Bottom" Margin="0,0,0,12" />
         </Grid>
       </StackPanel>
     </Border>
@@ -76,8 +81,23 @@
             <DataGridTextColumn Header="Container" Binding="{Binding ContainerTitle}" Width="*" />
             <DataGridTextColumn Header="Items" Binding="{Binding ProductName}" Width="*" />
             <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70" />
-            <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat='Rs {0:N0}'}" Width="110" />
-            <DataGridTextColumn Header="Amount" Binding="{Binding LineTotal, StringFormat='Rs {0:N0}'}" Width="120" />
+            <!-- The bill's total is these lines added, and a line can carry paisa: printed to whole rupees
+                 they add to a figure the total does not show, so the check of adding them by hand fails on
+                 the screen while the book is right. Paisa and all, in the app's own voice. -->
+            <DataGridTemplateColumn Header="Price" Width="110">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding UnitPrice, Converter={StaticResource MoneyConv}}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="Amount" Width="120">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding LineTotal, Converter={StaticResource MoneyConv}}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
         <Button Content="Remove line" Command="{Binding RemoveLineCommand}" HorizontalAlignment="Left" Margin="0,8,0,0" />
@@ -86,8 +106,10 @@
           <StackPanel Margin="0,0,16,0">
             <TextBlock Classes="label" Text="Discount (Rs)" />
             <NumericUpDown Value="{Binding Discount}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding Discount, Converter={StaticResource WordsConv}}" />
             <TextBlock Classes="label" Text="Received now (0 = full credit)" />
             <NumericUpDown Value="{Binding PaidNow}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding PaidNow, Converter={StaticResource WordsConv}}" />
             <TextBlock Classes="label" Text="How they paid" />
             <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding Method}" />
             <TextBlock Classes="label" Text="Due date (credit only)" />

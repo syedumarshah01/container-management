@@ -10,10 +10,25 @@ public class ReportService
 
     public ReportService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
-    public async Task<DashboardVm> GetDashboardAsync()
+    /// <summary>
+    /// Home's book: the containers, their selling, what their bills still have out there, the shelf and the
+    /// profit. Two dates are optional - with neither, this is the book entire, which is what the page opens
+    /// on; with them, the sums cover those days and nothing else, by the same rules the container pages use,
+    /// because this method reads those rows rather than adding the money a second way.
+    ///
+    /// What a range does to each figure is not the same thing, and the card says so rather than pretending:
+    /// sales, profit and what is still out there are the bills inside the dates; the container count is the
+    /// containers that landed inside them, by their own arrival date - a lot that has only arrived counts,
+    /// though it has nothing to add to the money; and the shelf is what is on it today, because stock between
+    /// two dates would have to be rebuilt from every movement since, which this book does not keep.
+    /// The lists under the card - the bills needing attention, low stock - stay the shop's whole situation,
+    /// because a short list is not a safe thing to act on.
+    /// </summary>
+    public async Task<DashboardVm> GetDashboardAsync(DateTime? from = null, DateTime? to = null)
     {
+        var (start, end) = BookRange(from, to);
         await using var db = await _factory.CreateDbContextAsync();
-        var profits = await GetContainerProfitsAsync(db, null, null);
+        var profits = await GetContainerProfitsAsync(db, start, end);
         var receivables = await GetReceivableSnapshotAsync(db);
         var sales = await db.Sales
             .AsNoTracking()
@@ -23,6 +38,15 @@ public class ReportService
         var recent = sales.OrderByDescending(s => s.Date).ThenByDescending(s => s.Id).Take(8).ToList();
         var pays = await db.Payments.AsNoTracking().Where(p => p.SaleId != null).ToListAsync();
         var saleReturns = await db.SaleReturns.AsNoTracking().ToListAsync();
+        // What is left on each bill, by the one formula a bill is measured with everywhere else - its own
+        // page, the customer's ledger, the containers' money. The totals below and the list of bills needing
+        // attention are both read off this dictionary, because a page that added the same money a second way
+        // would be a page with two answers to one question.
+        var left = sales.ToDictionary(
+            s => s.Id,
+            s => SalesService.RemainingOf(s,
+                pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount),
+                saleReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount)));
         var unpaid = sales
             .Select(s => new AttentionInvoiceRow
             {
@@ -30,9 +54,7 @@ public class ReportService
                 CustomerId = s.CustomerId,
                 CustomerName = s.Customer.Name,
                 Date = s.Date,
-                Remaining = s.TotalAmount
-                    - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
-                    - saleReturns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount)
+                Remaining = left[s.Id]
             })
             .Where(u => u.Remaining > 0.009m)
             .OrderByDescending(u => u.Remaining)
@@ -42,15 +64,37 @@ public class ReportService
         var shop = ShopSettings.Load();
         var inv = await GetGrandInventoryAsync(shop.LowStockQty);
 
+        var containers = await db.Containers.AsNoTracking().ToListAsync();
+        // Ranged, this is the containers that came in over those dates - by the arrival date the shop wrote
+        // when it booked the lot, which is a fact in the book rather than an inference from it. Counting the
+        // containers that merely sold in the period would hide a container added on 1 August for the whole of
+        // August if nothing had left it yet, and a shop that has just landed a container and is told it has
+        // none is being told something about the software, not about its stock. Unranged it is the book's own
+        // count, as it always was.
+        var counted = start is null && end is null
+            ? containers.Count
+            : containers.Count(c =>
+            {
+                var when = c.ArrivalDate ?? c.CreatedAt;
+                return (start is null || when >= start.Value) && (end is null || when < end.Value.AddDays(1));
+            });
+        var onContainers = Money.Round(profits.Sum(p => p.Expenses));
+        var atTheShop = Money.Round((await db.ShopExpenses.AsNoTracking().ToListAsync()).Sum(e => e.Amount));
+
         return new DashboardVm
         {
-            OpenContainers = profits.Count(p => p.Status == ContainerStatus.Open),
-            TotalContainers = profits.Count,
-            InventoryValue = profits.Sum(p => p.RemainingValue),
-            MoneyInMarket = receivables.Where(r => r.Balance > 0).Sum(r => r.Balance),
-            TotalProfit = profits.Sum(p => p.Profit),
-            TotalRevenue = profits.Sum(p => p.Revenue),
-            TotalExpenses = profits.Sum(p => p.Expenses),
+            OpenContainers = containers.Count(c => c.Status == ContainerStatus.Open),
+            TotalContainers = counted,
+            TotalPurchases = Money.Round(containers.Sum(c => c.SupplierAmount)),
+            InventoryValue = Money.Round(profits.Sum(p => p.RemainingValue)),
+            MoneyInMarket = Money.Round(profits.Sum(p => p.InMarket)),
+            Outstanding = Money.Round(left.Values.Sum()),
+            TotalProfit = Money.Round(profits.Sum(p => p.Profit)),
+            TotalRevenue = Money.Round(profits.Sum(p => p.Revenue)),
+            ContainerExpenses = onContainers,
+            ShopExpenses = atTheShop,
+            TotalExpenses = Money.Round(onContainers + atTheShop),
+            MoneyOwedByCustomers = Money.Round(receivables.Where(r => r.Balance > 0).Sum(r => r.Balance)),
             CustomerCount = await db.Customers.CountAsync(c => !c.IsWalkIn),
             SalesThisMonth = await db.Sales.CountAsync(s => s.Date >= startOfMonth && s.Status == SaleStatus.Active),
             LowStockCount = inv.Count(r => r.IsLow),
@@ -63,14 +107,22 @@ public class ReportService
             LowStockItems = inv.Where(r => r.IsLow).OrderBy(r => r.TotalRemaining).ThenBy(r => r.ProductName).Take(10).ToList(),
             UnpaidInvoices = unpaid.Take(10).ToList(),
             UnpaidCount = unpaid.Count,
-            UnpaidTotal = unpaid.Sum(u => u.Remaining)
+            UnpaidTotal = Money.Round(unpaid.Sum(u => u.Remaining))
         };
     }
 
+    /// <summary>
+    /// This month's sales, cost and the till's own bills, day by day, by the rules this line has always used:
+    /// a bill is its total after the discount shared over its lines, a return comes off the day it was made,
+    /// and an expense belongs to the day it was written. The month is the month - Home's date boxes move the
+    /// book above it, not this figure, so the page always has one number that says what the shop has done
+    /// since the 1st without being told what "told" means.
+    /// </summary>
     public async Task<(decimal Sales, decimal Profit, List<HomeDayRow> Days)> GetHomeMonthAsync()
     {
-        var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-        var end = start.AddMonths(1);
+        var firstOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var start = firstOfMonth;
+        var end = firstOfMonth.AddMonths(1);
         await using var db = await _factory.CreateDbContextAsync();
 
         var lines = await db.SaleLines.AsNoTracking()
@@ -96,12 +148,13 @@ public class ReportService
                 days[day] = (0, 0, 0);
         }
 
+        var netted = await NetRevenueByLineAsync(db, lines.Select(l => l.SaleId));
         foreach (var l in lines)
         {
             var day = l.Sale.Date.Date;
             Touch(day);
             var cur = days[day];
-            days[day] = (cur.Sales + l.Quantity * l.UnitPrice, cur.Cogs + l.Quantity * l.UnitCost, cur.Expenses);
+            days[day] = (cur.Sales + netted.GetValueOrDefault(l.Id, l.LineTotal), cur.Cogs + l.LineCost, cur.Expenses);
         }
 
         foreach (var r in returned)
@@ -109,7 +162,7 @@ public class ReportService
             var day = r.Return.Date.Date;
             Touch(day);
             var cur = days[day];
-            days[day] = (cur.Sales - r.Amount, cur.Cogs - r.Quantity * r.UnitCost, cur.Expenses);
+            days[day] = (cur.Sales - r.Amount, cur.Cogs - Money.Round(r.Quantity * r.UnitCost), cur.Expenses);
         }
 
         foreach (var e in expenses)
@@ -131,6 +184,67 @@ public class ReportService
             .ToList();
 
         return (rows.Sum(r => r.Sales), rows.Sum(r => r.Profit), rows);
+    }
+
+    /// <summary>
+    /// The selling year, month by month, on the rule Home's tape is already built by: a bill is its total
+    /// after the discount, shared over its lines, and a return comes off the month it was made in, because
+    /// that is the month the goods walked back through the door. Two more columns answer what a year is
+    /// actually asked: the money that arrived that month, whatever bill it was pointed at, and what the
+    /// bills of that month still have owing - measured over every payment and return ever made, so a March
+    /// bill settled in July does not go on being owed. Everything is filtered in memory rather than in
+    /// SQL, because the dates sit in text columns and a year boundary is not somewhere to let SQLite
+    /// decide anything.
+    /// </summary>
+    public async Task<List<SalesYearRow>> GetYearSalesAsync(int year)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var start = new DateTime(year, 1, 1);
+        var end = start.AddYears(1);
+
+        var sales = await db.Sales.AsNoTracking().ToListAsync();
+        var bills = sales
+            .Where(s => s.Status == SaleStatus.Active && s.Date >= start && s.Date < end)
+            .ToList();
+        var ids = bills.Select(x => x.Id).ToList();
+        var netted = await NetRevenueByLineAsync(db, ids);
+
+        var bySale = (await db.SaleLines.AsNoTracking().ToListAsync())
+            .Where(l => ids.Contains(l.SaleId))
+            .GroupBy(l => l.SaleId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var backLines = (await db.SaleReturnLines.AsNoTracking().Include(l => l.Return).ToListAsync())
+            .Where(l => l.Return.Date >= start && l.Return.Date < end)
+            .ToList();
+        var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
+        var pays = await db.Payments.AsNoTracking().ToListAsync();
+
+        var rows = new List<SalesYearRow>(12);
+        for (var m = 1; m <= 12; m++)
+        {
+            var from = start.AddMonths(m - 1);
+            var to = from.AddMonths(1);
+            var monthBills = bills.Where(s => s.Date >= from && s.Date < to).ToList();
+            var monthLines = monthBills.SelectMany(s =>
+                bySale.TryGetValue(s.Id, out var l) ? l : new List<SaleLine>()).ToList();
+            var monthBack = backLines.Where(l => l.Return.Date >= from && l.Return.Date < to).ToList();
+            rows.Add(new SalesYearRow
+            {
+                Month = m,
+                Bills = monthBills.Count,
+                Sold = Money.Round(monthLines.Sum(l => netted.GetValueOrDefault(l.Id, l.LineTotal))
+                                   - monthBack.Sum(l => l.Amount)),
+                Cogs = Money.Round(monthLines.Sum(l => l.LineCost)
+                                   - monthBack.Sum(l => Money.Round(l.Quantity * l.UnitCost))),
+                Received = Money.Round(pays.Where(p => p.Date >= from && p.Date < to).Sum(p => p.Amount)),
+                Returned = Money.Round(returns.Where(r => r.Date >= from && r.Date < to).Sum(r => r.Amount)),
+                StillOwed = Money.Round(monthBills.Sum(s => Math.Max(0, s.TotalAmount
+                    - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
+                    - returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount))))
+            });
+        }
+        rows.Add(SalesYearRow.Totals(year, rows));
+        return rows;
     }
 
     public async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(DateTime? from = null, DateTime? to = null)
@@ -166,17 +280,19 @@ public class ReportService
                     Sku = g.Key.Sku,
                     Unit = g.Key.Unit,
                     TotalRemaining = remaining,
-                    TotalValue = g.Sum(x => x.QuantityRemaining * x.UnitCost),
+                    // Stock is worth what it cost to put it on the shelf, freight and customs included.
+                    TotalValue = g.Sum(x => x.QuantityRemaining * x.EffectiveCost),
                     IsLow = remaining <= threshold,
                     Lots = g.Select(x => new InventoryLot
                     {
                         ContainerId = x.ContainerId,
                         ContainerTitle = x.Container.Title,
                         ContainerItemId = x.Id,
+                        Status = x.Container.Status,
                         Remaining = x.QuantityRemaining,
                         Received = x.QuantityReceived,
                         UnitCost = x.UnitCost,
-                        LandedCost = x.UnitCost,
+                        LandedCost = x.EffectiveCost,
                         NeverSold = x.QuantityRemaining == x.QuantityReceived && x.SaleLines.Count == 0
                     }).OrderBy(l => l.ContainerTitle).ToList()
                 };
@@ -197,6 +313,7 @@ public class ReportService
         if (to is DateTime t) q = q.Where(l => l.Sale.Date < t.Date.AddDays(1));
         if (containerId is > 0) q = q.Where(l => l.ContainerId == containerId);
         var list = await q.ToListAsync();
+        var netted = await NetRevenueByLineAsync(db, list.Select(l => l.SaleId));
         var retQ = db.SaleReturnLines.AsNoTracking()
             .Include(l => l.Product)
             .Include(l => l.Return)
@@ -212,8 +329,8 @@ public class ReportService
             {
                 var rets = returned.Where(x => x.ProductId == g.Key.ProductId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
-                var revenue = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
-                var cogs = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
+                var revenue = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - rets.Sum(x => x.Amount);
+                var cogs = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
                 return new ItemProfitRow
                 {
                     ProductName = g.Key.Name,
@@ -267,9 +384,10 @@ public class ReportService
             .Where(l => l.ProductId == productId)
             .ToListAsync();
 
+        var netted = await NetRevenueByLineAsync(db, lines.Select(x => x.SaleId));
         var totalQty = lines.Sum(x => x.Quantity) - returned.Sum(x => x.Quantity);
-        var totalAmount = lines.Sum(x => x.Quantity * x.UnitPrice) - returned.Sum(x => x.Amount);
-        var totalCost = lines.Sum(x => x.Quantity * x.UnitCost) - returned.Sum(x => x.Quantity * x.UnitCost);
+        var totalAmount = lines.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - returned.Sum(x => x.Amount);
+        var totalCost = lines.Sum(x => x.LineCost) - returned.Sum(x => Money.Round(x.Quantity * x.UnitCost));
 
         var customers = lines
             .GroupBy(l => new { l.Sale.CustomerId, l.Sale.Customer.Name })
@@ -277,15 +395,15 @@ public class ReportService
             {
                 var rets = returned.Where(x => x.Return.CustomerId == g.Key.CustomerId).ToList();
                 var qty = g.Sum(x => x.Quantity) - rets.Sum(x => x.Quantity);
-                var cost = g.Sum(x => x.Quantity * x.UnitCost) - rets.Sum(x => x.Quantity * x.UnitCost);
-                var amount = g.Sum(x => x.Quantity * x.UnitPrice) - rets.Sum(x => x.Amount);
+                var cost = g.Sum(x => x.LineCost) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
+                var amount = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)) - rets.Sum(x => x.Amount);
                 return new ItemCustomerSaleRow
                 {
                     CustomerId = g.Key.CustomerId,
                     CustomerName = g.Key.Name,
                     Qty = qty,
-                    AvgCost = qty == 0 ? 0 : Math.Round(cost / qty, 2),
-                    AvgPrice = qty == 0 ? 0 : Math.Round(amount / qty, 2),
+                    AvgCost = qty == 0 ? 0 : Money.Round(cost / qty),
+                    AvgPrice = qty == 0 ? 0 : Money.Round(amount / qty),
                     Amount = amount
                 };
             })
@@ -297,9 +415,146 @@ public class ReportService
         return (
             totalQty,
             totalAmount,
-            totalQty == 0 ? 0 : Math.Round(totalCost / totalQty, 2),
-            totalQty == 0 ? 0 : Math.Round(totalAmount / totalQty, 2),
+            totalQty == 0 ? 0 : Money.Round(totalCost / totalQty),
+            totalQty == 0 ? 0 : Money.Round(totalAmount / totalQty),
             customers);
+    }
+
+    /// <summary>
+    /// What is still owing on the goods each container sold: every bill's outstanding figure - taken from the
+    /// bill itself, by the same formula the bill's page and the customer's ledger read - shared across the
+    /// containers its lines came from in proportion to what each was billed for, with the paisa that will not
+    /// divide going on the biggest share. That is the sharing a discount already gets across a bill's lines,
+    /// and for the same reason: the parts have to add back to the whole exactly. A bill drawn from one
+    /// container, which is what the sell page's container box is for, needs no sharing at all - its money is
+    /// that container's, paisa for paisa.
+    /// </summary>
+    private static async Task<Dictionary<int, decimal>> OutstandingByContainerAsync(
+        AppDbContext db, List<SaleLine> saleLines)
+    {
+        var map = new Dictionary<int, decimal>();
+        var saleIds = saleLines.Select(l => l.SaleId).Distinct().ToList();
+        if (saleIds.Count == 0)
+            return map;
+
+        var bills = await db.Sales.AsNoTracking().Where(s => saleIds.Contains(s.Id)).ToListAsync();
+        var pays = await db.Payments.AsNoTracking()
+            .Where(p => p.SaleId != null && saleIds.Contains(p.SaleId.Value)).ToListAsync();
+        var backs = await db.SaleReturns.AsNoTracking()
+            .Where(r => saleIds.Contains(r.SaleId)).ToListAsync();
+
+        foreach (var bill in bills)
+        {
+            var left = SalesService.RemainingOf(bill,
+                pays.Where(p => p.SaleId == bill.Id).Sum(p => p.Amount),
+                backs.Where(r => r.SaleId == bill.Id).Sum(r => r.Amount));
+            if (left == 0m)
+                continue;
+
+            var parts = saleLines.Where(l => l.SaleId == bill.Id)
+                .GroupBy(l => l.ContainerId)
+                .Select(g => (Container: g.Key, Weight: g.Sum(x => x.LineTotal)))
+                .ToList();
+            foreach (var (container, share) in ShareByWeight(parts, left))
+            {
+                map.TryGetValue(container, out var had);
+                map[container] = Money.Round(had + share);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>One amount, shared across containers by weight, ordered the same way every time so the same
+    /// lot keeps the odd paisa on every re-run rather than trading it with another.</summary>
+    private static List<(int Container, decimal Share)> ShareByWeight(
+        List<(int Container, decimal Weight)> parts, decimal amount)
+    {
+        var ordered = parts.OrderByDescending(p => p.Weight).ThenBy(p => p.Container).ToList();
+        if (ordered.Count == 0)
+            return new List<(int, decimal)>();
+        var total = ordered.Sum(p => p.Weight);
+        if (total <= 0m)
+        {
+            // Nothing to weigh the parts by, and money still owing: it goes on the lot at the top of the bill
+            // rather than vanishing, so the containers always add back to the bill.
+            return new List<(int, decimal)> { (ordered[0].Container, Money.Round(amount)) };
+        }
+
+        var factor = amount / total;
+        var shares = ordered.Select(p => Money.Round(p.Weight * factor)).ToList();
+        shares[0] = Money.Round(shares[0] + (amount - shares.Sum()));
+        var out2 = new List<(int, decimal)>(ordered.Count);
+        for (var i = 0; i < ordered.Count; i++)
+            out2.Add((ordered[i].Container, shares[i]));
+        return out2;
+    }
+
+    /// <summary>
+    /// What each line of a bill is worth once that bill's discount is taken off, keyed by line id.
+    ///
+    /// A discount is not one item's loss, so it is shared across the bill's lines in proportion to what
+    /// each was billed for, and the paisa that the sharing leaves over goes on the biggest line. The
+    /// shares then add up to the bill's TotalAmount exactly - the figure the customer was asked to pay -
+    /// so every page that reads them agrees with the bill and with the ledger. A bill with no discount
+    /// returns its own lines unchanged, which is why undiscounted trading does not move at all.
+    /// </summary>
+    private static async Task<Dictionary<int, decimal>> NetRevenueByLineAsync(AppDbContext db, IEnumerable<int> saleIds)
+    {
+        var map = new Dictionary<int, decimal>();
+        var ids = saleIds.Where(id => id > 0).Distinct().ToList();
+        if (ids.Count == 0)
+            return map;
+
+        // Every line of the bill, not the lines this report happens to be filtering down to: the share
+        // has to be measured against what the whole bill was.
+        var billed = await db.SaleLines.AsNoTracking()
+            .Where(l => ids.Contains(l.SaleId))
+            .Select(l => new { l.Id, l.SaleId, l.LineTotal })
+            .ToListAsync();
+        var billedTotals = await db.Sales.AsNoTracking()
+            .Where(s => ids.Contains(s.Id))
+            .Select(s => new { s.Id, s.TotalAmount })
+            .ToListAsync();
+
+        foreach (var group in billed.GroupBy(l => l.SaleId))
+        {
+            var net = billedTotals.FirstOrDefault(t => t.Id == group.Key)?.TotalAmount ?? 0m;
+            var gross = group.Sum(l => l.LineTotal);
+            if (gross == 0)
+            {
+                foreach (var l in group)
+                    map[l.Id] = 0m;
+                continue;
+            }
+
+            var factor = net / gross;
+            var ordered = group.OrderByDescending(l => l.LineTotal).ThenBy(l => l.Id).ToList();
+            var shares = ordered.Select(l => Money.Round(l.LineTotal * factor)).ToList();
+            shares[0] = Money.Round(shares[0] + (net - shares.Sum()));
+            for (var i = 0; i < ordered.Count; i++)
+                map[ordered[i].Id] = shares[i];
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// The dates Home reads its book over. No dates at all is no filter: the book entire, which is what the
+    /// page opens on. One date typed leaves the other side open, because "everything since the 1st" is asked
+    /// for far more often than a closed range that happens to be one day, and a shop should not have to know
+    /// when its records start to use them. A range turned around the wrong way reads its own first day, which
+    /// is a day of the shop's figures, rather than answering with nothing.
+    /// </summary>
+    private static (DateTime? From, DateTime? To) BookRange(DateTime? from, DateTime? to)
+    {
+        if (from is null && to is null)
+            return (null, null);
+        var start = from?.Date;
+        var end = to?.Date;
+        if (start is DateTime f && end is DateTime t && t < f)
+            end = f;
+        return (start, end);
     }
 
     private static async Task<List<ContainerProfitRow>> GetContainerProfitsAsync(AppDbContext db, DateTime? from, DateTime? to)
@@ -320,13 +575,15 @@ public class ReportService
         if (from is DateTime rf) returnLines = returnLines.Where(l => l.Return.Date >= rf.Date).ToList();
         if (to is DateTime rt) returnLines = returnLines.Where(l => l.Return.Date < rt.Date.AddDays(1)).ToList();
 
+        var netted = await NetRevenueByLineAsync(db, saleLines.Select(l => l.SaleId));
+        var stillOut = await OutstandingByContainerAsync(db, saleLines);
         var lines = saleLines
             .GroupBy(l => l.ContainerId)
             .Select(g => new
             {
                 ContainerId = g.Key,
-                Revenue = g.Sum(x => x.Quantity * x.UnitPrice),
-                Cogs = g.Sum(x => x.Quantity * x.UnitCost),
+                Revenue = g.Sum(x => netted.GetValueOrDefault(x.Id, x.LineTotal)),
+                Cogs = g.Sum(x => x.LineCost),
                 QtySold = g.Sum(x => x.Quantity)
             })
             .ToList();
@@ -336,7 +593,7 @@ public class ReportService
             var s = lines.FirstOrDefault(x => x.ContainerId == c.Id);
             var rets = returnLines.Where(x => x.ContainerId == c.Id).ToList();
             var revenue = (s?.Revenue ?? 0) - rets.Sum(x => x.Amount);
-            var cogs = (s?.Cogs ?? 0) - rets.Sum(x => x.Quantity * x.UnitCost);
+            var cogs = (s?.Cogs ?? 0) - rets.Sum(x => Money.Round(x.Quantity * x.UnitCost));
             var expenses = from is null && to is null
                 ? c.Expenses.Sum(e => e.Amount)
                 : c.Expenses.Where(e =>
@@ -354,10 +611,14 @@ public class ReportService
                 Cogs = cogs,
                 Expenses = expenses,
                 Profit = revenue - cogs,
-                RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.UnitCost),
+                RemainingValue = c.Items.Sum(i => i.QuantityRemaining * i.EffectiveCost),
                 RemainingQty = c.Items.Sum(i => i.QuantityRemaining),
                 QtySold = (s?.QtySold ?? 0) - rets.Sum(x => x.Quantity),
-                QtyReceived = c.Items.Sum(i => i.QuantityReceived)
+                QtyReceived = c.Items.Sum(i => i.QuantityReceived),
+                // One subtraction apart, so the three money figures on a container cannot disagree with each
+                // other: what its goods brought, what is still out there, and what has arrived.
+                InMarket = stillOut.GetValueOrDefault(c.Id, 0m),
+                Collected = Money.Round(revenue - stillOut.GetValueOrDefault(c.Id, 0m))
             };
         }).ToList();
     }

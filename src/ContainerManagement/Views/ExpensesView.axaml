@@ -4,7 +4,10 @@
              x:Class="ContainerManagement.Views.ExpensesView"
              x:DataType="vm:ExpensesViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Expenses" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="h1" Text="Expenses" Margin="0,0,0,4" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
+    </Grid>
     <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,16"
                Text="Daily shop costs. Each line also comes off cash in the Main ledger by itself — do not type it there again." />
 
@@ -25,7 +28,6 @@
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="Month" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Month" />
@@ -48,6 +50,7 @@
         <TextBox Text="{Binding What}" Watermark="Rent, electricity, tea…" />
         <TextBlock Classes="label" Text="Amount (Rs)" />
         <NumericUpDown Value="{Binding Amount}" Minimum="0" HorizontalAlignment="Left" Width="220" />
+        <TextBlock Classes="words" Text="{Binding Amount, Converter={StaticResource WordsConv}}" />
         <TextBlock Classes="label" Text="Note (optional)" />
         <TextBox Text="{Binding Notes}" Watermark="optional" />
         <StackPanel Orientation="Horizontal">

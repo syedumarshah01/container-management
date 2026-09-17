@@ -4,15 +4,30 @@
              x:Class="ContainerManagement.Views.ContainersView"
              x:DataType="vm:ContainersViewModel">
   <StackPanel>
-    <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="h1" Text="Containers" />
-      <Button Grid.Column="1" Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
-              IsVisible="{Binding !ShowAddForm}" VerticalAlignment="Top" Margin="16,0,0,0" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Containers" Margin="0" VerticalAlignment="Center" />
+      <!-- The paper belongs with the button that opens the day, not off on its own: print is what you do with
+           the list you are already looking at. -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <!-- The way back to the closed lots, and the way to set them down again. It is here rather than in the
+             table because it changes what the table is, not what is typed into it. -->
+        <Button Content="{Binding ToggleLabel}" Command="{Binding TogglePutAwayCommand}"
+                IsVisible="{Binding ShowPutAwayButton}" />
+        <Button Classes="gold" Content="Re-open" Command="{Binding ReopenCommand}"
+                IsVisible="{Binding ShowPutAway}" />
+        <Button Content="Print" Command="{Binding PrintCommand}" />
+        <Button Classes="gold" Content="Add container" Command="{Binding BeginAddCommand}"
+                IsVisible="{Binding !ShowAddForm}" />
+      </StackPanel>
     </Grid>
 
     <Border Classes="card">
       <StackPanel>
-        <TextBlock Classes="h2" Text="All containers" />
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+          <TextBlock Classes="h2" Text="{Binding ListTitle}" Margin="0" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, number, origin, date"
+                   Width="300" VerticalAlignment="Center" Margin="0" />
+        </Grid>
         <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
                   DoubleTapped="OnDoubleTap" x:CompileBindings="False">
           <DataGrid.Columns>
@@ -21,6 +36,8 @@
             <DataGridTextColumn Header="Arrival" Binding="{Binding ArrivalText}" Width="120" />
             <DataGridTextColumn Header="Stock" Binding="{Binding RemainingValueText}" Width="140" />
             <DataGridTextColumn Header="Profit" Binding="{Binding ProfitText}" Width="140" />
+            <DataGridTextColumn Header="Collected" Binding="{Binding CollectedText}" Width="150" />
+            <DataGridTextColumn Header="In the market" Binding="{Binding InMarketText}" Width="150" />
           </DataGrid.Columns>
         </DataGrid>
       </StackPanel>
@@ -31,24 +48,40 @@
         <TextBlock Classes="h2" Text="Add a container" />
         <TextBlock Classes="label" Text="Title" />
         <TextBox Text="{Binding NewTitle}" Watermark="e.g. Yiwu electronics — March" />
-        <Grid ColumnDefinitions="*,*">
+        <Grid ColumnDefinitions="*,*,Auto">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Container number" />
             <TextBox Text="{Binding NewNumber}" />
           </StackPanel>
-          <StackPanel Grid.Column="1">
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Origin" />
             <TextBox Text="{Binding NewOrigin}" />
           </StackPanel>
+          <!-- The cell is Auto and the picker is not stretched, so the column is exactly as wide as the
+               control asks for: nothing here can clip it, whatever the theme decides a date box needs. -->
+          <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+            <TextBlock Classes="label" Text="Arrived on" HorizontalAlignment="Right" />
+            <DatePicker SelectedDate="{Binding NewArrival}" HorizontalAlignment="Right" />
+          </StackPanel>
         </Grid>
-        <Grid ColumnDefinitions="*,*">
+        <Grid ColumnDefinitions="2*,*,*,180">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Supplier in China" />
             <TextBox Text="{Binding NewSupplier}" />
           </StackPanel>
-          <StackPanel Grid.Column="1">
+          <StackPanel Grid.Column="1" Margin="0,0,8,0">
             <TextBlock Classes="label" Text="We owe them (Rs)" />
             <NumericUpDown Value="{Binding NewSupplierAmount}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding NewSupplierAmount, Converter={StaticResource WordsConv}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Margin="0,0,8,0">
+            <TextBlock Classes="label" Text="Paid now (Rs)" />
+            <NumericUpDown Value="{Binding NewPaid}" Minimum="0" />
+            <TextBlock Classes="words" Text="{Binding NewPaid, Converter={StaticResource WordsConv}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3">
+            <TextBlock Classes="label" Text="Paid by" />
+            <ComboBox ItemsSource="{Binding PaidMethods}" SelectedItem="{Binding NewPaidMethod}" />
           </StackPanel>
         </Grid>
         <Grid ColumnDefinitions="*,*,*">

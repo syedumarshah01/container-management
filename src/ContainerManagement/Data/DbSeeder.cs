@@ -171,7 +171,7 @@ public static class DbSeeder
             });
         }
 
-        sale.TotalAmount = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        sale.TotalAmount = sale.Lines.Sum(l => l.LineTotal);
         db.Sales.Add(sale);
         db.SaveChanges();
 

@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ContainerManagement.ViewModels"
+             x:Class="ContainerManagement.Views.BuyPlansView"
+             x:DataType="vm:BuyPlansViewModel">
+  <StackPanel>
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Order sheets" Margin="0" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Print" Command="{Binding PrintCommand}" />
+        <Button Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding HasSelection}" />
+        <Button Content="Duplicate" Command="{Binding DuplicateCommand}" IsVisible="{Binding CanEdit}" />
+        <Button Classes="danger" Content="{Binding DeleteLabel}" Command="{Binding DeleteCommand}"
+                IsVisible="{Binding CanEdit}" MinWidth="110" />
+        <Button Classes="gold" Content="New sheet" Command="{Binding BeginAddCommand}"
+                IsVisible="{Binding !ShowAddForm}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Classes="card">
+      <StackPanel>
+        <DataGrid Classes="tall" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  DoubleTapped="OnDoubleTap" HorizontalScrollBarVisibility="Visible" x:CompileBindings="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Sheet" Binding="{Binding TitleText}" Width="420" />
+            <DataGridTextColumn Header="Rows" Binding="{Binding ItemCountText}" Width="110" />
+            <DataGridTextColumn Header="Cost ¥" Binding="{Binding CostYenText}" Width="190" />
+            <DataGridTextColumn Header="Cost Rs" Binding="{Binding CostPkrText}" Width="200" />
+            <DataGridTextColumn Header="Expense" Binding="{Binding ExpenseText}" Width="200" />
+            <DataGridTextColumn Header="All in" Binding="{Binding SpendText}" Width="200" />
+            <DataGridTextColumn Header="Sells for" Binding="{Binding SaleText}" Width="200" />
+            <DataGridTemplateColumn Header="Profit" Width="200">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding ProfitText}" Margin="10,0" VerticalAlignment="Center"
+                             FontWeight="SemiBold"
+                             Classes.ok="{Binding ProfitIsGood}" Classes.bad="{Binding !ProfitIsGood}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Margin" Binding="{Binding MarginText}" Width="110" />
+            <DataGridTextColumn Header="Weight" Binding="{Binding WeightText}" Width="150" />
+            <DataGridTextColumn Header="Made" Binding="{Binding CreatedText}" Width="150" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="muted" Margin="0,12,0,0" Text="Double-click to open." />
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card" IsVisible="{Binding ShowAddForm}" Padding="22,16">
+      <Grid ColumnDefinitions="*,Auto" Width="620" HorizontalAlignment="Left">
+        <StackPanel Margin="0,0,12,0">
+          <TextBlock Classes="label" Text="NAME" />
+          <TextBox Text="{Binding NewTitle}" Watermark="e.g. April — Yiwu electronics" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom"
+                    Margin="0,0,0,12">
+          <Button Classes="primary" Content="Create" Command="{Binding CreateCommand}" />
+          <Button Content="Cancel" Command="{Binding CancelAddCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </StackPanel>
+</UserControl>

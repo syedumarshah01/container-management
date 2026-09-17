@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Checks the money in ProBooks: run check.bat (Windows) or ./check.sh. Nothing here touches
+       the working database in Documents - it builds a throwaway one in the temp folder. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MoneyChecks</RootNamespace>
+    <AssemblyName>MoneyChecks</AssemblyName>
+    <StartupObject>MoneyChecks.Program</StartupObject>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ContainerManagement\ContainerManagement.csproj" />
+  </ItemGroup>
+
+</Project>

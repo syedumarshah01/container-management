@@ -83,14 +83,42 @@ Then run `publish/mac/ProBooks`.
 
 | Need | Where |
 | --- | --- |
+| Plan a China order before buying | **Order sheets** → New sheet → type the rows |
 | New container + items | **Containers** → fill title → Create → add items / expenses |
+| Send goods back to the supplier (units off the lot, cost off what we owe) | **Containers** → open the lot → *Return to supplier* → pick the line, type the units |
+| Take money back from a supplier | **We owe** → *Suppliers who owe us* → pick the supplier in the table, type the amount, **Receive** |
+| Set a sold-out lot aside, then pull it back | once nothing is left on it: **Containers** → open the lot → **Close / re-open**; then **Containers** → **Put away** → pick → **Re-open** |
+| Correct an item's cost without re-valuing it | open the lot → click the item's row: its cost, its currency and the `Rs for 1 yen` rate it was bought at all come back into the form |
 | Sell (must pick container) | **New Sale** |
-| Grand inventory | **Grand Inventory** |
+| Grand inventory | **Grand Inventory** - stock sitting on a closed container is behind *Closed lots (n)*, and the total above counts it either way |
 | Customer ledger | **Customers** → double-click a name |
 | Collect money | Customer screen → **Record payment** |
 | Uncollected credit | **Money in Market** |
-| Profit per container + total | **Profit** |
+| Profit per container + total | **Reports** → Containers · the two CSV sheets are **Excel / CSV** there |
 | Local + Google Drive copies | **Backup** |
 | Invoice / ledger print, PIN, wipe demo | **Settings** + sale / customer screens |
 
 Profit = sales revenue − cost of sold items − expenses on that container. Unsold stock is valuation, not profit.
+
+## Order sheets (the paper before the purchase)
+
+This is the sheet you write before ordering: every item you mean to buy, with its quantity, its
+cost per piece **in yen**, the weight per piece, and the price you plan to sell at. One tape across
+the top does the arithmetic of the paper list:
+
+| Box | How it is worked out |
+| --- | --- |
+| Total cost in yen | quantity × cost per piece, summed over the rows |
+| Cost in rupees | the yen total × your **Rs per 1 yen** rate (one rate per plan) |
+| Total weight | weight per piece × quantity, summed |
+| If everything sells | quantity × sale price, summed |
+| Going in | cost in rupees **+ the one total-expense figure** (freight, customs, clearing, labour) |
+| Profit | if everything sells − going in |
+
+A row's own profit column is its selling total minus the goods cost only — the expense figure is
+for the whole lot, so it is taken off once, at the plan level. Nothing on this page moves stock or
+touches a customer ledger: it is a plan, not a purchase. When the container actually lands, add it
+on **Containers** as you do today.
+
+Plans are saved, and **Duplicate** is the quick way to start next month from this month's list.
+Staff can read a sheet; the owner PIN is needed to change one.

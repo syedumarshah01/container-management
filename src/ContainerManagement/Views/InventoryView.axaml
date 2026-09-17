@@ -13,18 +13,30 @@
                 VerticalScrollBarVisibility="Visible"
                 HorizontalScrollBarVisibility="Disabled">
     <StackPanel>
+
       <Grid x:Name="MainPane" RowDefinitions="Auto,Auto,*">
-        <Grid ColumnDefinitions="*,280">
-          <TextBlock Classes="h1" Text="Stock" />
+        <Grid ColumnDefinitions="*,280,Auto,Auto" Margin="0,0,0,16">
+          <TextBlock Classes="h1" Text="Stock" Margin="0" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Query}" Watermark="Search name, SKU, container"
-                   VerticalAlignment="Top" Margin="16,0,0,12" />
+                   VerticalAlignment="Center" Margin="16,0,0,0" />
+          <!-- Stock a closed container holds is put aside here as a closed lot is on its own page, and the
+               button that brings it back counts what it covers and hides itself when there is nothing aside.
+               It is left of Print, which stays the last thing on the line. -->
+          <Button Grid.Column="2" Content="{Binding ClosedLabel}" Command="{Binding ToggleClosedCommand}"
+                  IsVisible="{Binding ShowClosedButton}" VerticalAlignment="Center" Margin="16,0,0,0" />
+          <Button Grid.Column="3" Content="Print" Command="{Binding PrintCommand}"
+                  VerticalAlignment="Center" Margin="16,0,0,0" />
         </Grid>
 
         <Border Classes="statcard" Grid.Row="1" Margin="0,0,0,16">
           <StackPanel>
             <TextBlock Classes="label" Text="Total stock value" />
             <TextBlock Classes="stat" Text="{Binding TotalValue}" />
-            <TextBlock Classes="muted" Text="{Binding LowHint}" Margin="0,8,0,0" />
+            <!-- The card is its figure. A line under a money figure earns its place only when there is
+                 something to say, so the low-stock line appears when something actually is low, and what the
+                 view leaves out is counted in the button that shows it rather than spelled out here. -->
+            <TextBlock Classes="muted" Text="{Binding LowHint}" TextWrapping="Wrap"
+                       IsVisible="{Binding ShowLowHint}" Margin="0,8,0,0" />
           </StackPanel>
         </Border>
 

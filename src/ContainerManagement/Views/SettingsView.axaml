@@ -4,7 +4,19 @@
              x:Class="ContainerManagement.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Settings" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Settings" Margin="0" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+        <Image Source="{Binding BrandArt}" Height="16" HorizontalAlignment="Right"
+               IsVisible="{Binding HasBrandArt}" />
+        <StackPanel IsVisible="{Binding !HasBrandArt}">
+          <TextBlock Classes="brand" Text="SYNTAXIA" HorizontalAlignment="Right" FontSize="12"
+                     LetterSpacing="2.4" />
+          <TextBlock Classes="brandTag" Text="SOLUTIONS" HorizontalAlignment="Right" Margin="0,2,0,0"
+                     FontSize="8" LetterSpacing="3.2" />
+        </StackPanel>
+      </StackPanel>
+    </Grid>
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Shop on invoices" />
@@ -18,6 +30,11 @@
         <TextBox Text="{Binding Phone}" />
         <TextBlock Classes="label" Text="Address" />
         <TextBox Text="{Binding Address}" />
+        <TextBlock Classes="label" Text="WhatsApp message" />
+        <TextBox Text="{Binding WhatsAppMessage}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" />
+        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                   Text="Empty, the book writes the message off the customer's ledger. What you type goes as you typed it." />
+        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="{Binding ShareTokens}" />
         <Grid ColumnDefinitions="*,*">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Classes="label" Text="Low stock at or below" />
@@ -53,6 +70,22 @@
         <Button Classes="danger" Content="Wipe demo data" Command="{Binding WipeDemoCommand}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="Updates" />
+        <TextBlock Classes="muted" TextWrapping="Wrap"
+                   Text="Asks the branch this book is built from what is waiting, then builds it here. Your books are not part of an update - they are backed up first, and nothing else in the data folder is opened." />
+        <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,10,0,0">
+          <Button Content="Check for updates" Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding !UpdateBusy}" />
+          <Button Grid.Column="1" Classes="primary" Content="Update now" Command="{Binding ApplyUpdateCommand}"
+                  IsVisible="{Binding UpdateAvailable}" Margin="8,0,0,0" />
+        </Grid>
+        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding UpdateLine}" />
+        <TextBlock FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,8,0,0"
+                   IsVisible="{Binding HasUpdateNotes}" Text="{Binding UpdateNotes}" />
+      </StackPanel>
+    </Border>
+
     <Border Classes="card">
       <StackPanel>
         <TextBlock Classes="h2" Text="Two computers" />

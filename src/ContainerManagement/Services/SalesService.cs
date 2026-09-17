@@ -36,6 +36,15 @@ public class SalesService
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
+    /// <summary>
+    /// What a bill still has owing: what it was billed for, less every payment pointed at it and every return
+    /// credited against it, and never below nil. One formula, because three pages ask the question - the bill,
+    /// the list of unpaid bills, and a container's money - and a bill's outstanding is the one figure a
+    /// customer can also read off their own ledger, so it cannot be allowed to differ by a paisa per page.
+    /// </summary>
+    internal static decimal RemainingOf(Sale sale, decimal paid, decimal returned)
+        => Math.Max(0m, Money.Round(sale.TotalAmount - paid - returned));
+
     public async Task<decimal> RemainingOnInvoiceAsync(int saleId)
     {
         await using var db = await _factory.CreateDbContextAsync();
@@ -44,7 +53,7 @@ public class SalesService
             return 0;
         var paid = await db.Payments.AsNoTracking().Where(p => p.SaleId == saleId).ToListAsync();
         var returned = await db.SaleReturns.AsNoTracking().Where(r => r.SaleId == saleId).ToListAsync();
-        return Math.Max(0, sale.TotalAmount - paid.Sum(p => p.Amount) - returned.Sum(r => r.Amount));
+        return RemainingOf(sale, paid.Sum(p => p.Amount), returned.Sum(r => r.Amount));
     }
 
     public async Task<List<UnpaidInvoice>> UnpaidInvoicesAsync(int customerId)
@@ -52,6 +61,7 @@ public class SalesService
         await using var db = await _factory.CreateDbContextAsync();
         var sales = await db.Sales.AsNoTracking()
             .Where(s => s.CustomerId == customerId && s.Status == SaleStatus.Active)
+            .Include(s => s.Lines).ThenInclude(l => l.Container)
             .ToListAsync();
         var pays = await db.Payments.AsNoTracking()
             .Where(p => p.CustomerId == customerId && p.SaleId != null)
@@ -62,16 +72,26 @@ public class SalesService
         var list = new List<UnpaidInvoice>();
         foreach (var s in sales.OrderBy(s => s.Date))
         {
-            var left = s.TotalAmount
-                       - pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount)
-                       - returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount);
+            var left = RemainingOf(s,
+                pays.Where(p => p.SaleId == s.Id).Sum(p => p.Amount),
+                returns.Where(r => r.SaleId == s.Id).Sum(r => r.Amount));
             if (left > 0.009m)
             {
+                // Where the goods came from, named as the container page names them. A bill drawn across two
+                // lots says both - the money applies to the bill either way, and the split of it between the
+                // two containers is the reports' business, not a guess made at the till.
+                var lots = s.Lines.Select(l => l.Container)
+                    .DistinctBy(c => c.Id)
+                    .OrderBy(c => c.Title)
+                    .ToList();
                 list.Add(new UnpaidInvoice
                 {
                     SaleId = s.Id,
                     Remaining = left,
-                    Label = $"#{s.Id} {s.Date:dd MMM} · left {Money.Pkr(left)}"
+                    Label = $"#{s.Id} · {s.Date:dd MMM yyyy} · left {Money.Pkr(left)}",
+                    Containers = string.Join(" + ", lots.Select(c => string.IsNullOrWhiteSpace(c.ContainerNumber)
+                        ? c.Title
+                        : $"{c.Title} · {c.ContainerNumber}"))
                 });
             }
         }
@@ -103,6 +123,22 @@ public class SalesService
         DateTime? dueDate)
     {
         return await SaveSaleAsync(saleId, customerId, date, lines, paidNow, paymentMethod, notes, discount, dueDate);
+    }
+
+    /// <summary>
+    /// The sentence the sale page shows about a return, built from the same two figures the posting
+    /// produces. It lives beside the rule rather than beside the button so the two cannot disagree about
+    /// what is about to happen to the till.
+    /// </summary>
+    public static string DescribeReturn(decimal credit, decimal cash)
+    {
+        var relief = Money.Round(credit - cash);
+        if (relief > 0.009m && cash > 0.009m)
+            return Money.Pkr(relief) + " comes off what they owe us, and " + Money.Pkr(cash)
+                + " is paid out of the cashbook.";
+        if (cash > 0.009m)
+            return "Nothing is owed on this bill, so " + Money.Pkr(cash) + " is paid out of the cashbook.";
+        return Money.Pkr(credit) + " is adjusted in their ledger - no cash moves.";
     }
 
     public async Task CancelSaleAsync(int saleId)
@@ -158,7 +194,33 @@ public class SalesService
         await tx.CommitAsync();
     }
 
-    public async Task ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
+    /// <summary>
+    /// Take goods back. The shop's rule settles them, so nobody has to choose how: if the customer still
+    /// owes us for this bill, the return is adjusted in their ledger and no cash moves; if they owe us
+    /// nothing, the return is their money sitting in our till, so it is paid from the cashbook. A bill
+    /// paid in part splits the same way - what they owe absorbs the return first, the rest is cash.
+    /// Returns Rs 0 when nothing left the till, otherwise the amount that did.
+    /// </summary>
+    public async Task<decimal> ReturnItemsAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
+    {
+        var (cash, _) = await SettleReturnAsync(saleId, inputs, post: true);
+        return cash;
+    }
+
+    /// <summary>
+    /// What returning these quantities would do, worked out without writing a thing: the credit it takes
+    /// off the customer's ledger, and the cash it would take out of the till. The sale page shows these
+    /// two figures on its two buttons, so they must come from the same arithmetic as the posting - a
+    /// promise of Rs 1,999.99 against a book entry of Rs 1,999.98 is an evening of counting for somebody.
+    /// </summary>
+    public async Task<(decimal Credit, decimal Cash)> PreviewReturnAsync(int saleId, IReadOnlyList<SaleReturnInput> inputs)
+    {
+        var (cash, credit) = await SettleReturnAsync(saleId, inputs, post: false);
+        return (credit, cash);
+    }
+
+    private async Task<(decimal Cash, decimal Credit)> SettleReturnAsync(
+        int saleId, IReadOnlyList<SaleReturnInput> inputs, bool post)
     {
         var wanted = inputs.Where(x => x.Quantity > 0).ToList();
         if (wanted.Count == 0)
@@ -184,7 +246,7 @@ public class SalesService
             .ToListAsync();
         var returnedSoFar = alreadyAmount.Sum(r => r.Amount);
 
-        var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var gross = sale.Lines.Sum(l => l.LineTotal);
         var factor = gross == 0 ? 1m : sale.TotalAmount / gross;
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -205,13 +267,14 @@ public class SalesService
             var left = line.Quantity - done;
             if (input.Quantity - left > 0.0005m)
                 throw new InvalidOperationException(
-                    $"Only {Money.Qty(left)} {line.Product.Name} can still come back from this bill.");
+                    $"Only {Money.Qty3(left)} {line.Product.Name} can still come back from this bill.");
 
             var item = await db.ContainerItems.FindAsync(line.ContainerItemId)
                 ?? throw new InvalidOperationException("Stock lot missing.");
-            item.QuantityRemaining += input.Quantity;
+            if (post)
+                item.QuantityRemaining += input.Quantity;
 
-            var amount = Math.Round(input.Quantity * line.UnitPrice * factor, 2);
+            var amount = Money.Round(input.Quantity * line.UnitPrice * factor);
             ret.Lines.Add(new SaleReturnLine
             {
                 SaleLineId = line.Id,
@@ -223,16 +286,28 @@ public class SalesService
                 UnitCost = line.UnitCost,
                 Amount = amount
             });
-            names.Add(Money.Qty(input.Quantity) + " " + line.Product.Name);
+            names.Add(Money.Qty3(input.Quantity) + " " + line.Product.Name);
             alreadyQty[line.Id] = done + input.Quantity;
         }
 
-        ret.Amount = Math.Round(ret.Lines.Sum(l => l.Amount), 2);
+        ret.Amount = Money.Round(ret.Lines.Sum(l => l.Amount));
         var qtyLeft = sale.Lines.Sum(l => l.Quantity - alreadyQty.GetValueOrDefault(l.Id));
         if (qtyLeft <= 0.0005m)
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
         if (ret.Amount + returnedSoFar - sale.TotalAmount > 0.009m)
             ret.Amount = Math.Max(0, sale.TotalAmount - returnedSoFar);
+
+        // What they still owe on this bill is measured before anything is written, because the same
+        // figures decide both the split and what the page offers on its button. Never more cash leaves
+        // than is left over after the debt is relieved - so a bill nobody has paid hands back nothing,
+        // which is what keeps the till and the drawer the same number.
+        var received = (await db.Payments.Where(x => x.SaleId == sale.Id).ToListAsync()).Sum(x => x.Amount);
+        var outstanding = sale.TotalAmount - received;
+        var relief = outstanding > 0 ? Math.Min(ret.Amount, outstanding) : 0m;
+        var back = Money.Round(ret.Amount - relief);
+
+        if (!post)
+            return (back, ret.Amount);
 
         db.SaleReturns.Add(ret);
         await db.SaveChangesAsync();
@@ -247,8 +322,36 @@ public class SalesService
             Description = $"Return · sale #{sale.Id} · {string.Join(", ", names)}",
             SaleId = sale.Id
         });
+
+        // The credit above is what came back off their bill. Where the return was worth more than they
+        // still owed, the difference was handed over in cash - and money that leaves the till has to be
+        // in the till's book: an outflow there, and a matching debit in their ledger so the two agree.
+        if (back > 0.009m)
+        {
+            db.LedgerEntries.Add(new LedgerEntry
+            {
+                CustomerId = sale.CustomerId,
+                Date = DateTime.Now,
+                Type = LedgerType.Adjustment,
+                Debit = back,
+                Credit = 0,
+                Description = $"Cash paid on return - sale #{sale.Id}",
+                SaleId = sale.Id
+            });
+            db.CashBook.Add(new CashBookEntry
+            {
+                Date = DateTime.Today,
+                Kind = CashBookKind.RefundOut,
+                Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.Id}",
+                AmountIn = 0,
+                AmountOut = back,
+                SaleId = sale.Id
+            });
+        }
+
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        return (back, ret.Amount);
     }
 
     private async Task<Sale> SaveSaleAsync(
@@ -264,6 +367,10 @@ public class SalesService
     {
         if (lines.Count == 0)
             throw new InvalidOperationException("Add at least one item to the sale.");
+        // Paid and discount are money the shop counts, so they land on a paisa before anything else
+        // is compared to them - the bill the customer is handed is the bill the books keep.
+        paidNow = Money.Round(paidNow);
+        discount = Money.Round(discount);
         if (paidNow < 0)
             throw new InvalidOperationException("Amount received cannot be negative.");
         if (discount < 0)
@@ -336,10 +443,10 @@ public class SalesService
                 throw new InvalidOperationException($"{line.ProductName} does not belong to the selected container.");
             if (item.QuantityRemaining < line.Quantity)
                 throw new InvalidOperationException(
-                    $"Not enough {item.Product.Name} in {item.Container.Title}. Remaining: {Money.Qty(item.QuantityRemaining)} {item.Product.Unit}.");
+                    $"Not enough {item.Product.Name} in {item.Container.Title}. Remaining: {Money.Qty3(item.QuantityRemaining)} {item.Product.Unit}.");
 
             item.QuantityRemaining -= line.Quantity;
-            item.Product.LastSalePrice = line.UnitPrice;
+            item.Product.LastSalePrice = Money.Round(line.UnitPrice);
 
             sale.Lines.Add(new SaleLine
             {
@@ -347,15 +454,18 @@ public class SalesService
                 ContainerItemId = item.Id,
                 ProductId = item.ProductId,
                 Quantity = line.Quantity,
-                UnitPrice = line.UnitPrice,
-                UnitCost = item.UnitCost
+                UnitPrice = Money.Round(line.UnitPrice),
+                // The cost of the piece is the landed one: what it was bought for, and what its share of the
+                // freight and customs was. The same paisa-exact figure the re-costing path writes, so a line
+                // billed today and the same lot's lines re-costed next month cannot be two different numbers.
+                UnitCost = Money.Round(item.EffectiveCost)
             });
         }
 
-        var gross = sale.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var gross = sale.Lines.Sum(l => l.LineTotal);
         if (discount > gross)
             throw new InvalidOperationException("Discount cannot be more than the bill.");
-        sale.TotalAmount = gross - discount;
+        sale.TotalAmount = Money.Round(gross - discount);
         if (paidNow > sale.TotalAmount)
             throw new InvalidOperationException("Amount received cannot be more than the bill. Put extra as a separate payment on the customer ledger.");
 

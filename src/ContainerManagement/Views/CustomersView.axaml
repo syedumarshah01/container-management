@@ -4,7 +4,10 @@
              x:Class="ContainerManagement.Views.CustomersView"
              x:DataType="vm:CustomersViewModel">
   <StackPanel>
-    <TextBlock Classes="h1" Text="Customers" />
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+      <TextBlock Classes="h1" Text="Customers" Margin="0" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Print" Command="{Binding PrintCommand}" VerticalAlignment="Center" />
+    </Grid>
 
     <Border Classes="card">
       <StackPanel>

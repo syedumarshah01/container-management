@@ -9,9 +9,62 @@
         <TextBlock Classes="h1" Text="Home" Margin="0,0,0,4" />
         <TextBlock Classes="muted" Text="{Binding Hint}" Margin="0,0,0,16" />
       </StackPanel>
-      <Button Grid.Column="1" Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}"
-              VerticalAlignment="Top" Margin="16,0,0,0" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+        <Button Content="Print" Command="{Binding PrintCommand}" />
+        <Button Classes="gold" Content="Sell" Command="{Binding GoNewSaleCommand}" />
+      </StackPanel>
     </Grid>
+    <!-- The dates are the page's, not a card's: they belong to the book figures below and to nothing else,
+         and putting them at the head of one card would suggest the other cards quietly moved with them. -->
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="0,0,0,16">
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,0" VerticalAlignment="Center">
+        <TextBlock Classes="label" Text="From" VerticalAlignment="Center" Margin="0" />
+        <DatePicker SelectedDate="{Binding FromDate}" VerticalAlignment="Center" Margin="0" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0"
+                  VerticalAlignment="Center">
+        <TextBlock Classes="label" Text="To" VerticalAlignment="Center" Margin="0" />
+        <DatePicker SelectedDate="{Binding ToDate}" VerticalAlignment="Center" Margin="0" />
+      </StackPanel>
+      <Button Grid.Column="2" Classes="primary" Content="Apply" Command="{Binding ApplyCommand}" Margin="0,0,8,0"
+              VerticalAlignment="Center" />
+      <Button Grid.Column="3" Content="Whole book" Command="{Binding WholeBookCommand}" IsVisible="{Binding HasRange}"
+              HorizontalAlignment="Left" VerticalAlignment="Center" />
+    </Grid>
+
+    <!-- The book as a whole, so the day can start with what came in and what is still out. Each figure is the
+         one the page behind it shows, added up once - nothing is worked out a second way to fill this card. -->
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Classes="h2" Text="{Binding BookLabel}" />
+        <Grid ColumnDefinitions="*,*,*,*,*">
+          <StackPanel Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Total containers" />
+            <TextBlock Classes="stat" Text="{Binding BookContainers}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Total sales" />
+            <TextBlock Classes="stat" Text="{Binding BookSales}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Total receivable in the market" />
+            <TextBlock Classes="stat" Text="{Binding BookMarket}" />
+          </StackPanel>
+          <StackPanel Grid.Column="3" Margin="0,0,16,0">
+            <TextBlock Classes="label" Text="Total stock value" />
+            <TextBlock Classes="stat" Text="{Binding BookStock}" />
+          </StackPanel>
+          <StackPanel Grid.Column="4">
+            <TextBlock Classes="label" Text="Total profit" />
+            <TextBlock Classes="stat ok" Text="{Binding BookProfit}" />
+            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                       Text="sales, less what the goods cost landed" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Classes="muted" FontSize="12" Margin="0,10,0,0" TextWrapping="Wrap"
+                   Text="{Binding BookHint}" IsVisible="{Binding HasRange}" />
+      </StackPanel>
+    </Border>
 
     <Border Classes="card">
       <StackPanel>
@@ -24,7 +77,7 @@
           <StackPanel Grid.Column="1">
             <TextBlock Classes="label" Text="Total profit" />
             <TextBlock Classes="stat ok" Text="{Binding MonthProfit}" />
-            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0"
+            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="Sales profit minus this month’s expense ledger." />
           </StackPanel>
         </Grid>

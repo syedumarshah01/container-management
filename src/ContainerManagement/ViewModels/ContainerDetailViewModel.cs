@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ContainerManagement.Models;
@@ -8,6 +9,7 @@ namespace ContainerManagement.ViewModels;
 
 public partial class ContainerDetailViewModel : ViewModelBase
 {
+    private readonly PrintService _print;
     private readonly InventoryService _inventory;
     private readonly ReportService _reports;
     private readonly AccessService _access;
@@ -15,8 +17,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
     private readonly int _id;
     private bool _loadingSelection;
 
-    public ContainerDetailViewModel(int id, InventoryService inventory, ReportService reports, AccessService access, IAppShell shell)
+    public ContainerDetailViewModel(int id, InventoryService inventory, ReportService reports, AccessService access, IAppShell shell, PrintService print)
     {
+        _print = print;
         _id = id;
         _inventory = inventory;
         _reports = reports;
@@ -28,6 +31,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private string subtitle = "";
     [ObservableProperty] private string stockValue = "—";
     [ObservableProperty] private string stockSold = "—";
+    [ObservableProperty] private string stockCollected = "—";
+    [ObservableProperty] private string stockMarket = "—";
 
     [ObservableProperty] private string goodsName = "";
     [ObservableProperty] private string goodsSku = "";
@@ -35,20 +40,93 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private decimal? goodsQty = 1;
     [ObservableProperty] private decimal? goodsInStock;
     [ObservableProperty] private decimal? goodsCost;
+
+    /// <summary>Which currency the cost price is being typed in. The invoice from Japan says yen and the
+    /// till says rupees, and this form now takes either - so the figure kept is the one that was written,
+    /// next to the rupee figure the rest of the book works in.</summary>
+    [ObservableProperty] private string goodsCurrency = Currencies.EntryLabels[0];
+    [ObservableProperty] private bool goodsIsYen;
+    [ObservableProperty] private string goodsCostPreview = "";
+    [ObservableProperty] private bool showGoodsCostPreview;
+
+    /// <summary>What one piece weighs, in kilograms - the figure on the carton, and the same one the order
+    /// sheet asks for. The container's expenses are shared over what the lot weighs in all, so an item left
+    /// blank holds up the whole sharing: the page says so rather than loading its freight onto the others.</summary>
+    [ObservableProperty] private decimal? goodsWeight;
     [ObservableProperty] private ContainerItemRow? selectedItem;
 
-    [ObservableProperty] private string expenseCategory = "Sea Freight";
+    /// <summary>What the money was for, in the shop's own words. A dropdown of categories could not say
+    /// "demurrage at the port", and a figure nobody can name is a figure nobody finds again; a blank is kept
+    /// as "Other" by the book.</summary>
+    [ObservableProperty] private string expenseCategory = "";
+    [ObservableProperty] private string expenseCurrency = Currencies.EntryLabels[0];
+    [ObservableProperty] private bool expenseIsYen;
     [ObservableProperty] private decimal? expenseAmount;
     [ObservableProperty] private DateTimeOffset? expenseDate = DateTimeOffset.Now;
     [ObservableProperty] private string expenseNotes = "";
     [ObservableProperty] private ContainerExpense? selectedExpense;
 
-    [ObservableProperty] private decimal? editCartons;
-    [ObservableProperty] private decimal? editCbm;
     [ObservableProperty] private decimal? editWeight;
+
+    /// <summary>
+    /// Yen to rupees, for this shipment - one figure, and the box for it is shown wherever a yen figure is
+    /// being typed, because a rate read from a form above the fold is a rate that gets left at last month's
+    /// value. Expenses and item costs are converted at it once, when they are saved, and the rate is kept on
+    /// the line: changing it here afterwards never re-values money already paid to a clearing agent.
+    /// </summary>
+    [ObservableProperty] private decimal? editYenRate;
+    [ObservableProperty] private string expenseTape = "";
+    [ObservableProperty] private string expensePreview = "";
+    [ObservableProperty] private bool showExpensePreview;
+    private decimal _yenRateOnFile;
     [ObservableProperty] private string editSupplier = "";
     [ObservableProperty] private decimal? editSupplierAmount;
+
+    // The goods-back-to-supplier section. No money box on purpose: the amount is the cost that is already on
+    // the line, and where it goes is settled by the rule the service holds, so the only figure the shop can
+    // type is the one nobody can derive - how many units left the building.
+    [ObservableProperty] private decimal? returnQty;
+
+    [ObservableProperty] private string returnNotes = "";
+
+    [ObservableProperty] private string returnPreview = "";
+
+    /// <summary>Which line the count belongs to, as the items table has it picked. Said by the page rather than
+    /// bound through the selection so the card holds no binding that can be quietly wrong.</summary>
+    [ObservableProperty] private string returnTarget = "no goods line picked";
+
+    [ObservableProperty] private bool showReturnPreview;
+
+    [ObservableProperty] private bool canReturnGoods;
+
+    [ObservableProperty] private SupplierReturnRow? selectedReturn;
+
+    [ObservableProperty] private bool showReturns;
+
+    public ObservableCollection<SupplierReturnRow> Returns { get; } = new();
+
+    /// <summary>What this lot owes its supplier as the page stands. The preview settles a credit against it, and
+    /// it is the same figure the write settles against, so the two cannot tell different stories.</summary>
+    private decimal _owedOnLot;
+
+    /// <summary>
+    /// The paid box. It is not a container field but the total of that supplier's payments, so saving
+    /// a different figure here edits the payments - see InventoryService.UpdateImportDetailsAsync.
+    /// </summary>
+    [ObservableProperty] private decimal? editPaidSoFar;
+    [ObservableProperty] private DateTimeOffset? editArrival;
+    [ObservableProperty] private string editBillHint = "";
+    [ObservableProperty] private bool showBillHint;
+
     [ObservableProperty] private bool isClosed;
+
+    /// <summary>The lot's state as it is stamped beside its name, and as it stands at the top of the printed
+    /// sheet: the word the Reports column carries, set in caps. Both take it from <see cref="IsClosed"/>, so the
+    /// heading, the paper and the button that changes the state cannot tell three different stories.</summary>
+    public string StatusStamp => ContainerStatusWords.Stamp(IsClosed ? ContainerStatus.Closed : ContainerStatus.Open);
+
+    partial void OnIsClosedChanged(bool value) => OnPropertyChanged(nameof(StatusStamp));
+
     [ObservableProperty] private bool isOwner;
     [ObservableProperty] private bool showImportEditor;
     [ObservableProperty] private bool showItemForm;
@@ -58,13 +136,14 @@ public partial class ContainerDetailViewModel : ViewModelBase
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
-    public IReadOnlyList<string> CategoryOptions { get; } = ExpenseCategories.All;
+    public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.EntryLabels;
 
     public override async Task LoadAsync()
     {
         IsOwner = _access.IsOwner;
         var selectedId = SelectedItem?.Id;
         var selectedExpenseId = SelectedExpense?.Id;
+        var selectedReturnId = SelectedReturn?.Id;
 
         var c = await _inventory.GetContainerAsync(_id);
         if (c is null)
@@ -74,12 +153,38 @@ public partial class ContainerDetailViewModel : ViewModelBase
         }
 
         Title = c.Title;
-        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival {c.ArrivalDate:dd MMM yyyy}";
-        EditCartons = c.Cartons;
-        EditCbm = c.Cbm;
+        Subtitle = $"{c.ContainerNumber ?? "No number"} · {c.Origin} · arrival "
+            + (c.ArrivalDate is DateTime when ? when.ToString("dd MMM yyyy") : "not recorded");
         EditWeight = c.WeightKg;
         EditSupplier = c.Supplier?.Name ?? "";
-        EditSupplierAmount = c.SupplierAmount;
+        var paidNow = await _inventory.PaidSoFarAsync(_id);
+        // The box asks what is still owed, because that is the figure the container form asked for and
+        // the figure the We owe page shows. The stored number is the bill - what is owed plus everything
+        // paid - so the two are exactly one subtraction apart, done here and nowhere else.
+        var owedNow = Money.Round(c.SupplierAmount - paidNow);
+        _owedOnLot = owedNow > 0.009m ? owedNow : 0m;
+        EditPaidSoFar = paidNow;
+        EditSupplierAmount = owedNow > 0.009m ? owedNow : 0m;
+        EditArrival = c.ArrivalDate;
+        _yenRateOnFile = c.ExchangeRate;
+        // The rate as it stands, unless it is still the untouched default of 1 - which is not a rate but the
+        // absence of one, and showing it in the box would have a shop save a figure it never chose.
+        EditYenRate = Currencies.UsableRate(c.ExchangeRate) ? c.ExchangeRate : null;
+        // The arithmetic of the sharing, in the shop's own words, straight off the service that writes the
+        // costs - so the tape and the figures in the cost column cannot tell two different stories.
+        ExpenseTape = (await _inventory.GetExpenseSplitAsync(_id)).Tape;
+        ShowExpenseTape = !string.IsNullOrWhiteSpace(ExpenseTape);
+        UpdateExpensePreview();
+        UpdateGoodsPreview();
+        // Money paid past the figure on a container can only be left over from the earlier rule: the pay
+        // page refuses it now, and a box that cannot show a negative shows nothing owed. So the form says
+        // what the clamp hides rather than pretending the two figures agree.
+        ShowBillHint = owedNow < -0.009m;
+        EditBillHint = ShowBillHint
+            ? "This container has " + Money.Pkr(-owedNow) + " paid past the figure written on it, from "
+              + "before this rule. Saving it as it stands counts that money towards the bill; moving the "
+              + "extra to the next shipment is the tidier fix."
+            : "";
         IsClosed = c.Status == ContainerStatus.Closed;
 
         _loadingSelection = true;
@@ -95,7 +200,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 Purchased = i.QuantityReceived,
                 InStock = i.QuantityRemaining,
                 UnitCost = i.UnitCost,
-                ForeignCost = i.UnitCost,
+                LandedCost = i.EffectiveCost,
+                WeightKg = i.WeightKg,
+                ForeignCost = i.ForeignCost,
+                CostCurrency = i.CostCurrency,
+                CostRate = i.CostRate,
                 Cartons = i.Cartons,
                 PhotoPath = i.PhotoPath ?? i.Product.PhotoPath
             });
@@ -103,9 +212,15 @@ public partial class ContainerDetailViewModel : ViewModelBase
         Expenses.Clear();
         foreach (var e in c.Expenses.OrderByDescending(x => x.Date))
             Expenses.Add(e);
+        Returns.Clear();
+        foreach (var r in await _inventory.ReturnsOnAsync(_id))
+            Returns.Add(r);
 
         SelectedItem = selectedId is int sid ? Items.FirstOrDefault(i => i.Id == sid) : null;
         SelectedExpense = selectedExpenseId is int eid ? Expenses.FirstOrDefault(e => e.Id == eid) : null;
+        SelectedReturn = selectedReturnId is int rid ? Returns.FirstOrDefault(r => r.Id == rid) : null;
+        ShowReturns = Returns.Count > 0;
+        CanReturnGoods = c.SupplierId is not null && c.Status != ContainerStatus.Closed;
         _loadingSelection = false;
 
         var p = await _reports.GetContainerProfitAsync(_id);
@@ -113,6 +228,8 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             StockValue = Money.Pkr(p.RemainingValue);
             StockSold = p.SoldAmountText;
+            StockCollected = p.CollectedText;
+            StockMarket = p.InMarketText;
         }
     }
 
@@ -120,12 +237,124 @@ public partial class ContainerDetailViewModel : ViewModelBase
     {
         if (_loadingSelection || value is null) return;
         ShowItemForm = true;
+        ReturnTarget = value.Name + " · " + Money.Qty3(value.InStock) + " " + value.Unit + " in stock at "
+                       + Money.Pkr(value.UnitCost) + " each";
         GoodsName = value.Name;
         GoodsSku = value.Sku;
         GoodsUnit = value.Unit;
         GoodsQty = value.Purchased;
         GoodsInStock = value.InStock;
-        GoodsCost = value.ForeignCost;
+        GoodsCost = value.CostEntered;
+        GoodsCurrency = Currencies.Shown(value.CostCurrency);
+        GoodsIsYen = value.CostCurrency == "JPY";
+        // The line's own rate comes back with it, as it does when a bill is picked up: the rupee cost on a goods
+        // line was multiplied out of the yen figure at the rate written on that line, and pressing Save item
+        // after taking a line in hand must put the same rupees down again rather than re-value a paid invoice at
+        // whatever the box held from the last thing typed.
+        EditYenRate = Currencies.RateTaken(value.CostCurrency, value.CostRate, EditYenRate);
+        GoodsWeight = value.WeightKg;
+        UpdateGoodsPreview();
+        UpdateReturnPreview();
+    }
+
+    partial void OnReturnQtyChanged(decimal? value) => UpdateReturnPreview();
+
+    /// <summary>
+    /// What sending these units back would do, said before any of it is written: the units' own cost, how much
+    /// of it the lot's bill takes off, what is left for the supplier to send back. Derived from the cost on the
+    /// line and the lot's owed figure as this page loaded them - the same two figures the write uses - so a
+    /// preview cannot promise one thing while the book records another.
+    /// </summary>
+    private void UpdateReturnPreview()
+    {
+        if (SelectedItem is null)
+            ReturnTarget = "no goods line picked";
+        if (SelectedItem is null || ReturnQty is not decimal typed || typed <= 0)
+        {
+            ReturnPreview = "";
+            ShowReturnPreview = false;
+            return;
+        }
+
+        var units = Money.Round(typed, 3);
+        var amount = Money.Round(units * SelectedItem.UnitCost);
+        var relief = Math.Min(amount, Math.Max(0m, _owedOnLot));
+        var due = Money.Round(amount - relief);
+        ReturnPreview = Money.Qty3(units) + " " + SelectedItem.Unit + " at " + Money.Pkr(SelectedItem.UnitCost)
+                        + " = " + Money.Pkr(amount)
+                        + (relief > 0.009m ? " · takes " + Money.Pkr(relief) + " off what this lot owes" : "")
+                        + (due > 0.009m ? " · " + Money.Pkr(due) + " due back from them" : "");
+        ShowReturnPreview = true;
+    }
+
+    [ObservableProperty] private bool showExpenseTape;
+
+    partial void OnExpenseTapeChanged(string value) => ShowExpenseTape = !string.IsNullOrWhiteSpace(value);
+    partial void OnExpenseAmountChanged(decimal? value) => UpdateExpensePreview();
+
+    partial void OnExpenseCurrencyChanged(string value)
+    {
+        ExpenseIsYen = Currencies.CodeOf(value) == "JPY";
+        UpdateExpensePreview();
+    }
+
+    partial void OnGoodsCurrencyChanged(string value)
+    {
+        GoodsIsYen = Currencies.CodeOf(value) == "JPY";
+        UpdateGoodsPreview();
+    }
+
+    partial void OnGoodsCostChanged(decimal? value) => UpdateGoodsPreview();
+
+    // One rate box, wherever it is shown, and one answer under each of the two figures it converts: the
+    // same number in both places it can be read, never two a shop has to square up.
+    partial void OnEditYenRateChanged(decimal? value)
+    {
+        UpdateExpensePreview();
+        UpdateGoodsPreview();
+    }
+
+    /// <summary>
+    /// What the figure being typed comes to in rupees, shown before it is written. The conversion is the
+    /// service's own, not a copy of it - the same method and the same rate rule - so the rupee total read on
+    /// the screen is the one the book keeps, rather than a preview that drifts from the entry.
+    /// </summary>
+    private void UpdateExpensePreview()
+    {
+        if (Currencies.CodeOf(ExpenseCurrency) != "JPY" || ExpenseAmount is not decimal amount || amount <= 0)
+        {
+            ShowExpensePreview = false;
+            ExpensePreview = "";
+            return;
+        }
+        // An emptied box does not erase the rate the container holds, so the line reads the figure the book
+        // would use rather than the figure the box happens to show.
+        var converted = Currencies.InRupees(amount, Currencies.RateFor(_yenRateOnFile, EditYenRate));
+        ShowExpensePreview = true;
+        ExpensePreview = converted is null
+            ? Money.Yen(amount) + " has no rate to convert it at. Write Rs for 1 yen here, or choose Rs if "
+              + "the bill was in rupees."
+            : Money.Yen(amount) + " at " + Currencies.RateText(converted.Value.Rate) + " = "
+              + Money.Pkr(converted.Value.Pkr) + ", and that is what goes into the costs by weight.";
+    }
+
+    /// <summary>The same line for an item's cost price: what a piece will be carried at in rupees, before
+    /// it is written - and it is that rupee figure, not the yen one, that the freight is then added to.</summary>
+    private void UpdateGoodsPreview()
+    {
+        if (Currencies.CodeOf(GoodsCurrency) != "JPY" || GoodsCost is not decimal cost || cost <= 0)
+        {
+            ShowGoodsCostPreview = false;
+            GoodsCostPreview = "";
+            return;
+        }
+        var converted = Currencies.InRupees(cost, Currencies.RateFor(_yenRateOnFile, EditYenRate));
+        ShowGoodsCostPreview = true;
+        GoodsCostPreview = converted is null
+            ? Money.Yen(cost) + " a piece has no rate to convert it at. Write Rs for 1 yen here, or choose "
+              + "Rs if the invoice was in rupees."
+            : Money.Yen(cost) + " at " + Currencies.RateText(converted.Value.Rate) + " = "
+              + Money.Pkr(converted.Value.Pkr) + " a piece, before its share of the freight.";
     }
 
     partial void OnGoodsInStockChanged(decimal? value)
@@ -138,9 +367,100 @@ public partial class ContainerDetailViewModel : ViewModelBase
     {
         if (_loadingSelection || value is null) return;
         ExpenseCategory = value.Category;
+        ExpenseCurrency = Currencies.Shown(value.Currency);
+        ExpenseIsYen = value.Currency == "JPY";
+        // One rule for both tables on this page - a goods line and a bill each carry the rate their figure was
+        // taken at, and the box reads it back from whichever was picked up last.
+        EditYenRate = Currencies.RateTaken(value.Currency, value.RateUsed, EditYenRate);
         ExpenseAmount = value.Amount;
         ExpenseDate = new DateTimeOffset(value.Date);
         ExpenseNotes = value.Notes ?? "";
+    }
+
+    [RelayCommand]
+    private async Task SendBackAsync()
+    {
+        if (SelectedItem is null)
+        {
+            _shell.Notify("Select the goods line that went back, in the items table.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to send goods back to a supplier.", true);
+            return;
+        }
+        try
+        {
+            var ret = await _inventory.ReturnToSupplierAsync(
+                SelectedItem.Id, DateTime.Today, ReturnQty ?? 0, ReturnNotes);
+            _shell.MarkChanged();
+            ReturnQty = null;
+            ReturnNotes = "";
+            _shell.Notify(ret.DueToUs > 0.009m
+                ? "Goods sent back. " + Money.Pkr(ret.CreditedOwing) + " taken off what the lot owes, and "
+                  + Money.Pkr(ret.DueToUs) + " is due back from the supplier."
+                : "Goods sent back, and " + Money.Pkr(ret.Amount) + " taken off what this lot owes.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
+    private async Task RemoveReturnAsync()
+    {
+        if (SelectedReturn is null)
+        {
+            _shell.Notify("Select the return in the table to take it off the book.", true);
+            return;
+        }
+        if (!_access.IsOwner)
+        {
+            _shell.Notify("Owner PIN needed to remove a return.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.RemoveReturnAsync(SelectedReturn.Id);
+            _shell.MarkChanged();
+            _shell.Notify("Return taken off the book: the units are back on the shelf and the amount is back on the lot.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
+    private void Print()
+    {
+        var goods = Items.Select(i => new[]
+        {
+            i.Name, i.Sku ?? "", i.Unit, i.UnitCostText, i.FreightText, i.TotalWeightText, i.CostNoteText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var bills = Expenses.Select(e => new[]
+        {
+            e.Date.ToString("dd MMM yyyy"), e.Category, e.SourceText, e.Currency,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        // Only on the paper when there is something on it: a heading for an empty table is a question the
+        // shop has to answer by looking for itself.
+        var backs = Returns.Select(r => new[]
+        {
+            r.DateText, r.ProductName, r.UnitsText, r.CostEachText, r.AmountText, r.SettledText, r.DueText,
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var tables = new List<PrintTable>
+        {
+            new PrintTable("Goods",
+                new[] { "Item", "Code", "Unit", "Cost each", "Freight each", "Weight", "Cost as written" }, goods, null, 3),
+            new PrintTable("Bills", new[] { "Date", "What it was for", "As it was written", "Money" }, bills, null, 2),
+        };
+        if (backs.Count > 0)
+            tables.Add(new PrintTable("Sent back to supplier",
+                new[] { "Date", "Item", "Units", "Cost each", "Worth", "Off what we owe", "Due back" }, backs,
+                new[] { "All returns", "", Money.Qty3(Returns.Sum(r => r.Quantity)), "", Money.Pkr(Returns.Sum(r => r.Amount)),
+                    Money.Pkr(Returns.Sum(r => r.CreditedOwing)), Money.Pkr(Returns.Sum(r => r.DueToUs)) }, 2));
+        // The state goes on the paper with the number and the arrival date: a closed lot's sheet must not read
+        // like a live one's, and the word is the one the heading shows.
+        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle + " · " + StatusStamp, tables);
+        _shell.Notify("Printed from the page you were on.");
     }
 
     [RelayCommand]
@@ -149,7 +469,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.AddGoodsAsync(_id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? 0, GoodsCost ?? 0,
-                null, null, null, null, null);
+                null, null, null, Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
+                null, Currencies.CodeOf(GoodsCurrency), EditYenRate);
+            _shell.MarkChanged();
             _shell.Notify("Item added.");
             ClearGoodsForm();
             await LoadAsync();
@@ -173,10 +495,22 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             var stock = GoodsInStock ?? SelectedItem.InStock;
-            await _inventory.UpdateGoodsAsync(
-                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, stock, stock, GoodsCost ?? 0,
-                null, null, null, SelectedItem.PhotoPath);
-            _shell.Notify("Item updated.");
+            // The Qty box is the landed count and Save has to hear it: a shop that wrote 1,000 and finds 700
+            // in the packing corrects the item, and the freight each piece carries follows that number,
+            // because the expenses are shared over the pieces that came in. What must not move it is the
+            // other box - "In stock" is a shelf count, and letting a stock check re-share the freight onto
+            // fewer pieces would re-price the whole lot from a miscount. The box is filled from the row
+            // before it is edited, so a save that never touched Qty sends the same count back and the
+            // freight lands where it already was.
+            var repriced = await _inventory.UpdateGoodsAsync(
+                SelectedItem.Id, GoodsName, GoodsUnit, GoodsSku, GoodsQty ?? SelectedItem.Purchased, stock,
+                GoodsCost ?? 0, null, null,
+                Money.Round(GoodsWeight ?? 0m, 3) > 0 ? Money.Round(GoodsWeight ?? 0m, 3) : null,
+                SelectedItem.PhotoPath, Currencies.CodeOf(GoodsCurrency), EditYenRate);
+            _shell.MarkChanged();
+            _shell.Notify(repriced == 0
+                ? "Item updated."
+                : $"Item updated. Cost also applied to {repriced} sold line{(repriced == 1 ? "" : "s")} - profit follows.");
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -188,10 +522,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
         if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to change expenses.", true); return; }
         try
         {
-            await _inventory.AddExpenseAsync(_id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0, ExpenseNotes);
+            await _inventory.AddExpenseAsync(_id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory,
+                ExpenseAmount ?? 0, ExpenseNotes, Currencies.CodeOf(ExpenseCurrency), EditYenRate);
+            _shell.MarkChanged();
             _shell.Notify("Expense added.");
-            ExpenseAmount = 0;
-            ExpenseNotes = "";
+            ClearExpenseForm();
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -209,7 +544,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.UpdateExpenseAsync(
-                SelectedExpense.Id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0, ExpenseNotes);
+                SelectedExpense.Id, ExpenseDate?.DateTime ?? DateTime.Today, ExpenseCategory, ExpenseAmount ?? 0,
+                ExpenseNotes, Currencies.CodeOf(ExpenseCurrency), EditYenRate);
+            _shell.MarkChanged();
             _shell.Notify("Expense updated.");
             await LoadAsync();
         }
@@ -224,7 +561,10 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.DeleteExpenseAsync(SelectedExpense.Id);
+            _shell.MarkChanged();
             _shell.Notify("Expense removed.");
+            // The row it was typed from is gone, so the boxes have nothing left to be true about.
+            ClearExpenseForm();
             await LoadAsync();
         }
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
@@ -246,6 +586,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.DeleteGoodsAsync(SelectedItem.Id);
+            _shell.MarkChanged();
             _shell.Notify("Item deleted.");
             ClearGoodsForm();
             await LoadAsync();
@@ -260,7 +601,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.UpdateImportDetailsAsync(
-                _id, EditSupplier, EditSupplierAmount ?? 0, EditCartons, EditCbm, EditWeight);
+                _id, EditSupplier, EditSupplierAmount ?? 0, EditPaidSoFar, EditWeight, EditArrival?.DateTime,
+                EditYenRate);
+            _shell.MarkChanged();
             _shell.Notify("Import details saved.");
             await LoadAsync();
         }
@@ -274,6 +617,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         try
         {
             await _inventory.SetStatusAsync(_id, IsClosed ? ContainerStatus.Open : ContainerStatus.Closed);
+            _shell.MarkChanged();
             _shell.Notify(IsClosed ? "Container re-opened." : "Container closed.");
             await LoadAsync();
         }
@@ -284,6 +628,31 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.Back();
 
+    /// <summary>
+    /// The expense form as it stands before any of it is typed: nothing in the boxes, today on the date,
+    /// rupees at the currency. Add and Remove come through here. Pressing Save on a row does not, because that
+    /// row is still picked and its figures are still honest in the boxes above it - the same convention the
+    /// goods form keeps, so the two halves of the page let go of a draft at the same moment.
+    ///
+    /// The rate box is left alone: it is the container's rate rather than part of this entry, and a run of
+    /// yen bills is typed with one rate showing the whole time, which is also why the yen figures added
+    /// before now keep the rate they were taken at rather than whatever the box is set to next.
+    /// </summary>
+    private void ClearExpenseForm()
+    {
+        ExpenseCategory = "";
+        ExpenseAmount = null;
+        ExpenseNotes = "";
+        ExpenseCurrency = Currencies.EntryLabels[0];
+        ExpenseIsYen = false;
+        ShowExpensePreview = false;
+        ExpensePreview = "";
+        // The same value the box holds when the page first opens, so "reset" means back to that and not to
+        // some second idea of today the file did not have before.
+        ExpenseDate = DateTimeOffset.Now;
+        SelectedExpense = null;
+    }
+
     private void ClearGoodsForm()
     {
         GoodsName = "";
@@ -291,6 +660,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsQty = 1;
         GoodsInStock = null;
         GoodsCost = 0;
+        GoodsWeight = null;
+        GoodsCurrency = Currencies.EntryLabels[0];
+        GoodsIsYen = false;
+        ShowGoodsCostPreview = false;
+        GoodsCostPreview = "";
         SelectedItem = null;
     }
 }
@@ -305,7 +679,30 @@ public class ContainerItemRow
     public decimal InStock { get; set; }
     public decimal UnitCost { get; set; }
     public decimal ForeignCost { get; set; }
+
+    /// <summary>What the piece costs once the container's freight and customs have been shared out by
+    /// weight. This is the figure the grid prints as the cost, because it is the figure the shop sells
+    /// against - and the goods price is not lost: it stays on the item as what was paid to the supplier.</summary>
+    public decimal LandedCost { get; set; }
+    public decimal? WeightKg { get; set; }
+
+    /// <summary>The currency the cost price was typed in, and the rate it was taken at: shown under the
+    /// rupee cost, so a line entered in yen reads as what it was without opening the form again.</summary>
+    public string CostCurrency { get; set; } = "PKR";
+    public decimal? CostRate { get; set; }
+    public decimal CostEntered => CostCurrency == "JPY" ? ForeignCost : UnitCost;
+    public string CostNoteText => CostCurrency == "JPY"
+        ? Money.Yen(ForeignCost) + " at " + Currencies.RateText(CostRate)
+        : "";
     public decimal? Cartons { get; set; }
     public string? PhotoPath { get; set; }
-    public string UnitCostText => Money.Pkr(UnitCost);
+    public string UnitCostText => Money.Pkr(LandedCost > 0 ? LandedCost : UnitCost);
+    /// <summary>The freight part on its own, so the cost column can be read as goods plus this, and the
+    /// addition checked against the tape under the expenses.</summary>
+    public string FreightText => LandedCost - UnitCost > 0.005m ? Money.Pkr(Money.Round(LandedCost - UnitCost)) : "";
+    /// <summary>The lot in all, which is what the expenses are divided by - shown next to the cost it
+    /// bought, so the division can be checked on the screen with a calculator and two numbers.</summary>
+    public string TotalWeightText => WeightKg is decimal w && w > 0 && Purchased > 0
+        ? Money.Kg(Money.Round(w * Purchased, 3))
+        : "no weight";
 }

@@ -1,0 +1,66 @@
+@echo off
+setlocal
+title ProBooks money checks
+cd /d "%~dp0"
+
+echo.
+echo === ProBooks: money checks ===
+echo Runs the real services against a throwaway database in your temp folder. Documents\ProBooks
+echo is never opened. First run downloads packages, which takes a minute or two.
+echo.
+
+where dotnet >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: .NET SDK not found in PATH. Install .NET 8 SDK, then open a NEW command prompt.
+  pause
+  exit /b 1
+)
+
+rem One character in a page - a margin that lost a zero, a quote that was never escaped - stops this build the
+rem same way a bad figure would, and the gate reads the whole repo in a second. Skipping it only costs eight
+rem seconds of compiler to find the same thing.
+set PYEXE=
+where python >nul 2>&1 && set PYEXE=python
+if not defined PYEXE where py >nul 2>&1 && set PYEXE=py
+if defined PYEXE (
+  %PYEXE% tools\check_quotes.py
+  if errorlevel 1 (
+    echo.
+    echo The markup gate stopped this run before building. It names the file and the line; fix that, then run
+    echo this again.
+    pause
+    exit /b 3
+  )
+) else (
+  echo No python in PATH, so the markup gate was skipped. The build below still reads the same files.
+)
+
+rem The checks build the app project too, and a running copy locks its output files.
+tasklist /FI "IMAGENAME eq ProBooks.exe" 2>nul | find /I "ProBooks.exe" >nul
+if not errorlevel 1 (
+  echo ProBooks is open. Closing it so the build can write new files...
+  taskkill /IM ProBooks.exe >nul 2>&1
+  timeout /t 3 /nobreak >nul
+  taskkill /IM ProBooks.exe /F >nul 2>&1
+)
+
+dotnet restore tools\MoneyChecks >nul
+dotnet build tools\MoneyChecks -c Debug --no-restore
+if errorlevel 1 (
+  echo.
+  echo The checks did not build. That is a fault in these checks, not in ProBooks - copy the error above.
+  pause
+  exit /b 2
+)
+
+dotnet run --project tools\MoneyChecks -c Debug --no-build
+set CODE=%ERRORLEVEL%
+
+echo.
+if "%CODE%"=="0" (
+  echo All money checks passed. Notes above are things to decide about, not failures.
+) else (
+  echo %CODE% money check^(s^) FAILED. Copy everything above into the chat.
+)
+pause
+exit /b %CODE%

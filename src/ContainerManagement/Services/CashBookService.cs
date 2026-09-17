@@ -10,6 +10,38 @@ public class CashBookService
 
     public CashBookService(IDbContextFactory<AppDbContext> factory) => _factory = factory;
 
+    /// <summary>What has been paid, newest first, so a payment can be checked against its note.</summary>
+    public async Task<List<SupplierPaymentRow>> SupplierPaymentsAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var pays = await db.SupplierPayments.AsNoTracking().ToListAsync();
+        return pays
+            .OrderByDescending(x => x.Date.Date).ThenByDescending(x => x.Id)
+            .Select(x => new SupplierPaymentRow
+            {
+                ContainerId = x.ContainerId ?? 0,
+                Date = x.Date,
+                Method = x.Method,
+                Amount = x.Amount,
+                Notes = x.Notes
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// What goods came back, day by day. Returns live here because this is the page that answers "how
+    /// does the book look today", and a return on a credit bill moves no cash at all - so it never
+    /// appears as a row, and without this figure the page would be silent about money the shop has
+    /// agreed to give back. The amounts are the value of the goods, not cash that left: the caller keeps
+    /// them out of the running total.
+    /// </summary>
+    public async Task<List<(DateTime Date, decimal Amount)>> ListReturnsAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.SaleReturns.AsNoTracking().ToListAsync();
+        return rows.Select(r => (r.Date, r.Amount)).ToList();
+    }
+
     public async Task<List<CashBookEntry>> ListAsync()
     {
         await using var db = await _factory.CreateDbContextAsync();
@@ -23,6 +55,7 @@ public class CashBookService
 
     public async Task SetOpeningAsync(decimal cashOnHand)
     {
+        cashOnHand = Money.Round(cashOnHand);
         await using var db = await _factory.CreateDbContextAsync();
         var old = await db.CashBook.Where(e => e.Kind == CashBookKind.Opening).ToListAsync();
         var others = await db.CashBook.Where(e => e.Kind != CashBookKind.Opening).Select(e => e.Date).ToListAsync();
@@ -56,7 +89,8 @@ public class CashBookService
             .ToListAsync();
         return list.Select(c =>
         {
-            var owed = c.SupplierAmount - c.SupplierPayments.Sum(p => p.Amount);
+            var paid = c.SupplierPayments.Sum(p => p.Amount);
+            var owed = Money.Round(c.SupplierAmount - paid);
             var supplier = string.IsNullOrWhiteSpace(c.Supplier?.Name) ? "Supplier" : c.Supplier!.Name;
             return new SupplierPayTarget
             {
@@ -64,17 +98,83 @@ public class CashBookService
                 SupplierName = supplier,
                 ContainerTitle = c.Title,
                 Owed = owed,
-                Label = supplier + " · " + c.Title + " · " + OwedLabel(owed)
+                Label = supplier + " · " + c.Title + " · "
+                    + (owed > 0.009m ? "owe " + Money.Pkr(owed)
+                       : owed < -0.009m ? PaidExtraText(-owed)
+                       : "settled")
             };
         }).ToList();
     }
 
-    private static string OwedLabel(decimal owed)
+    /// <summary>
+    /// The year in the till, month by month: what came in, what went out, the value of what came back, and
+    /// the cash each month closed with. January's closing figure carries every line before the year as
+    /// well, so the year can be read as a statement and not only as a movement, and December's is the
+    /// number the Main ledger page holds when the year is the one we are standing in.
+    /// </summary>
+    public async Task<List<TillYearRow>> GetYearCashAsync(int year)
     {
-        if (owed > 0.009m) return "owe " + Money.Pkr(owed);
-        if (owed < -0.009m) return "paid extra " + Money.Pkr(-owed);
-        return "settled";
+        await using var db = await _factory.CreateDbContextAsync();
+        await ImportMissingAsync(db);
+        var lines = await db.CashBook.AsNoTracking().ToListAsync();
+        var returns = await db.SaleReturns.AsNoTracking().ToListAsync();
+
+        var start = new DateTime(year, 1, 1);
+        var running = Money.Round(lines.Where(e => e.Date < start).Sum(e => e.AmountIn - e.AmountOut));
+        var rows = new List<TillYearRow>(12);
+        for (var m = 1; m <= 12; m++)
+        {
+            var from = start.AddMonths(m - 1);
+            var to = from.AddMonths(1);
+            var month = lines.Where(e => e.Date >= from && e.Date < to).ToList();
+            var row = new TillYearRow
+            {
+                Month = m,
+                CashIn = Money.Round(month.Sum(e => e.AmountIn)),
+                CashOut = Money.Round(month.Sum(e => e.AmountOut)),
+                Returns = Money.Round(returns.Where(r => r.Date >= from && r.Date < to).Sum(r => r.Amount))
+            };
+            running += row.CashIn - row.CashOut;
+            row.Closing = Money.Round(running);
+            rows.Add(row);
+        }
+        // The year's own line goes on the end of the rows, so every page that lists them ends the same way
+        // and none of them has to add the twelve up for itself.
+        var totals = TillYearRow.Totals(year, rows);
+        rows.Add(totals);
+        return rows;
     }
+
+    /// <summary>
+    /// The words for money paid past what a container says is owed. It should only ever be found on a
+    /// container entered under the previous rule, since the pay page refuses it now - which is why the
+    /// figure is stated plainly instead of dressed up as an arrangement with the supplier. One method,
+    /// three places: the list, the dropdown and the pay panel must not drift into three stories.
+    /// </summary>
+    /// <summary>
+    /// Cash as a month ends it: everything before the month carried in, then the month's own money in and out.
+    /// Both figures come back, because the card has to say what it is - a month, not the whole book - and a
+    /// carried figure is only worth having if the shop can see it and check it against last month's end.
+    /// Money dated after the month does not reach back into it, and money on the first belongs to the month.
+    /// </summary>
+    public static (decimal Carried, decimal Closing) MonthCash(
+        IEnumerable<(DateTime Date, decimal In, decimal Out)> rows, DateTime start)
+    {
+        var end = start.AddMonths(1);
+        decimal carried = 0m;
+        decimal net = 0m;
+        foreach (var r in rows)
+        {
+            if (r.Date < start)
+                carried += r.In - r.Out;
+            else if (r.Date < end)
+                net += r.In - r.Out;
+        }
+        return (Money.Round(carried), Money.Round(carried + net));
+    }
+
+    public static string PaidExtraText(decimal extra, bool terse = false)
+        => (terse ? "paid extra " : "Paid extra ") + Money.Pkr(Money.Round(extra));
 
     public static void PostCustomerPayment(AppDbContext db, Payment pay, string customerName)
     {
@@ -104,15 +204,94 @@ public class CashBookService
     public static void PostSupplierPayment(AppDbContext db, SupplierPayment pay, string supplierName, string? containerTitle)
     {
         var where = string.IsNullOrWhiteSpace(containerTitle) ? "" : " · " + containerTitle;
+        var note = string.IsNullOrWhiteSpace(pay.Notes) ? "" : " — " + pay.Notes.Trim();
         db.CashBook.Add(new CashBookEntry
         {
             Date = pay.Date,
             Kind = CashBookKind.SupplierOut,
-            Description = "Paid " + supplierName + where,
+            Description = "Paid " + supplierName + where + note,
             AmountIn = 0,
             AmountOut = pay.Amount,
             SupplierPaymentId = pay.Id
         });
+    }
+
+    /// <summary>
+    /// What the returns have left due back from a supplier, after everything already received: the part of each
+    /// credit that the lot's bill could not absorb, less the money that has come in against it. One formula,
+    /// kept with the till's own helpers, so the figure the We Owe page offers and the figure a receipt is
+    /// allowed to take cannot become two different answers.
+    /// </summary>
+    public static decimal DueBackToUs(IEnumerable<SupplierReturn> returns, IEnumerable<SupplierReceipt> receipts)
+        => Money.Round(returns.Sum(r => r.DueToUs) - receipts.Sum(x => x.Amount));
+
+    /// <summary>
+    /// Money a supplier sends back, landed in the till as money in. It is not a sale and not a refund of a
+    /// customer's money: it is the return of what went out for goods that are no longer here, which is why it
+    /// carries its own kind rather than being filed beside the takings.
+    /// </summary>
+    public static void PostSupplierReceipt(AppDbContext db, SupplierReceipt rec, string supplierName, string? note)
+    {
+        var tail = string.IsNullOrWhiteSpace(note) ? "" : " · " + note.Trim();
+        db.CashBook.Add(new CashBookEntry
+        {
+            Date = rec.Date,
+            Kind = CashBookKind.SupplierIn,
+            Description = rec.Method + " from " + supplierName + " · goods sent back" + tail,
+            AmountIn = rec.Amount,
+            AmountOut = 0,
+            SupplierReceiptId = rec.Id
+        });
+    }
+
+    public static void RemoveSupplierReceipt(AppDbContext db, int receiptId)
+    {
+        var rows = db.CashBook.Where(e => e.SupplierReceiptId == receiptId).ToList();
+        db.CashBook.RemoveRange(rows);
+    }
+
+    /// <summary>The suppliers holding our money, per supplier: what their returns left owing back, what has
+    /// come in since, and what is still due. Suppliers with nothing on either side are not listed.</summary>
+    public async Task<List<SupplierDueRow>> SupplierDueAsync()
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var rows = await db.Suppliers.AsNoTracking()
+            .Include(s => s.Returns)
+            .Include(s => s.Receipts)
+            .ToListAsync();
+        return rows
+            .Select(s =>
+            {
+                var due = DueBackToUs(s.Returns, s.Receipts);
+                return new SupplierDueRow
+                {
+                    SupplierId = s.Id,
+                    SupplierName = string.IsNullOrWhiteSpace(s.Name) ? "Supplier" : s.Name,
+                    Returned = Money.Round(s.Returns.Sum(r => r.DueToUs)),
+                    Received = Money.Round(s.Receipts.Sum(x => x.Amount)),
+                    Due = due
+                };
+            })
+            .Where(x => x.Returned > 0.009m || x.Received > 0.009m)
+            .OrderByDescending(x => x.Due).ThenBy(x => x.SupplierName)
+            .ToList();
+    }
+
+    public async Task<List<SupplierReceiptRow>> ListReceiptsAsync(int supplierId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        return (await db.SupplierReceipts.AsNoTracking().Where(x => x.SupplierId == supplierId).ToListAsync())
+            .OrderByDescending(x => x.Date.Date).ThenByDescending(x => x.Id)
+            .Select(x => new SupplierReceiptRow
+            {
+                Id = x.Id,
+                SupplierId = x.SupplierId,
+                Date = x.Date,
+                Amount = x.Amount,
+                Method = x.Method,
+                Notes = x.Notes
+            })
+            .ToList();
     }
 
     public static void PostExpense(AppDbContext db, ShopExpense exp)
@@ -211,6 +390,19 @@ public class CashBookService
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
     }
+}
+
+public class SupplierPaymentRow
+{
+    public int ContainerId { get; set; }
+    public DateTime Date { get; set; }
+    public string Method { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string? Notes { get; set; }
+
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string AmountText => Money.Pkr(Amount);
+    public string NoteText => string.IsNullOrWhiteSpace(Notes) ? "—" : Notes!.Trim();
 }
 
 public class SupplierPayTarget

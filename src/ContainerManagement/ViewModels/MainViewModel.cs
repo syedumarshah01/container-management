@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -9,11 +11,22 @@ namespace ContainerManagement.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IAppShell
 {
+    /// <summary>
+    /// The maker's mark for the shell's own screens - the rail, the PIN gate, the activation card. A
+    /// page gets these from ViewModelBase; the shell is not a page.
+    /// </summary>
+    public Avalonia.Media.Imaging.Bitmap? BrandArt => Data.Brand.Artwork;
+
+    public Avalonia.Media.Imaging.Bitmap? BrandArtOnDark => Data.Brand.ArtworkOnDark;
+
+    public bool HasBrandArt => BrandArt is not null;
+
     private readonly IServiceProvider _services;
     private readonly AccessService _access;
     private readonly LicenseService _license;
     private readonly Dictionary<string, ViewModelBase> _navPages = new();
     private readonly Stack<ViewModelBase> _back = new();
+    private bool _refreshOnBack;
     private static readonly TimeSpan LicenseCheckEvery = TimeSpan.FromHours(12);
     private bool _checkingLicense;
     private DispatcherTimer? _licenseTimer;
@@ -28,6 +41,7 @@ public partial class MainViewModel : ObservableObject, IAppShell
         [
             new NavItem("Home", "dash"),
             new NavItem("Containers", "containers"),
+            new NavItem("Order sheets", "buyplan"),
             new NavItem("Stock", "inventory"),
             new NavItem("Sell", "newsale"),
             new NavItem("Sales", "sales"),
@@ -35,9 +49,9 @@ public partial class MainViewModel : ObservableObject, IAppShell
             new NavItem("To collect", "market"),
             new NavItem("We owe", "weowe"),
             new NavItem("Item sales", "itemsales"),
-            new NavItem("Profit", "profit"),
             new NavItem("Expenses", "expenses"),
             new NavItem("Main ledger", "cashbook"),
+            new NavItem("Reports", "reports"),
             new NavItem("Backup", "backup"),
             new NavItem("Settings", "settings")
         ];
@@ -221,16 +235,40 @@ public partial class MainViewModel : ObservableObject, IAppShell
         IsError = error;
     }
 
+    /// <summary>
+    /// The window's clipboard, best effort: a machine with no clipboard, or one another program is holding
+    /// open, is not worth an error of its own on top of the failure that got us here.
+    /// </summary>
+    public async Task CopyTextAsync(string text)
+    {
+        try
+        {
+            var clipboard = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow?.Clipboard;
+            if (clipboard is not null)
+                await clipboard.SetTextAsync(text);
+        }
+        catch
+        {
+            // The text is already lost to the other program; saying so twice would not help.
+        }
+    }
+
     public void Back()
     {
+        var reload = _refreshOnBack;
+        _refreshOnBack = false;
+
         if (_back.Count > 0)
         {
-            Present(_back.Pop(), allowReload: false);
+            Present(_back.Pop(), allowReload: false, forceReload: reload);
             return;
         }
         if (SelectedNav is not null)
-            Present(NavPage(SelectedNav.Key), allowReload: false);
+            Present(NavPage(SelectedNav.Key), allowReload: false, forceReload: reload);
     }
+
+    public void MarkChanged() => _refreshOnBack = true;
 
     public void GoDashboard() => Select("dash");
     public void GoContainers() => Select("containers");
@@ -245,6 +283,11 @@ public partial class MainViewModel : ObservableObject, IAppShell
 
     public void OpenContainer(int id) =>
         Push(ActivatorUtilities.CreateInstance<ContainerDetailViewModel>(_services, id));
+
+    public void GoBuyPlans() => Select("buyplan");
+
+    public void OpenBuyPlan(int id) =>
+        Push(ActivatorUtilities.CreateInstance<BuyPlanDetailViewModel>(_services, id));
 
     public void OpenSale(int id)
     {
@@ -294,10 +337,10 @@ public partial class MainViewModel : ObservableObject, IAppShell
         return page;
     }
 
-    private void Present(ViewModelBase vm, bool forceLoad = false, bool allowReload = true)
+    private void Present(ViewModelBase vm, bool forceLoad = false, bool allowReload = true, bool forceReload = false)
     {
         CurrentPage = vm;
-        _ = LoadSafe(vm, forceLoad, allowReload);
+        _ = LoadSafe(vm, forceLoad || forceReload, allowReload);
     }
 
     private async Task LoadSafe(ViewModelBase vm, bool forceLoad, bool allowReload)
@@ -327,15 +370,16 @@ public partial class MainViewModel : ObservableObject, IAppShell
         "dash" => _services.GetRequiredService<DashboardViewModel>(),
         "containers" => _services.GetRequiredService<ContainersViewModel>(),
         "inventory" => _services.GetRequiredService<InventoryViewModel>(),
+        "buyplan" => _services.GetRequiredService<BuyPlansViewModel>(),
         "itemsales" => _services.GetRequiredService<ItemSalesViewModel>(),
         "newsale" => _services.GetRequiredService<NewSaleViewModel>(),
         "sales" => _services.GetRequiredService<SalesViewModel>(),
         "customers" => _services.GetRequiredService<CustomersViewModel>(),
         "market" => _services.GetRequiredService<ReceivablesViewModel>(),
         "weowe" => _services.GetRequiredService<WeOweViewModel>(),
-        "profit" => _services.GetRequiredService<ProfitViewModel>(),
         "expenses" => _services.GetRequiredService<ExpensesViewModel>(),
         "cashbook" => _services.GetRequiredService<MainLedgerViewModel>(),
+        "reports" => _services.GetRequiredService<ReportsViewModel>(),
         "backup" => _services.GetRequiredService<BackupViewModel>(),
         "settings" => _services.GetRequiredService<SettingsViewModel>(),
         _ => _services.GetRequiredService<DashboardViewModel>()
