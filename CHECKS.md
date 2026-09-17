@@ -1,7 +1,7 @@
 # What the money checks prove, and what they cannot
 
-`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **422
-assertions over 70 of the app's 111 service methods**, in 60 named groups, against a throwaway database in
+`check.bat` (Linux/macOS: `./check.sh`) builds `tools/MoneyChecks` and runs it. Today that is **445
+assertions over 72 of the app's 113 service methods**, in 61 named groups, against a throwaway database in
 your temp folder. `Documents\ProBooks` is never opened, no browser or printer is launched, and the exit code
 is the number of failures.
 
@@ -20,6 +20,7 @@ has to follow to be worth adding.
 | `InvoiceStanding` | a printed bill's "previous balance" read from the ledger at that bill's own line, so reprinting cannot rewrite history |
 | `FreightSplit` | the expenses shared by weight into a piece's cost: shares equal the bills to the paisa, the odd paisa on the biggest lot, and an unweighed item stops the sharing for the box |
 | `GoodsBack` | goods handed back to the supplier: the units leave and what arrived does not move, a till refund and a settlement against the bill each touch only their own figure, a count cannot invent units that left the building, undoing a return reverses exactly the lines it wrote, and a lot is deletable only when nothing in the book speaks of it |
+| `BillRemoval` | taking a cancelled bill out of the book: the number it carried is never handed to the next sale (the series, not the rows, decides it), the units and the money figures do not move twice, a bill that was paid or had goods back on it cannot be taken out and says why, and a lot is freed for the shelf only once its last bill is gone |
 | `PrintPaper` | the paper is the screen, said again: cells copied and never recomputed, names escaped so a table cannot be broken by an ampersand, totals last and marked, and every Print button matched to a print command and back - across the whole source folder, not one page at a time |
 | `Updates` | the decision an update makes, with no network in it: versions compared by numbers, the folder's own state deciding what the button may do, and the script that does the work held to a list of what it must say and what it must never say |
 | `Storage`, and the exactness sweep | no money column anywhere holds a third decimal, and no figure is stored differently from how it is printed |

@@ -88,7 +88,7 @@ public class SalesService
                 {
                     SaleId = s.Id,
                     Remaining = left,
-                    Label = $"#{s.Id} · {s.Date:dd MMM yyyy} · left {Money.Pkr(left)}",
+                    Label = $"#{s.InvoiceNo} · {s.Date:dd MMM yyyy} · left {Money.Pkr(left)}",
                     Containers = string.Join(" + ", lots.Select(c => string.IsNullOrWhiteSpace(c.ContainerNumber)
                         ? c.Title
                         : $"{c.Title} · {c.ContainerNumber}"))
@@ -109,6 +109,89 @@ public class SalesService
         DateTime? dueDate)
     {
         return await SaveSaleAsync(null, customerId, date, lines, paidNow, paymentMethod, notes, discount, dueDate);
+    }
+
+    /// <summary>
+    /// The next bill number, out of the shop's own series rather than counted off its bills. The stored figure
+    /// is held up to whatever the rows already carry, so a row written by hand or brought back in a restore
+    /// cannot make a number that has been printed once get printed twice. Deleting a bill therefore costs the
+    /// book nothing but a gap - and a gap in a bill book reads as a voided bill, which is what it is.
+    /// </summary>
+    private static async Task<int> NextNumberAsync(AppDbContext db)
+    {
+        const string series = "invoice";
+        var row = await db.NumberSeries.FindAsync(series);
+        if (row is null)
+        {
+            row = new NumberSeries { Name = series, LastIssued = 0 };
+            db.NumberSeries.Add(row);
+        }
+
+        var issued = Math.Max(row.LastIssued, await db.Sales.AsNoTracking().MaxAsync(s => (int?)s.InvoiceNo) ?? 0);
+        issued = Math.Max(issued, await db.Sales.AsNoTracking().MaxAsync(s => (int?)s.Id) ?? 0);
+        row.LastIssued = issued + 1;
+        return row.LastIssued;
+    }
+
+    /// <summary>
+    /// Whether this bill may be offered the way out of the book, answered by the same rule the delete holds
+    /// itself to. A button that cannot work is not shown, and no second copy of the rule is left around to
+    /// drift from the first.
+    /// </summary>
+    public async Task<bool> BillCanBeDeletedAsync(int saleId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var sale = await db.Sales.FindAsync(saleId);
+        return sale is not null && await BlockedBecauseAsync(db, sale) is null;
+    }
+
+    /// <summary>
+    /// Take a bill out of the book, when nothing stands in the way: it has been cancelled, nothing was ever
+    /// paid on it, and no goods came back on it. What is left behind is deliberate. Receipts, ledger lines and
+    /// till lines are the record of money that moved and of a balance that was put right, and a book whose
+    /// entries disappear because the paper they described was taken out is a book nobody can check. The bill
+    /// and its goods lines are what go - and the goods lines going is what frees the container they came out
+    /// of, which is the whole reason this door exists. The units went back to the lot the moment the bill was
+    /// cancelled, so this moves no stock and needs no stock arithmetic of its own.
+    /// </summary>
+    public async Task DeleteCancelledSaleAsync(int saleId)
+    {
+        await using var db = await _factory.CreateDbContextAsync();
+        var sale = await db.Sales.Include(x => x.Lines).FirstOrDefaultAsync(x => x.Id == saleId)
+            ?? throw new InvalidOperationException("This bill is not in the book. It may already have been taken out.");
+
+        var why = await BlockedBecauseAsync(db, sale);
+        if (why is not null)
+            throw new InvalidOperationException(why);
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+
+        // The lines this bill wrote in the customer's ledger and in the till keep their figures and lose the
+        // pointer. They are the record of what happened, and a bill crossed off a bill book is still crossed
+        // off; but a number left pointing at a row that is gone would be a number pointing at whatever sale is
+        // handed that row next, and that is a link to the wrong bill.
+        foreach (var line in db.LedgerEntries.Where(x => x.SaleId == saleId).ToList())
+            line.SaleId = null;
+        foreach (var line in db.CashBook.Where(x => x.SaleId == saleId).ToList())
+            line.SaleId = null;
+
+        db.SaleLines.RemoveRange(sale.Lines);
+        db.Sales.Remove(sale);
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+    }
+
+    private static async Task<string?> BlockedBecauseAsync(AppDbContext db, Sale sale)
+    {
+        if (sale.Status != SaleStatus.Cancelled)
+            return "Only a bill that has been cancelled can be taken out of the book. A bill that stands is a sale the shop made.";
+        if (await db.SaleReturns.AnyAsync(r => r.SaleId == sale.Id))
+            return "This bill has returns against its goods. A bill and its returns are what hold the customer's "
+                   + "balance right, and taking the bill out would leave them standing on nothing.";
+        if (await db.Payments.AnyAsync(p => p.SaleId == sale.Id))
+            return "Money came in on this bill, so its receipts and the till's lines for it stay in the book - "
+                   + "even though it was cancelled and paid back. Cancelled bills cost nothing to leave where they are.";
+        return null;
     }
 
     public async Task<Sale> UpdateSaleAsync(
@@ -167,7 +250,7 @@ public class SalesService
             Type = LedgerType.Return,
             Debit = 0,
             Credit = sale.TotalAmount,
-            Description = $"Cancelled sale #{sale.Id}",
+            Description = $"Cancelled sale #{sale.InvoiceNo}",
             SaleId = sale.Id
         });
 
@@ -181,7 +264,7 @@ public class SalesService
                 Type = LedgerType.Adjustment,
                 Debit = pay.Amount,
                 Credit = 0,
-                Description = $"Cash returned — cancelled sale #{sale.Id}",
+                Description = $"Cash returned — cancelled sale #{sale.InvoiceNo}",
                 SaleId = sale.Id,
                 PaymentId = pay.Id
             });
@@ -189,7 +272,7 @@ public class SalesService
 
         sale.Status = SaleStatus.Cancelled;
         sale.CancelledAt = DateTime.Now;
-        CashBookService.PostRefunds(db, pays, sale.Id, sale.Customer.Name);
+        CashBookService.PostRefunds(db, pays, sale.Id, sale.Customer.Name, sale.InvoiceNo);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
@@ -319,7 +402,7 @@ public class SalesService
             Type = LedgerType.Return,
             Debit = 0,
             Credit = ret.Amount,
-            Description = $"Return · sale #{sale.Id} · {string.Join(", ", names)}",
+            Description = $"Return · sale #{sale.InvoiceNo} · {string.Join(", ", names)}",
             SaleId = sale.Id
         });
 
@@ -335,14 +418,14 @@ public class SalesService
                 Type = LedgerType.Adjustment,
                 Debit = back,
                 Credit = 0,
-                Description = $"Cash paid on return - sale #{sale.Id}",
+                Description = $"Cash paid on return - sale #{sale.InvoiceNo}",
                 SaleId = sale.Id
             });
             db.CashBook.Add(new CashBookEntry
             {
                 Date = DateTime.Today,
                 Kind = CashBookKind.RefundOut,
-                Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.Id}",
+                Description = $"Cash returned to {sale.Customer.Name} · return on sale #{sale.InvoiceNo}",
                 AmountIn = 0,
                 AmountOut = back,
                 SaleId = sale.Id
@@ -469,6 +552,11 @@ public class SalesService
         if (paidNow > sale.TotalAmount)
             throw new InvalidOperationException("Amount received cannot be more than the bill. Put extra as a separate payment on the customer ledger.");
 
+        // A new bill is numbered here, before anything writes a line that names it, so the number on the
+        // ledger, in the till and on the paper is one number rather than three readings of a row id.
+        if (existingId is null)
+            sale.InvoiceNo = await NextNumberAsync(db);
+
         await db.SaveChangesAsync();
 
         db.LedgerEntries.Add(new LedgerEntry
@@ -478,7 +566,7 @@ public class SalesService
             Type = LedgerType.Sale,
             Debit = sale.TotalAmount,
             Credit = 0,
-            Description = $"Sale #{sale.Id} to {customer.Name}",
+            Description = $"Sale #{sale.InvoiceNo} to {customer.Name}",
             SaleId = sale.Id
         });
 
@@ -490,7 +578,7 @@ public class SalesService
                 Date = date,
                 Amount = paidNow,
                 Method = string.IsNullOrWhiteSpace(paymentMethod) ? "Cash" : paymentMethod.Trim(),
-                Notes = $"Against sale #{sale.Id}",
+                Notes = $"Against sale #{sale.InvoiceNo}",
                 SaleId = sale.Id
             };
             db.Payments.Add(pay);
@@ -503,11 +591,11 @@ public class SalesService
                 Type = LedgerType.Payment,
                 Debit = 0,
                 Credit = paidNow,
-                Description = $"{pay.Method} against sale #{sale.Id}",
+                Description = $"{pay.Method} against sale #{sale.InvoiceNo}",
                 SaleId = sale.Id,
                 PaymentId = pay.Id
             });
-            CashBookService.PostCustomerPayment(db, pay, customer.Name);
+            CashBookService.PostCustomerPayment(db, pay, customer.Name, sale.InvoiceNo);
         }
 
         await db.SaveChangesAsync();

@@ -150,6 +150,12 @@ public class Sale
     public decimal PaidNow { get; set; }
     public decimal DiscountAmount { get; set; }
     public DateTime? DueDate { get; set; }
+    /// <summary>The number this bill is printed with and spoken about by. It is kept on the row rather than
+    /// read off it, because a row can be taken out of the book and the number it carried must not come back as
+    /// somebody else's paper: the id is handed to the next sale, a number is not. Issued from a series of its
+    /// own, so it only ever goes up - see SalesService.NextNumberAsync.</summary>
+    public int InvoiceNo { get; set; }
+
     public SaleStatus Status { get; set; } = SaleStatus.Active;
     public DateTime? CancelledAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -360,6 +366,18 @@ public class SupplierPayment
     public string? Notes { get; set; }
     public int? ContainerId { get; set; }
     public CargoContainer? Container { get; set; }
+}
+
+/// <summary>
+/// One row per thing this shop numbers, and the highest number it has handed out. The figure lives here
+/// rather than being counted off the rows, because rows can be taken out of the book - and a bill book that
+/// counts its own rows can hand a used number to somebody else. At worst a number gets skipped, and a gap in
+/// a bill book reads as a voided bill, which is exactly what it would be.
+/// </summary>
+public class NumberSeries
+{
+    public string Name { get; set; } = "";
+    public int LastIssued { get; set; }
 }
 
 public class StockAdjustment

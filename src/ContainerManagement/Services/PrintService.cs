@@ -12,7 +12,7 @@ public class PrintService
         decimal totalDue, decimal dueToday)
     {
         var sb = new StringBuilder();
-        Start(sb, shop, $"Invoice #{sale.Id}");
+        Start(sb, shop, $"Invoice #{sale.InvoiceNo}");
         sb.Append($"<p class='muted'>{H(sale.Date.ToString("dd MMM yyyy"))}");
         if (sale.DueDate is DateTime due)
             sb.Append($" · Due {H(due.ToString("dd MMM yyyy"))}");

@@ -81,7 +81,7 @@ public partial class NewSaleViewModel : ViewModelBase
         {
             var sale = await _sales.GetSaleAsync(sid)
                 ?? throw new InvalidOperationException("Sale not found.");
-            Heading = $"Edit sale #{sale.Id}";
+            Heading = $"Edit sale #{sale.InvoiceNo}";
             SelectedCustomer = Customers.FirstOrDefault(c => c.Id == sale.CustomerId);
             SaleDate = new DateTimeOffset(sale.Date);
             DueDate = sale.DueDate is DateTime d ? new DateTimeOffset(d) : null;
@@ -274,14 +274,14 @@ public partial class NewSaleViewModel : ViewModelBase
                 sale = await _sales.UpdateSaleAsync(
                     sid, SelectedCustomer.Id, SaleDate?.DateTime ?? DateTime.Today,
                     Lines.ToList(), PaidNow ?? 0, Method, Notes, Discount ?? 0, due);
-                _shell.Notify($"Sale #{sale.Id} updated.");
+                _shell.Notify($"Sale #{sale.InvoiceNo} updated.");
             }
             else
             {
                 sale = await _sales.CreateSaleAsync(
                     SelectedCustomer.Id, SaleDate?.DateTime ?? DateTime.Today,
                     Lines.ToList(), PaidNow ?? 0, Method, Notes, Discount ?? 0, due);
-                _shell.Notify($"Sale #{sale.Id} saved. Ledger updated.");
+                _shell.Notify($"Sale #{sale.InvoiceNo} saved. Ledger updated.");
                 await ResetDraftAsync();
             }
             _shell.OpenSale(sale.Id);

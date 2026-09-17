@@ -121,6 +121,9 @@ public class LedgerService
             ?? throw new InvalidOperationException("Customer not found.");
 
         string? against = null;
+        // The bill's own number, kept out here so the till line written below can name the paper the money
+        // came in against rather than the row behind it.
+        int? invoiceNo = null;
         if (saleId is int sid)
         {
             var sale = await db.Sales.FindAsync(sid)
@@ -133,8 +136,9 @@ public class LedgerService
             var returned = await db.SaleReturns.Where(r => r.SaleId == sid).ToListAsync();
             var left = sale.TotalAmount - already.Sum(p => p.Amount) - returned.Sum(r => r.Amount);
             if (amount - left > 0.009m)
-                throw new InvalidOperationException($"Only {Money.Pkr(left)} is left on invoice #{sid}.");
-            against = $" against sale #{sid}";
+                throw new InvalidOperationException($"Only {Money.Pkr(left)} is left on invoice #{sale.InvoiceNo}.");
+            against = $" against sale #{sale.InvoiceNo}";
+            invoiceNo = sale.InvoiceNo;
         }
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -164,7 +168,7 @@ public class LedgerService
             PaymentId = pay.Id,
             SaleId = saleId
         });
-        CashBookService.PostCustomerPayment(db, pay, customer.Name);
+        CashBookService.PostCustomerPayment(db, pay, customer.Name, invoiceNo);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return pay;

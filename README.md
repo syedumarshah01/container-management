@@ -88,6 +88,7 @@ Then run `publish/mac/ProBooks`.
 | Goods back to the supplier | **Containers** → open the lot → **Sent back to supplier** → units, and what came back |
 | Delete a container (only a lot nothing was written against) | **Containers** → open the lot → **Delete container** |
 | Sell (must pick container) | **New Sale** |
+| Take a cancelled bill out of the book (nothing paid on it) | **Sales** → open the bill → **Delete bill** twice |
 | Grand inventory | **Grand Inventory** |
 | Customer ledger | **Customers** → double-click a name |
 | Collect money | Customer screen → **Record payment** |
