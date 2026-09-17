@@ -46,6 +46,19 @@ date is the day it was pushed.
 - Boxes and their captions on a line now stand on that line: a date box beside a button or a heading used to
   sit half a row above it, on every page that has one.
 
+- Goods can be handed back to the supplier. On a container's own page, a goods line goes back with what came
+  with it - money into the till, a settlement against their bill, and money back against the freight, each
+  typed and each kept apart, so nothing decides on the shop's behalf where its money landed. What arrived on
+  the container stays what arrived: the units leave the shelf, the lot's stock and value follow, and the bill
+  the supplier sent is not rewritten.
+- A credit note from a supplier now settles a bill without pretending money left the till, and the We Owe page
+  can record one directly.
+- A container can be deleted when nothing in the book speaks of it - no sale on it, no bill on it, no payment
+  made on it, no goods sent back from it. Anything else is refused, in words that say what is in the way, and
+  closing the lot is what the page suggests instead: a closed lot leaves every stock picker and the sell page
+  while its paper stays where the month's total and the printed pack can be read.
+- A stock count can no longer say a goods line holds more than is left after its goods went back.
+
 ## 1.0.0
 
 - The book as it was released: containers and their landed costs, selling against a lot, the customer ledgers,

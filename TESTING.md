@@ -498,6 +498,22 @@ rather than assuming it. Say the word and I will move those columns to text for 
    "We owe" here is what is left to pay, and the bill is that figure plus every payment. The words line
    and this box must say the same amount, since both are the same money.
 
+4q. A container handed back whole. On a lot that has been sold out, take the customers' goods in on each
+   bill (or cancel the bill), then open the lot and use **Sent back to supplier**: pick the goods line in the
+   items table, say how many units go, and write what comes back into any of the three boxes - *Into the till*,
+   *Against their bill*, *Against freight*. Then read the three figures those boxes are each the only owner of:
+   the till on Main ledger moves by the first and no other; "We owe (Rs)" on the lot moves by the second and no
+   other; the freight tape under the Expenses card and every *Cost each* on the lot move by the third and no
+   other. On every goods line, *Purchased* less *In Stock* less *Sent back* is what went out on invoices that
+   still stand, and a stock count above what is left after the returns must be refused. Two things must be refused without changing anything, units included:
+   settling more against the bill than the lot owes, and recovering more against freight than its bills add up
+   to. **Delete container** must refuse on a lot holding a bill, a payment, a return or a sale - a cancelled
+   one counts - and name what is in the way; it must work on a lot nothing was written against, and that lot's
+   goods line must be gone with it. Picking a line in the returns table and pressing *Remove return* puts the
+   units back on the shelf and takes out exactly what that return wrote - no other till line, no other bill.
+   Finally, on the lot's paper (Print): the returns belong to it as their own table with a total line, and only
+   when there is something to print.
+
 8. Settings → Updates, as the owner. "Check for updates" should say one of a small number of honest things:
    nothing is waiting, an update is ready (naming the version it is going to and the one it is leaving), the
    branch could not be reached, or this folder has work in it that has to be put away first. When an update is

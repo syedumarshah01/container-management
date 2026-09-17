@@ -96,9 +96,30 @@ public partial class ContainerDetailViewModel : ViewModelBase
     [ObservableProperty] private bool showImportEditor;
     [ObservableProperty] private bool showItemForm;
 
+    // The send-back line. Its own boxes rather than the item form's, because the two acts move stock in
+    // opposite directions and a box that had to be re-typed for either would be a box that gets used wrong.
+    [ObservableProperty] private string backTarget = "";
+    [ObservableProperty] private decimal? backQty;
+    [ObservableProperty] private DateTimeOffset? backDate = DateTimeOffset.Now;
+    [ObservableProperty] private string backReason = "";
+    [ObservableProperty] private decimal? backTill;
+    [ObservableProperty] private decimal? backBill;
+    [ObservableProperty] private decimal? backFreight;
+    [ObservableProperty] private string backNotes = "";
+    [ObservableProperty] private string backOwed = "";
+    [ObservableProperty] private bool showBackForm;
+    [ObservableProperty] private SupplierReturnRow? selectedReturn;
+
+    /// <summary>Two taps for the one action in this book that cannot be undone: the button arms itself,
+    /// then deletes. A whole container is not taken out of the books by a stray click.</summary>
+    [ObservableProperty] private bool confirmDelete;
+
+    [ObservableProperty] private string deleteLabel = "Delete container";
+
     public override bool FillsPage => true;
 
     public ObservableCollection<ContainerItemRow> Items { get; } = new();
+    public ObservableCollection<SupplierReturnRow> Returns { get; } = new();
     public ObservableCollection<ContainerExpense> Expenses { get; } = new();
     public IReadOnlyList<string> UnitOptions { get; } = Units.All;
     public IReadOnlyList<string> CurrencyOptions { get; } = Currencies.EntryLabels;
@@ -108,6 +129,7 @@ public partial class ContainerDetailViewModel : ViewModelBase
         IsOwner = _access.IsOwner;
         var selectedId = SelectedItem?.Id;
         var selectedExpenseId = SelectedExpense?.Id;
+        var selectedReturnId = SelectedReturn?.Id;
 
         var c = await _inventory.GetContainerAsync(_id);
         if (c is null)
@@ -149,7 +171,14 @@ public partial class ContainerDetailViewModel : ViewModelBase
               + "extra to the next shipment is the tidier fix."
             : "";
         IsClosed = c.Status == ContainerStatus.Closed;
+        // The figure the settlement against their bill has to stay inside of, said before it is typed rather
+        // than refused after it. It is the same subtraction the pay-a-supplier list makes, from the same helper.
+        BackOwed = owedNow > 0.009m ? Money.Pkr(owedNow) + " owed on this container" : "Nothing owed on this container";
 
+        // Summed once here rather than counted on each row, so the figure in the goods table and the one in
+        // the returns table below it are the same rows added the same way.
+        var sentBack = c.SupplierReturns.GroupBy(r => r.ContainerItemId)
+            .ToDictionary(g => g.Key, g => Money.Round(g.Sum(r => r.Quantity), 3));
         _loadingSelection = true;
         Items.Clear();
         foreach (var i in c.Items)
@@ -169,15 +198,34 @@ public partial class ContainerDetailViewModel : ViewModelBase
                 CostCurrency = i.CostCurrency,
                 CostRate = i.CostRate,
                 Cartons = i.Cartons,
-                PhotoPath = i.PhotoPath ?? i.Product.PhotoPath
+                PhotoPath = i.PhotoPath ?? i.Product.PhotoPath,
+                SentBack = sentBack.GetValueOrDefault(i.Id, 0m)
             });
         }
         Expenses.Clear();
         foreach (var e in c.Expenses.OrderByDescending(x => x.Date))
             Expenses.Add(e);
 
+        Returns.Clear();
+        foreach (var r in c.SupplierReturns.OrderByDescending(x => x.Date).ThenByDescending(x => x.Id))
+        {
+            Returns.Add(new SupplierReturnRow
+            {
+                Id = r.Id,
+                Date = r.Date,
+                ItemName = r.Item.Product.Name,
+                Quantity = r.Quantity,
+                IntoTill = r.IntoTillPkr,
+                AgainstBill = r.AgainstBillPkr,
+                AgainstFreight = r.AgainstFreightPkr,
+                Reason = r.Reason,
+                Notes = r.Notes
+            });
+        }
+
         SelectedItem = selectedId is int sid ? Items.FirstOrDefault(i => i.Id == sid) : null;
         SelectedExpense = selectedExpenseId is int eid ? Expenses.FirstOrDefault(e => e.Id == eid) : null;
+        SelectedReturn = selectedReturnId is int rid ? Returns.FirstOrDefault(x => x.Id == rid) : null;
         _loadingSelection = false;
 
         var p = await _reports.GetContainerProfitAsync(_id);
@@ -203,12 +251,19 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsCurrency = Currencies.Shown(value.CostCurrency);
         GoodsIsYen = value.CostCurrency == "JPY";
         GoodsWeight = value.WeightKg;
+        BackTarget = value.Name + " — " + Money.Qty3(value.InStock) + " " + value.Unit + " here"
+                     + (value.SentBack > 0.0004m ? ", " + Money.Qty3(value.SentBack) + " already sent back" : "");
+        // The units are not filled in from what is here: the form says what is here, and what goes back is
+        // the shop's own figure, typed - which is the only way a mis-typed zero shows itself.
+        ShowBackForm = true;
         UpdateGoodsPreview();
     }
 
     [ObservableProperty] private bool showExpenseTape;
 
     partial void OnExpenseTapeChanged(string value) => ShowExpenseTape = !string.IsNullOrWhiteSpace(value);
+
+    partial void OnConfirmDeleteChanged(bool value) => DeleteLabel = value ? "Tap again to delete" : "Delete container";
     partial void OnExpenseAmountChanged(decimal? value) => UpdateExpensePreview();
 
     partial void OnExpenseCurrencyChanged(string value)
@@ -309,12 +364,33 @@ public partial class ContainerDetailViewModel : ViewModelBase
         {
             e.Date.ToString("dd MMM yyyy"), e.Category, e.SourceText, e.Currency,
         }).Cast<IReadOnlyList<string>>().ToList();
-        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, new[]
+        // The returns only earn a table when there are any to print, and the total line is labelled as a
+        // total, so a sheet read on paper cannot be mistaken for a list of goods.
+        var backs = Returns.Select(r => new[]
         {
-            new PrintTable("Goods",
+            r.DateText, r.ItemName, r.QuantityText, r.IntoTillText, r.AgainstBillText, r.AgainstFreightText,
+            r.Reason ?? ""
+        }).Cast<IReadOnlyList<string>>().ToList();
+        var tables = new List<PrintTable>
+        {
+            new("Goods",
                 new[] { "Item", "Code", "Unit", "Cost each", "Freight each", "Weight", "Cost as written" }, goods, null, 3),
-            new PrintTable("Bills", new[] { "Date", "What it was for", "As it was written", "Money" }, bills, null, 2),
-        });
+            new("Bills", new[] { "Date", "What it was for", "As it was written", "Money" }, bills, null, 2),
+        };
+        if (backs.Count > 0)
+        {
+            tables.Add(new PrintTable("Sent back to supplier",
+                new[] { "Date", "Item", "Units", "Into the till", "Against their bill", "Against freight", "Why" },
+                backs,
+                new[]
+                {
+                    "All returns", "", Money.Qty3(Returns.Sum(r => r.Quantity)),
+                    Money.Pkr(Money.Round(Returns.Sum(r => r.IntoTill))),
+                    Money.Pkr(Money.Round(Returns.Sum(r => r.AgainstBill))),
+                    Money.Pkr(Money.Round(Returns.Sum(r => r.AgainstFreight))), ""
+                }, 2));
+        }
+        _print.PrintTables($"container-{_id}-paper.html", Title, Subtitle, tables);
         _shell.Notify("Printed from the page you were on.");
     }
 
@@ -479,6 +555,84 @@ public partial class ContainerDetailViewModel : ViewModelBase
         catch (Exception ex) { _shell.Notify(ex.Message, true); }
     }
 
+    /// <summary>
+    /// Hand goods back to the supplier, with whatever came back with them. Every figure on the form is typed
+    /// and kept as typed: which of the three boxes the money went into is the shop's answer about where its
+    /// money landed, and this page does not choose it.
+    /// </summary>
+    [RelayCommand]
+    private async Task SendBackAsync()
+    {
+        if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to send goods back.", true); return; }
+        if (SelectedItem is null)
+        {
+            _shell.Notify("Select an item in the items table first, to say what goes back.", true);
+            return;
+        }
+        if (BackQty is not decimal units || units <= 0m)
+        {
+            _shell.Notify("Say how many units are going back.", true);
+            return;
+        }
+        try
+        {
+            var r = await _inventory.ReturnToSupplierAsync(SelectedItem.Id, BackDate?.DateTime ?? DateTime.Today,
+                units, BackReason, BackTill ?? 0m, BackBill ?? 0m, BackFreight ?? 0m, BackNotes);
+            _shell.MarkChanged();
+            var back = Money.Round(r.IntoTillPkr + r.AgainstBillPkr + r.AgainstFreightPkr);
+            _shell.Notify(back > 0.004m
+                ? Money.Qty3(r.Quantity) + " sent back, " + Money.Pkr(back) + " came with them."
+                : Money.Qty3(r.Quantity) + " sent back, nothing settled for them.");
+            ClearBackForm();
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    [RelayCommand]
+    private async Task RemoveReturnAsync()
+    {
+        if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to remove a return.", true); return; }
+        if (SelectedReturn is null)
+        {
+            _shell.Notify("Select the line in the returns table to remove it.", true);
+            return;
+        }
+        try
+        {
+            await _inventory.RemoveReturnAsync(SelectedReturn.Id);
+            _shell.MarkChanged();
+            _shell.Notify("Return removed, and the units are back in stock.");
+            await LoadAsync();
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
+    /// <summary>
+    /// Take the container out of the book. The service refuses it on any lot that money or goods moved
+    /// against, and says what is in the way, so this page never has to hold a second opinion about what is
+    /// safe to delete.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteAsync()
+    {
+        if (!_access.IsOwner) { _shell.Notify("Owner PIN needed to delete a container.", true); return; }
+        if (!ConfirmDelete)
+        {
+            ConfirmDelete = true;
+            return;
+        }
+        ConfirmDelete = false;
+        try
+        {
+            await _inventory.DeleteContainerAsync(_id);
+            _shell.MarkChanged();
+            _shell.GoContainers();
+            _shell.Notify("Container deleted.");
+        }
+        catch (Exception ex) { _shell.Notify(ex.Message, true); }
+    }
+
     [RelayCommand] private void ToggleImport() => ShowImportEditor = !ShowImportEditor;
     [RelayCommand] private void SellFromHere() => _shell.GoNewSale();
     [RelayCommand] private void Back() => _shell.Back();
@@ -508,6 +662,19 @@ public partial class ContainerDetailViewModel : ViewModelBase
         SelectedExpense = null;
     }
 
+    private void ClearBackForm()
+    {
+        BackTarget = "";
+        BackQty = null;
+        BackDate = DateTimeOffset.Now;
+        BackReason = "";
+        BackTill = null;
+        BackBill = null;
+        BackFreight = null;
+        BackNotes = "";
+        SelectedReturn = null;
+    }
+
     private void ClearGoodsForm()
     {
         GoodsName = "";
@@ -532,6 +699,13 @@ public class ContainerItemRow
     public string Unit { get; set; } = "pcs";
     public decimal Purchased { get; set; }
     public decimal InStock { get; set; }
+
+    /// <summary>What has been handed back to the supplier off this line. It sits between what was landed and
+    /// what is in stock so the two figures can be read as one story: what arrived, what went back, what is
+    /// here. Blank when nothing went back, because a column of noughts is noise.</summary>
+    public decimal SentBack { get; set; }
+
+    public string SentBackText => SentBack > 0.0004m ? Money.Qty3(SentBack) : "";
     public decimal UnitCost { get; set; }
     public decimal ForeignCost { get; set; }
 
@@ -560,4 +734,28 @@ public class ContainerItemRow
     public string TotalWeightText => WeightKg is decimal w && w > 0 && Purchased > 0
         ? Money.Kg(Money.Round(w * Purchased, 3))
         : "no weight";
+}
+
+/// <summary>
+/// One goods return as the container's page reads it. The three money figures are shown as they were settled,
+/// side by side with the units they were settled on, because the pair is the point: a container whose goods
+/// went back for nothing is a loss, and the row that says so has to be legible on its own.
+/// </summary>
+public class SupplierReturnRow
+{
+    public int Id { get; set; }
+    public DateTime Date { get; set; }
+    public string ItemName { get; set; } = "";
+    public decimal Quantity { get; set; }
+    public decimal IntoTill { get; set; }
+    public decimal AgainstBill { get; set; }
+    public decimal AgainstFreight { get; set; }
+    public string? Reason { get; set; }
+    public string? Notes { get; set; }
+
+    public string DateText => Date.ToString("dd MMM yyyy");
+    public string QuantityText => Money.Qty3(Quantity);
+    public string IntoTillText => IntoTill > 0.004m ? Money.Pkr(IntoTill) : "";
+    public string AgainstBillText => AgainstBill > 0.004m ? Money.Pkr(AgainstBill) : "";
+    public string AgainstFreightText => AgainstFreight > 0.004m ? Money.Pkr(AgainstFreight) : "";
 }

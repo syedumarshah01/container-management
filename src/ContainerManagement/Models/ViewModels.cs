@@ -838,7 +838,11 @@ public static class Units
 
 public static class SupplierPayMethods
 {
-    public static readonly string[] All = ["TT", "LC", "Cash", "Bank Transfer", "Other"];
+    public static readonly string[] All = ["TT", "LC", "Cash", "Bank Transfer", "Other", "Credit note"];
+
+    /// <summary>A credit note settles what is owed on a lot without any cash leaving the till, so it is a
+    /// method and not an amount: the till takes no line for it, the same as an adjustment on a customer's page.</summary>
+    public const string CreditNote = "Credit note";
 }
 
 /// <summary>

@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
     public DbSet<CustomerPayout> CustomerPayouts => Set<CustomerPayout>();
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
     public DbSet<CashMovement> CashMovements => Set<CashMovement>();
     public DbSet<ShopExpense> ShopExpenses => Set<ShopExpense>();
     public DbSet<CashBookEntry> CashBook => Set<CashBookEntry>();
@@ -178,6 +179,24 @@ public class AppDbContext : DbContext
             e.Property(x => x.QuantityBefore).HasPrecision(18, 3);
             e.Property(x => x.QuantityAfter).HasPrecision(18, 3);
             e.HasOne(x => x.ContainerItem).WithMany().HasForeignKey(x => x.ContainerItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        model.Entity<SupplierReturn>(e =>
+        {
+            e.ToTable("SupplierReturns");
+            e.Property(x => x.Quantity).HasPrecision(18, 3);
+            e.Property(x => x.IntoTillPkr).HasPrecision(18, 2);
+            e.Property(x => x.AgainstBillPkr).HasPrecision(18, 2);
+            e.Property(x => x.AgainstFreightPkr).HasPrecision(18, 2);
+            e.Property(x => x.Reason).HasMaxLength(200);
+            e.Property(x => x.Notes).HasMaxLength(600);
+            e.HasIndex(x => x.ContainerId);
+            // Restrict, like the container's bills: a lot that goods went back from is a lot whose money has
+            // been talked about, and the delete that removes it is refused further down rather than by a
+            // cascade nobody sees.
+            e.HasOne(x => x.Container).WithMany(c => c.SupplierReturns).HasForeignKey(x => x.ContainerId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ContainerItemId).OnDelete(DeleteBehavior.Restrict);
         });
 
         model.Entity<CashMovement>(e =>

@@ -47,6 +47,7 @@ public class CargoContainer
     public List<ContainerExpense> Expenses { get; set; } = new();
     public List<SaleLine> SaleLines { get; set; } = new();
     public List<SupplierPayment> SupplierPayments { get; set; } = new();
+    public List<SupplierReturn> SupplierReturns { get; set; } = new();
 
     public override string ToString() => Title;
 }
@@ -289,6 +290,52 @@ public class ContainerExpense
         : "";
 }
 
+/// <summary>
+/// Goods the shop handed back to the supplier, one row per goods line. It is written beside the goods rather
+/// than instead of them: what arrived on the container stays what arrived, because that is what the bill and
+/// the packing say, and this row is the separate fact of what went back. The money is on the row too, because
+/// a container whose goods came back without anything coming with it is a container that lost money, and the
+/// two figures have to be read together to know which happened.
+/// </summary>
+public class SupplierReturn
+{
+    public int Id { get; set; }
+    public int ContainerId { get; set; }
+    public CargoContainer Container { get; set; } = null!;
+    public int ContainerItemId { get; set; }
+    public ContainerItem Item { get; set; } = null!;
+    public DateTime Date { get; set; } = DateTime.Today;
+    public decimal Quantity { get; set; }
+    public string? Reason { get; set; }
+
+    /// <summary>What the supplier paid back into the till for these goods. Its own figure, because money that
+    /// arrives is a fact about the till and about nothing else: it does not touch the bill the supplier sent,
+    /// which stays on the container exactly as it was written.</summary>
+    public decimal IntoTillPkr { get; set; }
+
+    /// <summary>What the supplier settled against what is still owed on this container. Written as a line among
+    /// the lot's payments, method "Credit note", because that is what a settlement no cash moved is - the same
+    /// treatment an adjustment gets on a customer's page, and the lot's balance moves by it on its own.</summary>
+    public decimal AgainstBillPkr { get; set; }
+
+    /// <summary>What was given back against the freight and clearing on these goods. Written to the container
+    /// as a bill line of its own, and negative, so the freight every piece still here carries is rebuilt from
+    /// it the way it is rebuilt when any other line comes or goes. Asked for rather than worked out, because a
+    /// forwarder who refunds part of a freight bill does not refund it in the proportions the goods were shared.</summary>
+    public decimal AgainstFreightPkr { get; set; }
+
+    /// <summary>The line this return settled the bill with, among the lot's payments. Kept as an id rather
+    /// than found again by matching the amount and the day, because two credit notes for the same figure on
+    /// the same day is an ordinary thing for a shop to have, and undoing one of them by guess would take the
+    /// wrong one.</summary>
+    public int? SettlementPaymentId { get; set; }
+
+    /// <summary>The negative bill line written for what came back against freight, by the same reasoning.</summary>
+    public int? FreightExpenseId { get; set; }
+
+    public string? Notes { get; set; }
+}
+
 public class Supplier
 {
     public int Id { get; set; }
@@ -417,7 +464,11 @@ public enum CashBookKind
     ExpenseOut = 3,
     RefundOut = 4,
     /// <summary>Cash given to a customer to settle what their own ledger says we are holding.</summary>
-    CustomerOut = 5
+    CustomerOut = 5,
+    /// <summary>Money a supplier sent back for goods the shop handed back to them. Kept apart from a sale,
+    /// because a rupee that comes back off a bill was never income, and a month's takings that counts it as
+    /// one is reporting a sale that did not happen.</summary>
+    SupplierIn = 6
 }
 
 public class CashBookEntry
@@ -433,4 +484,5 @@ public class CashBookEntry
     public int? ShopExpenseId { get; set; }
     public int? SaleId { get; set; }
     public int? PayoutId { get; set; }
+    public int? SupplierReturnId { get; set; }
 }

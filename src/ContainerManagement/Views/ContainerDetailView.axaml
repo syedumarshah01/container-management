@@ -27,6 +27,10 @@
             <Button Content="Print" Command="{Binding PrintCommand}" />
             <Button Content="Close / re-open" Command="{Binding ToggleCloseCommand}" />
             <Button Classes="gold" Content="Sell" Command="{Binding SellFromHereCommand}" />
+            <!-- Only the owner is offered a delete, and only ever two taps away from happening: the service
+                 refuses a lot that money or goods moved against, so the button is not the guard. -->
+            <Button Classes="danger" Content="{Binding DeleteLabel}" Command="{Binding DeleteCommand}"
+                    IsVisible="{Binding IsOwner}" />
             <!-- Back last, as it is on a sale's own page: it is how you leave, not what you came to do. -->
             <Button Content="Back" Command="{Binding BackCommand}" />
           </StackPanel>
@@ -125,6 +129,7 @@
                 <DataGridTextColumn Header="Items" Binding="{Binding Name}" Width="*" />
                 <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="90" />
                 <DataGridTextColumn Header="Purchased" Binding="{Binding Purchased}" Width="90" />
+                <DataGridTextColumn Header="Sent back" Binding="{Binding SentBackText}" Width="95" />
                 <DataGridTextColumn Header="In Stock" Binding="{Binding InStock}" Width="90" />
                 <DataGridTextColumn Header="Total kg" Binding="{Binding TotalWeightText}" Width="110" />
                 <!-- What a piece costs now: what it was bought for, plus the share of the container's
@@ -196,6 +201,77 @@
               <Button Content="Save item" Command="{Binding SaveGoodsCommand}" />
               <Button Classes="danger" Content="Delete" Command="{Binding DeleteGoodsCommand}" />
             </StackPanel>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <Border Classes="card" Margin="0,0,0,16">
+        <Expander Header="Sent back to supplier" IsExpanded="{Binding ShowBackForm}" HorizontalAlignment="Stretch">
+          <StackPanel Margin="0,12,0,0" HorizontalAlignment="Stretch">
+            <StackPanel Orientation="Horizontal" Spacing="14">
+              <TextBlock Classes="label" Text="{Binding BackTarget}" TextWrapping="Wrap" />
+              <TextBlock Classes="muted" Text="{Binding BackOwed}" VerticalAlignment="Center" />
+            </StackPanel>
+            <Grid ColumnDefinitions="130,Auto,*,150,150,150" RowDefinitions="Auto,Auto">
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Units" />
+                <NumericUpDown Value="{Binding BackQty}" Minimum="0" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <!-- A date picker given its own Auto column, as the import form's does: in a fixed cell it
+                   would clip the day out of the day-month-year it has to show. -->
+              <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="On" />
+                <DatePicker SelectedDate="{Binding BackDate}" HorizontalAlignment="Left" MinWidth="190" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Why" />
+                <TextBox Text="{Binding BackReason}" Watermark="customers sent the goods back ..." />
+              </StackPanel>
+              <!-- Three boxes because three kinds of money move here, and the page never decides between them:
+                   what the till took, what their bill gave up and what the freight gave back are each typed as
+                   the shop settled it. A money box with no figure in it is nothing coming back that way. -->
+              <StackPanel Grid.Column="3" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Into the till (Rs)" />
+                <NumericUpDown Value="{Binding BackTill}" Minimum="0" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="words" Text="{Binding BackTill, Converter={StaticResource WordsConv}}" />
+              </StackPanel>
+              <StackPanel Grid.Column="4" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Against their bill (Rs)" />
+                <NumericUpDown Value="{Binding BackBill}" Minimum="0" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="words" Text="{Binding BackBill, Converter={StaticResource WordsConv}}" />
+              </StackPanel>
+              <StackPanel Grid.Column="5">
+                <TextBlock Classes="label" Text="Against freight (Rs)" />
+                <NumericUpDown Value="{Binding BackFreight}" Minimum="0" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="words" Text="{Binding BackFreight, Converter={StaticResource WordsConv}}" />
+              </StackPanel>
+
+              <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,8,0">
+                <TextBlock Classes="label" Text="Note" />
+                <TextBox Text="{Binding BackNotes}" Watermark="optional" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8"
+                          HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                <Button Classes="primary" Content="Send back" Command="{Binding SendBackCommand}" />
+                <Button Content="Remove return" Command="{Binding RemoveReturnCommand}" />
+              </StackPanel>
+            </Grid>
+            <DataGrid ItemsSource="{Binding Returns}" SelectedItem="{Binding SelectedReturn}"
+                      x:CompileBindings="False">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Date" Binding="{Binding DateText}" Width="110" />
+                <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
+                <DataGridTextColumn Header="Units" Binding="{Binding QuantityText}" Width="90" />
+                <DataGridTextColumn Header="Into the till" Binding="{Binding IntoTillText}" Width="130" />
+                <DataGridTextColumn Header="Against their bill" Binding="{Binding AgainstBillText}" Width="150" />
+                <DataGridTextColumn Header="Against freight" Binding="{Binding AgainstFreightText}" Width="140" />
+                <DataGridTextColumn Header="Why" Binding="{Binding Reason}" Width="220" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <!-- The lines the container was built from, so a goods return can be read against the bills whose
+                 freight it changed. The tape under them is the sharing after that change, not before it. -->
+            <TextBlock Classes="words" TextWrapping="Wrap" IsVisible="{Binding ShowExpenseTape}"
+                       Text="{Binding ExpenseTape}" Margin="0,10,0,0" />
           </StackPanel>
         </Expander>
       </Border>

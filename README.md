@@ -85,6 +85,8 @@ Then run `publish/mac/ProBooks`.
 | --- | --- |
 | Plan a China order before buying | **Order sheets** → New sheet → type the rows |
 | New container + items | **Containers** → fill title → Create → add items / expenses |
+| Goods back to the supplier | **Containers** → open the lot → **Sent back to supplier** → units, and what came back |
+| Delete a container (only a lot nothing was written against) | **Containers** → open the lot → **Delete container** |
 | Sell (must pick container) | **New Sale** |
 | Grand inventory | **Grand Inventory** |
 | Customer ledger | **Customers** → double-click a name |
