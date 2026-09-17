@@ -81,23 +81,15 @@ public partial class ContainersViewModel : ViewModelBase
     /// </summary>
     private void ApplyFilter()
     {
-        // The state split happens first, and it is a split of the same list rather than a second query, so the
-        // figures on a row cannot be different answers depending on which half you are looking at.
-        IEnumerable<ContainerProfitRow> src = _all.Where(r => ShowPutAway
-            ? r.Status == ContainerStatus.Closed
-            : r.Status != ContainerStatus.Closed);
-        var q = Query?.Trim();
-        if (!string.IsNullOrEmpty(q))
-            src = _all.Where(r => r.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-                                  || (r.ContainerNumber ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
-                                  || (r.Origin ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
-                                  || r.StatusText.Contains(q, StringComparison.OrdinalIgnoreCase)
-                                  || r.ArrivalText.Contains(q, StringComparison.OrdinalIgnoreCase));
+        // The split and the search are one rule, and it lives with the rows it reads (ContainerListRules), so a
+        // typed query narrows what is on show instead of overriding it. Before, a search rebuilt its list from
+        // the whole book, which meant a closed container came back the moment its title was typed - the put-away
+        // half of the page is put aside in the search as carefully as it is put aside in the list.
         Rows.Clear();
-        foreach (var r in src)
+        foreach (var r in ContainerListRules.Shown(_all, ShowPutAway, Query))
             Rows.Add(r);
 
-        var aside = _all.Count(r => r.Status == ContainerStatus.Closed);
+        var aside = ContainerListRules.Aside(_all);
         // No button when it would show an empty table, and the label says what the other half is called.
         ShowPutAwayButton = aside > 0 || ShowPutAway;
         ToggleLabel = ShowPutAway ? "Open containers" : aside > 0 ? $"Put away ({aside})" : "Put away";

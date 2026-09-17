@@ -247,6 +247,11 @@ public partial class ContainerDetailViewModel : ViewModelBase
         GoodsCost = value.CostEntered;
         GoodsCurrency = Currencies.Shown(value.CostCurrency);
         GoodsIsYen = value.CostCurrency == "JPY";
+        // The line's own rate comes back with it, as it does when a bill is picked up: the rupee cost on a goods
+        // line was multiplied out of the yen figure at the rate written on that line, and pressing Save item
+        // after taking a line in hand must put the same rupees down again rather than re-value a paid invoice at
+        // whatever the box held from the last thing typed.
+        EditYenRate = Currencies.RateTaken(value.CostCurrency, value.CostRate, EditYenRate);
         GoodsWeight = value.WeightKg;
         UpdateGoodsPreview();
         UpdateReturnPreview();
@@ -364,11 +369,9 @@ public partial class ContainerDetailViewModel : ViewModelBase
         ExpenseCategory = value.Category;
         ExpenseCurrency = Currencies.Shown(value.Currency);
         ExpenseIsYen = value.Currency == "JPY";
-        // A yen line carries the rate it was taken at, and the form reads it back: picking a line up and
-        // pressing Save must put the same rupees down again, not today's value of a bill already paid. The
-        // box then holds the sheet's rate for the next figure typed, which is what KeepRate is for.
-        if (value.Currency == "JPY" && value.RateUsed is decimal rowRate && Currencies.UsableRate(rowRate))
-            EditYenRate = rowRate;
+        // One rule for both tables on this page - a goods line and a bill each carry the rate their figure was
+        // taken at, and the box reads it back from whichever was picked up last.
+        EditYenRate = Currencies.RateTaken(value.Currency, value.RateUsed, EditYenRate);
         ExpenseAmount = value.Amount;
         ExpenseDate = new DateTimeOffset(value.Date);
         ExpenseNotes = value.Notes ?? "";

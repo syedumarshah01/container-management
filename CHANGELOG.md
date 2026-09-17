@@ -20,7 +20,16 @@ date is the day it was pushed.
   beside the Print button shows the ones that are set aside, with **Re-open** to pull one back. Reports, the till,
   what you owe them and what they owe you are untouched by closing - the lot is out of the way, not out of the
   book, and nothing is counted twice or dropped.
-- A container's page stamps its state beside the lot's name: *OPEN* in green, *CLOSED* in red. It flips the moment
+- Clicking an item in a container's list now brings that item's own **Rs for 1 yen** rate into the box, the way
+  picking up a bill already does. This is not polish: a goods line's rupee cost is its yen figure times the rate
+  kept on that line, so taking a yen line in hand and pressing **Save item** used to re-multiply it at whatever
+  rate the box held, re-valuing a cost an invoice had already fixed. A line entered in rupees has no rate to
+  bring, so the box keeps what it had.
+- A container can only be closed when every item on it reads zero, and the refusal says how many items are in the
+  way. Goods resting on a closed lot were stock the book counted that nobody could sell from; now that cannot be
+  put out of sight. Closed lots also stay out of the Containers page's *search*, not only out of its list -
+  typing a title used to be a way of seeing what the page had just put away.
+- A container's page stamps its state beside its name: *OPEN* in green, *CLOSED* in red. It flips the moment
   the lot is closed or re-opened, and the printed sheet for that lot now carries the same word after its number
   and arrival date. Nothing else moves - the colour reads the state, it is not a new figure, and the words come
   from one place so Reports, the heading and the paper cannot each invent their own.

@@ -2063,12 +2063,36 @@ public static class Program
         }, 9_000m, "Cash", null, 0m, null);
         await ledger.RecordPaymentAsync(customer.Id, new DateTime(2026, 4, 6), 6_000m, "Cash", null, done.Id);
 
-        var before = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id);
-        var beforeCash = await CashInHandAsync(f);
-        Head("closing a lot changes which list it is on, and nothing that is counted");
+        Head("a lot is only finished when nothing is left on it");
         Check("while it is open with stock left, it is one of the lots to sell from",
             (await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
         Eq("both lots are on the list while both are open", 2m, (await reports.GetContainerProfitsAsync()).Count);
+        // 10 of the 30 units are still on the shelf. A lot put away with goods on it would stop being offered to
+        // a sale while the book went on counting the stock, so the close is refused - and refused out loud, with
+        // the number of items it is waiting on, because "not allowed" alone teaches nobody the rule.
+        string? refusal = null;
+        try
+        {
+            await inventory.SetStatusAsync(done.Id, ContainerStatus.Closed);
+        }
+        catch (InvalidOperationException ex) { refusal = ex.Message; }
+        Check("closing is refused while units are still on it", refusal is not null, refusal ?? "it closed without a word");
+        Check("the refusal says how many items it is waiting on",
+            refusal is not null && refusal.Contains("1 of its items"), refusal);
+        Check("and the refusal left the lot open to be sold from",
+            (await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+        Check("with its state untouched by the attempt",
+            (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id).Status
+            == ContainerStatus.Open);
+
+        // Sold out, it can be put away - and every figure it had comes with it.
+        await sales.CreateSaleAsync(customer.Id, new DateTime(2026, 4, 5), new List<NewSaleLineInput>
+        {
+            new() { ContainerId = done.Id, ContainerItemId = doneMug.Id, ProductId = doneMug.ProductId, ProductName = "Ceramic mug", Unit = "pcs", Quantity = 10m, UnitPrice = 900m }
+        }, 4_500m, "Cash", null, 0m, null);
+        var before = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id);
+        var beforeCash = await CashInHandAsync(f);
+        Head("closing a sold-out lot changes which list it is on, and nothing that is counted");
         await inventory.SetStatusAsync(done.Id, ContainerStatus.Closed);
         var rows = await reports.GetContainerProfitsAsync();
         Eq("the closed one is still in the rows the page is built from - hiding it is the page's choice",
@@ -2089,11 +2113,31 @@ public static class Program
         Eq("and the till did not move by a paisa", 0m, await CashInHandAsync(f) - beforeCash);
         Check("it is off the lots that hold stock to sell from",
             !(await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+        // The list's own rule, held where it can be read: a closed lot stays out of the *search* as well as out
+        // of the view. Before, a typed title rebuilt its rows from the whole book, so the lot a search found was
+        // one the page had just put away.
+        Head("and the page keeps a put-away lot out of the search, not only out of the view");
+        var all = await reports.GetContainerProfitsAsync();
+        Check("typing its title in the open list does not bring it back",
+            !ContainerListRules.Shown(all, false, "DONE").Any(r => r.ContainerId == done.Id));
+        Check("it is found in the put-away half, where it now lives",
+            ContainerListRules.Shown(all, true, "DONE").Any(r => r.ContainerId == done.Id));
+        Check("and the open list's own search still finds the lot that was never closed",
+            ContainerListRules.Shown(all, false, "LIVE").Any(r => r.ContainerId == live.Id));
+        Eq("the count aside is of the book, so typing cannot change it", 1m, ContainerListRules.Aside(all));
+        Check("a row the search left in place is that same row, not a figure recomputed over typed text",
+            ReferenceEquals(ContainerListRules.Shown(all, true, "DONE").Single(),
+                all.Single(r => r.ContainerId == done.Id)));
 
         Head("and it comes back to exactly what it was");
         await inventory.SetStatusAsync(done.Id, ContainerStatus.Open);
-        Check("back among the lots with stock, once it is re-opened",
-            (await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
+        Check("back among the open lots, once it is re-opened",
+            (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id).Status
+            == ContainerStatus.Open);
+        // It is not offered to a sale - but that is the quantity rule doing it, not the state: an empty lot is an
+        // empty lot whether it is shut or open, and reading the two as one would hide a real bug in either.
+        Check("and not offered to a sale either way, because nothing is left on it",
+            !(await inventory.ContainersWithStockAsync()).Any(c => c.Id == done.Id));
         var reopened = (await reports.GetContainerProfitsAsync()).Single(r => r.ContainerId == done.Id);
         Eq("with the same profit as before it was ever closed", before.Profit, reopened.Profit);
         Eq("the same money is still owed on it as was owed before", 40_000m, await BillOnLotAsync(f, done.Id));
@@ -2869,6 +2913,24 @@ public static class Program
             Eq("the expense is shared over the 126 kg onto the only lot in the box", 5_404.67m,
                 still.LandedUnitCost);
         }
+
+        // Why the lot's page reads a picked line's rate back into the box: the rupee cost on a yen line is that
+        // line's yen figure times *its own* rate, so re-saving it at the container's later rate would re-value a
+        // cost an invoice already fixed. Saving it at the rate kept on the row is what leaves it alone.
+        await inventory.UpdateGoodsAsync(tea.Id, "Tea set", "pcs", "TS-1", 30m, 30m, 8_900m, null, null, 4.2m,
+            null, "JPY", 0.42m);
+        await using (var db = await f.CreateDbContextAsync())
+        {
+            var kept = await db.ContainerItems.AsNoTracking().SingleAsync(i => i.Id == tea.Id);
+            Eq("re-saved at the 0.42 on the row, the rupee cost is exactly where it was", 3_738m, kept.UnitCost);
+            Eq("with the same rate kept on it", 0.42m, kept.CostRate ?? -1m);
+        }
+        Check("the rule a picked line follows: a yen line brings its own rate",
+            Currencies.RateTaken("JPY", 0.42m, 0.5m) == 0.42m);
+        Check("a rupee line brings none, so the box keeps what it held",
+            Currencies.RateTaken("PKR", null, 0.5m) == 0.5m);
+        Check("and a rate that would read the yen figure as rupees is never carried over",
+            Currencies.RateTaken("JPY", 1m, 0.5m) == 0.5m && Currencies.RateTaken("JPY", null, 0.5m) == 0.5m);
 
         // Correcting the money: an item found to have been a rupee bill is re-saved in rupees, and the
         // yen figure is then simply the same number - no rate, no conversion, nothing to undo.

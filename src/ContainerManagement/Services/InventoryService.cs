@@ -223,8 +223,19 @@ public class InventoryService
     public async Task SetStatusAsync(int id, ContainerStatus status)
     {
         await using var db = await _factory.CreateDbContextAsync();
-        var c = await db.Containers.FindAsync(id)
+        var c = await db.Containers.Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id)
             ?? throw new InvalidOperationException("Container not found.");
+        // Nothing is put away while it can still be sold. A closed lot stops taking goods back and stops being
+        // offered to a sale, so units resting on it would be unsellable while the book still counted them as
+        // stock - which is an inventory difference, not a tidy shelf. Zero on every line is what finished means
+        // here, and it is the same test the sellable list uses, so a lot is never both shut and stuck.
+        if (status == ContainerStatus.Closed)
+        {
+            var left = c.Items.Count(i => i.QuantityRemaining > 0);
+            if (left > 0)
+                throw new InvalidOperationException(
+                    $"This container still has stock on {left} of its items. Sell or send back what is left first.");
+        }
         c.Status = status;
         await db.SaveChangesAsync();
     }

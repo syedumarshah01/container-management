@@ -805,6 +805,33 @@ public class CloudBackupInfo
 /// and the codes, and the rule for whether a rate is fit to convert with, live here once: the two money
 /// forms on the container page and the order sheet all read these numbers, so no screen can end up with a
 /// currency list or a rate rule of its own.</summary>
+/// <summary>Which containers the Containers page shows, held apart from the page so the two rules in it can be
+/// read and checked by themselves. The state is split first and a search only narrows the half that is already on
+/// show: typing a title is not a way of seeing what the book has put aside. And a search never recomputes a
+/// figure - the rows it gives back are the very rows it was handed, so what a lot is worth does not depend on
+/// what somebody typed into a box.</summary>
+public static class ContainerListRules
+{
+    public static IEnumerable<ContainerProfitRow> Shown(IEnumerable<ContainerProfitRow> all, bool putAway, string? query)
+    {
+        var half = all.Where(putAway
+            ? r => r.Status == ContainerStatus.Closed
+            : r => r.Status != ContainerStatus.Closed);
+        var q = query?.Trim();
+        if (string.IsNullOrEmpty(q)) return half;
+        return half.Where(r =>
+            r.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (r.ContainerNumber ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (r.Origin ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+            || r.StatusText.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || r.ArrivalText.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>How many lots are put aside, counted over the whole list: the button's label says what is aside
+    /// rather than what happens to be on screen, so searching cannot change a count that is about the book.</summary>
+    public static int Aside(IEnumerable<ContainerProfitRow> all) => all.Count(r => r.Status == ContainerStatus.Closed);
+}
+
 public static class Currencies
 {
     /// <summary>The currencies a container can be labelled with on its import details.</summary>
@@ -853,6 +880,14 @@ public static class Currencies
     /// one rate and books at another is the mistake this whole corner exists to prevent.</summary>
     public static decimal RateFor(decimal bookRate, decimal? typed)
         => typed is decimal given && UsableRate(given) ? Rate(given) : bookRate;
+
+    /// <summary>The rate to hold in the box when a line is picked up: the line's own, when the line was taken in
+    /// yen and kept one. Picking a bill or a goods line out of a table and pressing Save must put the same rupees
+    /// down again, not today's value of money already paid - so the rate comes back with the figure it was
+    /// multiplied by, and nothing else about the box is touched: a rupee line has no rate to bring, and a rate is
+    /// never invented for one.</summary>
+    public static decimal? RateTaken(string? lineCurrency, decimal? lineRate, decimal? current)
+        => lineCurrency == "JPY" && lineRate is decimal kept && UsableRate(kept) ? kept : current;
 
     /// <summary>What to say when a yen figure arrives with nothing to convert it by.</summary>
     public static string NoRateMessage(decimal amount)
